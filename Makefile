@@ -6,6 +6,8 @@ CFLAGS = -W -Wall -Wpointer-arith -Wno-unused-parameter \
 LIBS = -L /usr/local/lib -lmilter
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
+LEX ?= lex
+YACC ?= yacc
 SOURCES=rmilter.c libclamc.c
 OBJECTS=${SOURCES:C/\.c/.o/g}
 EXEC=rmilter
@@ -14,6 +16,8 @@ LOCALBASE=/usr/local
 all: build link
 
 build: ${SOURCES}
+	${LEX} -ocfg_lex.c cfg_file.l
+	${YACC} -d -o cfg_yacc.c cfg_file.y
 .for src in ${SOURCES}
 	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c ${src} 
 .endfor
@@ -30,3 +34,4 @@ install:
 
 clean:
 	rm -f *.o ${EXEC} *.core
+	rm -f cfg_lex.c cfg_yacc.c

@@ -1,0 +1,66 @@
+%{
+#include <stdio.h>
+#include <stdlib.h>
+#include "y.tab.h"
+
+struct keywords {
+	const char  *k_name;
+	int      k_val;
+};
+
+static int
+kw_cmp(const void *k, const void *e)
+{
+	return (strcasecmp(k, ((struct keywords *)e)->k_name));
+}
+
+
+static int
+lookup(char *s)
+{
+	/* keep sorted */
+	static const struct keywords keywords[] = {
+		{ "accept", ACCEPT },
+		{ "body",   BODY },
+		{ "connect",    CONNECT },
+		{ "discard",    DISCARD },
+		{ "envfrom",    ENVFROM },
+		{ "envrcpt",    ENVRCPT },
+		{ "header", HEADER },
+		{ "helo",   HELO },
+		{ "not",    NOT },
+		{ "quarantine", QUARANTINE },
+		{ "reject", REJECT },
+		{ "tempfail",   TEMPFAIL },
+	};
+	const struct keywords *p;
+
+	p = bsearch(s, keywords, sizeof(keywords) / sizeof(keywords[0]),
+		sizeof(keywords[0]), &kw_cmp);
+
+	if (p)
+		return (p->k_val);
+	else
+		return (STRING);
+}
+
+%}
+
+%%
+logfile					return LOGFILE;
+pidfile					return PIDFILE;
+rule					return RULE;
+clamav					return CLAMAV;
+spf_domains				return SPF;
+\"						return QUOTE;
+\{						return OBRACE;
+\}						return EBRACE;
+;						return SEMICOLON;
+,						return COMMA;
+=						return EQSIGN;
+\n						/* ignore EOL */;
+[ \t]+					/* ignore whitespace */;
+[a-zA-Z][a-zA-Z]*		return lookup (yytext);
+\/.+\/[a-zA-Z]?			yylval=strdup(yytext); return REGEXP;
+[a-zA-Z0-9\/.-]+		yylval=strdup(yytext); return FILENAME;
+%%
