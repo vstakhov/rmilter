@@ -71,6 +71,8 @@ struct config_file {
 
 	char *spf_file;
 
+	char *sock_cred;
+
 	LISTHEAD (ruleset, rule) rules;
 	LISTHEAD (clamavl, clamav_server) clamav_servers;
 };

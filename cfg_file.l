@@ -47,20 +47,23 @@ lookup(char *s)
 %}
 
 %%
-logfile					return LOGFILE;
-pidfile					return PIDFILE;
-rule					return RULE;
-clamav					return CLAMAV;
-spf_domains				return SPF;
-\"						return QUOTE;
-\{						return OBRACE;
-\}						return EBRACE;
-;						return SEMICOLON;
-,						return COMMA;
-=						return EQSIGN;
-\n						/* ignore EOL */;
-[ \t]+					/* ignore whitespace */;
-[a-zA-Z][a-zA-Z]*		return lookup (yytext);
-\/.+\/[a-zA-Z]?			yylval=strdup(yytext); return REGEXP;
-[a-zA-Z0-9\/.-]+		yylval=strdup(yytext); return FILENAME;
+logfile							return LOGFILE;
+pidfile							return PIDFILE;
+rule							return RULE;
+clamav							return CLAMAV;
+spf_domains						return SPF;
+bind_socket						return BINDSOCK;
+\"								return QUOTE;
+\{								return OBRACE;
+\}								return EBRACE;
+;								return SEMICOLON;
+,								return COMMA;
+=								return EQSIGN;
+\n								/* ignore EOL */;
+[ \t]+							/* ignore whitespace */;
+[a-zA-Z][a-zA-Z]*				return lookup (yytext);
+\/.+\/[a-zA-Z]?					yylval=strdup(yytext); return REGEXP;
+[a-zA-Z0-9\/.-]+				yylval=strdup(yytext); return FILENAME;
+unix|local:[a-zA-Z0-9\/.-]+ 	yylval=strdup(yytext); return UNIXSOCK;
+inet:[0-9]+@[a-zA-Z0-9.-]+		yylval=strdup(yytext); return TCPSOCK;
 %%

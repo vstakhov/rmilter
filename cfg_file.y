@@ -40,11 +40,13 @@ extern struct config_file *cfg;
 %token	AND OR NOT
 %token  LOGFILE PIDFILE RULE CLAMAV SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
+%token  BINDSOCK UNIXSOCK TCPSOCK
 %type	<string>	STRING
 %type	<string>	FILENAME
 %type	<string>	REGEXP
-%type   <cond>    expr_l expr term
-%type   <action>  action
+%type   <string>  	UNIXSOCK TCPSOCK
+%type   <cond>    	expr_l expr term
+%type   <action>  	action
 %%
 
 file	: /* empty */
@@ -57,6 +59,7 @@ command	:
 	| rule SEMICOLON
 	| clamav SEMICOLON
 	| spf SEMICOLON
+	| bindsock SEMICOLON
 	;
 
 logfile :
@@ -220,5 +223,13 @@ spf:
 	}
 	;
 
+bindsock:
+	BINDSOCK EQSIGN UNIXSOCK {
+		cfg->sock_cred = $3;
+	}
+	| BINDSOCK EQSIGN TCPSOCK {
+		cfg->sock_cred = $3;
+	}
+	;
 %%
 
