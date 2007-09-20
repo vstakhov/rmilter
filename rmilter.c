@@ -38,12 +38,15 @@
 
 #include "libmilter/mfapi.h"
 #include "libclamc.h"
+#include "cfg_file.h"
 
 /* config options here... */
 
 char *var_clamd_socket = NULL;
 char *var_tempdir = NULL;
 size_t var_sizelimit = 1024 * 1024;
+
+struct config_file *cfg;
 
 #ifndef true
 typedef int bool;
@@ -68,6 +71,14 @@ struct mlfiPriv {
 
 extern sfsistat mlfi_cleanup(SMFICTX *, bool);
 extern int check_clamscan(const char *file, char *strres, size_t strres_len);
+
+static void usage (void)
+{
+	printf ("Usage: rmilter [-h] -c <config_file>\n"
+			"-h - this help message\n"
+			"-c - path to config file\n");
+	exit (0);
+}
 
 /* Milter callbacks */
 
@@ -291,7 +302,8 @@ int check_clamscan(const char *file, char *strres, size_t strres_len)
 int main(int argc, char *argv[])
 {
     int c, r;
-    const char *args = "p:d:T:s:";
+	extern int yynerrs;
+    const char *args = "c:h";
 	struct smfiDesc smfilter =
 	{
     	"rmilter",			/* filter name */
@@ -314,42 +326,45 @@ int main(int argc, char *argv[])
 
     /* Process command line options */
     while ((c = getopt(argc, argv, args)) != -1) {
-	switch (c) {
-	case 'p':
-	    if (optarg == NULL || *optarg == '\0') {
-		(void)fprintf(stderr, "Illegal conn: %s\n",
+		switch (c) {
+		case 'c':
+	    	if (optarg == NULL || *optarg == '\0') {
+				fprintf(stderr, "Illegal conn: %s\n",
 			      optarg);
-		exit(EX_USAGE);
-	    }
-	    (void)smfi_setconn(optarg);
-	    break;
-	case 'd':
-	    var_clamd_socket = strdup(optarg);
-	    break;
-	case 'T':
-	    var_tempdir = strdup(optarg);
-	    break;
-	case 's':
-	    var_sizelimit = atoi(optarg);
-	    break;
-	}
+				exit(EX_USAGE);
+	 	   	}
+	    	break;
+		case 'h':
+		default:
+			usage ();
+	    	break;
+		}
     }
 
-    if (!var_clamd_socket || *var_clamd_socket == '\0') {
-	fprintf(stderr, "clamd servers not set\n");
-	exit(EX_USAGE);
-    }
     if (!var_tempdir) {
-	var_tempdir = getenv("TMPDIR");
+		var_tempdir = getenv("TMPDIR");
+
 	if (!var_tempdir)
 	    var_tempdir = strdup("/tmp");
     }
-    if (smfi_register(smfilter) == MI_FAILURE) {
-	fprintf(stderr, "smfi_register failed\n");
-	exit(EX_UNAVAILABLE);
-    }
-    openlog("rmilter-clam", LOG_PID, LOG_MAIL);
+
+    openlog("rmilter", LOG_PID, LOG_MAIL);
     syslog(LOG_WARNING, "(main) starting...");
+	
+	cfg = (struct config_file*) malloc (sizeof (struct config_file));
+	if (cfg == NULL) {
+		syslog (LOG_ERR, "malloc: %s", strerror (errno));
+		return -1;
+	}
+	bzero (cfg, sizeof (struct config_file));
+
+	LIST_INIT (&cfg->rules);
+	LIST_INIT (&cfg->clamav_servers);
+
+	if (!yyparse() || yynerrs > 0) {
+		syslog (LOG_ERR, "yyparse: cannot parse config file");
+		return -1;
+	}
 
     srandomdev();
 

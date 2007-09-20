@@ -1,7 +1,10 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
-#include "y.tab.h"
+#include <string.h>
+#include <strings.h>
+#include "cfg_file.h"
+#include "cfg_yacc.h"
 
 struct keywords {
 	const char  *k_name;
@@ -30,7 +33,7 @@ lookup(char *s)
 		{ "helo",   HELO },
 		{ "not",    NOT },
 		{ "quarantine", QUARANTINE },
-		{ "reject", REJECT },
+		{ "reject", REJECTL },
 		{ "tempfail",   TEMPFAIL },
 	};
 	const struct keywords *p;
@@ -45,6 +48,8 @@ lookup(char *s)
 }
 
 %}
+
+%option  noyywrap
 
 %%
 logfile							return LOGFILE;
@@ -62,8 +67,8 @@ bind_socket						return BINDSOCK;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
 [a-zA-Z][a-zA-Z]*				return lookup (yytext);
-\/.+\/[a-zA-Z]?					yylval=strdup(yytext); return REGEXP;
-[a-zA-Z0-9\/.-]+				yylval=strdup(yytext); return FILENAME;
-unix|local:[a-zA-Z0-9\/.-]+ 	yylval=strdup(yytext); return UNIXSOCK;
-inet:[0-9]+@[a-zA-Z0-9.-]+		yylval=strdup(yytext); return TCPSOCK;
+\/.+\/[a-zA-Z]?					yylval.string=strdup(yytext); return REGEXP;
+[a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
+unix|local:[a-zA-Z0-9\/.-]+ 	yylval.string=strdup(yytext); return UNIXSOCK;
+inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return TCPSOCK;
 %%

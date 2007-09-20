@@ -8,7 +8,7 @@
 
 #include <sys/types.h>
 #include <sys/queue.h>
-#include <inet/in.h>
+#include <netinet/in.h>
 #include <sys/un.h>
 #include "pcre.h"
 
@@ -34,21 +34,21 @@ enum action_type {
 struct action {
 	enum action_type type;
 	char *message;
-}
+};
 
-struct cond {
+struct condition {
     struct cond_arg {
     	char    *src;
     	int  empty;
     	int  not;
 	    pcre  *re;
     }	args[2];
-	LIST_ENTRY (cond) next;
+	LIST_ENTRY (condition) next;
 };
 
 struct rule {
-	LISTHEAD (condl, cond) conditions;
-	struct action act;
+	LIST_HEAD (condl, condition) *conditions;
+	struct action *act;
 	LIST_ENTRY (rule) next;
 };
 
@@ -56,11 +56,11 @@ struct clamav_server {
 	int sock_type;
 
 	union {
+		char *unix_path;
 		struct {
-			struct in_addr_in addr;
+			struct in_addr addr;
 			uint16_t port;
 		} inet;
-		struct sockaddr_un unix;
 	} sock;
 	LIST_ENTRY (clamav_server) next;
 };
@@ -73,8 +73,11 @@ struct config_file {
 
 	char *sock_cred;
 
-	LISTHEAD (ruleset, rule) rules;
-	LISTHEAD (clamavl, clamav_server) clamav_servers;
+	LIST_HEAD (ruleset, rule) rules;
+	LIST_HEAD (clamavl, clamav_server) clamav_servers;
 };
+
+int yylex (void);
+int yyparse (void);
 
 #endif /* ifdef CFG_FILE_H */

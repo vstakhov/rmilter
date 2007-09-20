@@ -2,22 +2,30 @@
 
 CFLAGS = -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \
-		 -Wunused-value -Werror -ggdb -I /usr/local/include
-LIBS = -L /usr/local/lib -lmilter
+		 -Wunused-value -ggdb -I /usr/local/include
+LIBS = -L /usr/local/lib -lmilter -lpcre 
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
 LEX ?= lex
 YACC ?= yacc
-SOURCES=rmilter.c libclamc.c
-OBJECTS=${SOURCES:C/\.c/.o/g}
 EXEC=rmilter
 LOCALBASE=/usr/local
 
-all: build link
+YACC_SRC=cfg_file.y
+LEX_SRC=cfg_file.l
+YACC_OUTPUT=cfg_yacc.c
+LEX_OUTPUT=cfg_lex.c
+
+SOURCES=spf.c rmilter.c libclamc.c ${LEX_OUTPUT} ${YACC_OUTPUT}
+OBJECTS=${SOURCES:C/\.c/.o/g}
+
+all: lex build link
+
+lex: ${LEX_SRC} ${YACC_SRC}
+	${LEX} -o${LEX_OUTPUT} ${LEX_SRC}
+	${YACC} -d -o ${YACC_OUTPUT} ${YACC_SRC}
 
 build: ${SOURCES}
-	${LEX} -ocfg_lex.c cfg_file.l
-	${YACC} -d -o cfg_yacc.c cfg_file.y
 .for src in ${SOURCES}
 	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c ${src} 
 .endfor
