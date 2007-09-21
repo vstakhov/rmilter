@@ -66,8 +66,8 @@ struct clamav_server {
 };
 
 struct config_file {
-	char *log_file;
 	char *pid_file;
+	char *temp_dir;
 
 	char *spf_file;
 

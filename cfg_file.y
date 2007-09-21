@@ -20,6 +20,7 @@
 #include "spf.h"
 
 #define yyerror(fmt, ...) syslog (LOG_ERR, fmt, ##__VA_ARGS__)
+#define YYDEBUG 0
 
 extern struct config_file *cfg;
 
@@ -28,43 +29,40 @@ struct condl *cur_conditions;
 static int
 add_clamav_server (struct config_file *cf, char *str)
 {
-	char *cur_tok, *port_tok, *err_str;
+	char *cur_tok, *host_tok, *err_str;
 	struct clamav_server *srv;
-	
-	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+	if (str == NULL) return 0;
+	
+	cur_tok = strsep (&str, ":@");
+
+	if (str == NULL || cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	srv = (struct clamav_server *) malloc (sizeof (struct clamav_server));
 	bzero (srv, sizeof (struct clamav_server));
 
 	if (srv == NULL) return 0;
 
-	if (strncmp (str, "local", sizeof ("local")) == 0 ||
-		strncmp (str, "unix", sizeof ("unix")) == 0) {
-		srv->sock.unix_path = strdup (cur_tok);
+	if (strncmp (cur_tok, "local", sizeof ("local")) == 0 ||
+		strncmp (cur_tok, "unix", sizeof ("unix")) == 0) {
+		srv->sock.unix_path = strdup (str);
 		srv->sock_type = AF_UNIX;
 
 		LIST_INSERT_HEAD (&cf->clamav_servers, srv, next);
 		return 1;
-	} else if (strncmp (str, "inet", sizeof ("inet")) == 0) {
-		if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
+	} else if (strncmp (cur_tok, "inet", sizeof ("inet")) == 0) {
+		srv->sock.inet.port = htonl (strtol (str, &err_str, 10));
+		if (*err_str != '\0') {
 			free (srv);
 			return 0;
 		}
 
-		port_tok = strsep (&cur_tok, ":");
-		if (port_tok == NULL || *port_tok == '\0') {
-			srv->sock.inet.port = htonl (3310);
+		host_tok = strsep (&cur_tok, "@");
+		if (!host_tok || !cur_tok || !inet_aton (cur_tok, &srv->sock.inet.addr)) {
+			free (srv);
+			return 0;
+		}
 
-		}
-		else {
-			srv->sock.inet.port = htonl (strtol (port_tok, &err_str, 10));
-			if (*err_str != '\0') {
-				free (srv);
-				return 0;
-			}
-		}
 		srv->sock_type = AF_INET;
 		LIST_INSERT_HEAD (&cf->clamav_servers, srv, next);
 		return 1;
@@ -137,33 +135,33 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 %token	ACCEPT REJECTL TEMPFAIL DISCARD QUARANTINE
 %token	CONNECT HELO ENVFROM ENVRCPT HEADER MACRO BODY
 %token	AND OR NOT
-%token  LOGFILE PIDFILE RULE CLAMAV SPF DCC
+%token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
-%token  BINDSOCK UNIXSOCK TCPSOCK
+%token  BINDSOCK SOCKCRED
 %type	<string>	STRING
 %type	<string>	FILENAME
 %type	<string>	REGEXP
-%type   <string>  	UNIXSOCK TCPSOCK
+%type   <string>  	SOCKCRED
 %type   <cond>    	expr_l expr term
 %type   <action>  		action
 %%
 
 file	: /* empty */
-	|  file command SEMICOLON		{ }
+	|  file command SEMICOLON { }
 	;
 
 command	: 
-	logfile SEMICOLON
-	| pidfile SEMICOLON
-	| rule SEMICOLON
-	| clamav SEMICOLON
-	| spf SEMICOLON
-	| bindsock SEMICOLON
+	tempdir
+	| pidfile
+	| rule
+	| clamav
+	| spf
+	| bindsock
 	;
 
-logfile :
-	LOGFILE EQSIGN FILENAME {
-		cfg->log_file = $3;
+tempdir :
+	TEMPDIR EQSIGN FILENAME {
+		cfg->temp_dir = $3;
 	}
 	;
 
@@ -313,31 +311,34 @@ clamav:
 	;
 
 clamav_params:
-	STRING {
-		if (!add_clamav_server (cfg, $1))
+	SOCKCRED {
+		if (!add_clamav_server (cfg, $1)) {
+			yyerror ("yyparse: add_clamav_server");
 			YYERROR;
+		}
 		free ($1);
 	}
-	| clamav_params COMMA STRING {
-		if (!add_clamav_server (cfg, $3))
+	| clamav_params COMMA SOCKCRED {
+		if (!add_clamav_server (cfg, $3)) {
+			yyerror ("yyparse: add_clamav_server");
 			YYERROR;
+		}
 		free ($3);
 	}
 	;
 
 spf:
 	SPF EQSIGN FILENAME {
-		if (!read_spf_map (cfg, $3))
+		if (!read_spf_map (cfg, $3)) {
+			yyerror ("yyparse: read_spf_map");
 			YYERROR;
+		}
 		free ($3);
 	}
 	;
 
 bindsock:
-	BINDSOCK EQSIGN UNIXSOCK {
-		cfg->sock_cred = $3;
-	}
-	| BINDSOCK EQSIGN TCPSOCK {
+	BINDSOCK EQSIGN SOCKCRED {
 		cfg->sock_cred = $3;
 	}
 	;

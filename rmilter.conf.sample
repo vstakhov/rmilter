@@ -1,0 +1,37 @@
+# Sample config file for rmilter
+# $Id$
+#
+
+# pidfile - path to pid file
+# Default: pidfile = /var/run/rmilter.pid
+
+pidfile = ./rmilter.pid;
+
+# clamav - clamav socket definitions in format:
+# unix:/path/to/file
+# inet:host:port
+# sockets are separated by ','
+# Default: empty
+
+clamav = unix:/var/tmp/clamav.sock;
+
+# bind_socket - socket credits for local bind:
+# unix:/path/to/file - bind to local socket
+# inet:port@host - bind to inet socket
+# Default: bind_socket = unix:/var/tmp/rmilter.sock;
+
+bind_socket = unix:./rmilter.sock;
+
+# spf_domains - path to file that contains hash of spf domains
+# Default: empty
+
+# rule definition:
+# rule {
+#	accept|discard|reject|tempfail|quarantine [message]; <- action definition
+#	[not] connect <regexp> <regexp>; <- conditions
+#	helo <regexp>;
+#	envfrom <regexp>;
+#	envrcpt <regexp>;
+#	header <regexp> <regexp>;
+#	body <regexp>;
+# };

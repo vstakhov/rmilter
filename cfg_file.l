@@ -52,7 +52,8 @@ lookup(char *s)
 %option  noyywrap
 
 %%
-logfile							return LOGFILE;
+^#.*							/* ignore comments */;
+tempdir							return TEMPDIR;
 pidfile							return PIDFILE;
 rule							return RULE;
 clamav							return CLAMAV;
@@ -66,9 +67,10 @@ bind_socket						return BINDSOCK;
 =								return EQSIGN;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
+unix:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
+local:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
+inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
 [a-zA-Z][a-zA-Z]*				return lookup (yytext);
 \/.+\/[a-zA-Z]?					yylval.string=strdup(yytext); return REGEXP;
 [a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
-unix|local:[a-zA-Z0-9\/.-]+ 	yylval.string=strdup(yytext); return UNIXSOCK;
-inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return TCPSOCK;
 %%

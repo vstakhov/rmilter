@@ -56,7 +56,7 @@ typedef int bool;
 
 /* Global mutexes */
 
-/* pthread_mutex_t mx_whoson = PTHREAD_MUTEX_INITIALIZER; */
+pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 /* Structures and macros used */
 
@@ -124,22 +124,28 @@ sfsistat mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
      */
 
     if (!priv->fileh) {
-	snprintf(buf, MAXPATHLEN, "%s/msg.XXXXXXXX", var_tempdir);
-	priv->file = strdup(buf);
-	/* XXX: mkstemp(3) not thread-safe, may be */
-	fd = mkstemp(priv->file);
-	if (fd == -1) {
-	    syslog(LOG_WARNING, "(mlfi_header) mkstemp failed, %d: %m", errno);
-	    (void)mlfi_cleanup(ctx, false);
-	    return SMFIS_TEMPFAIL;
-	}
-	priv->fileh = fdopen(fd, "w");
-	if (!priv->fileh) {
-	    syslog(LOG_WARNING, "(mlfi_header) can't open tempfile, %d: %m", errno);
-	    (void)mlfi_cleanup(ctx, false);
-	    return SMFIS_TEMPFAIL;
-	}
-	fprintf(priv->fileh, "Received: from %s\n", priv->mlfi_ip_addr);
+		snprintf(buf, MAXPATHLEN, "%s/msg.XXXXXXXX", var_tempdir);
+		priv->file = strdup(buf);
+		/* mkstemp is based on arc4random (3) and is not reentrable
+		 * so acquire mutex for it
+		 */
+		pthread_mutex_lock (&mkstemp_mtx);
+		fd = mkstemp(priv->file);
+		pthread_mutex_unlock (&mkstemp_mtx);
+
+		if (fd == -1) {
+	    	syslog(LOG_WARNING, "(mlfi_header) mkstemp failed, %d: %m", errno);
+	    	(void)mlfi_cleanup(ctx, false);
+	    	return SMFIS_TEMPFAIL;
+		}
+		priv->fileh = fdopen(fd, "w");
+
+		if (!priv->fileh) {
+	    	syslog(LOG_WARNING, "(mlfi_header) can't open tempfile, %d: %m", errno);
+	    	(void)mlfi_cleanup(ctx, false);
+	    	return SMFIS_TEMPFAIL;
+		}
+		fprintf(priv->fileh, "Received: from %s\n", priv->mlfi_ip_addr);
     }
 
     /*
@@ -166,8 +172,9 @@ sfsistat mlfi_eom(SMFICTX * ctx)
 
     /* set queue id */
     id = smfi_getsymval(ctx, "i");
-    if (id == NULL)
-	id = "NOQUEUE";
+    if (id == NULL) {
+		id = "NOQUEUE";
+	}
     strncpy(priv->mlfi_id, id, sizeof(priv->mlfi_id));
 
     syslog(LOG_WARNING, "%s: tempfile=%s", priv->mlfi_id, priv->file);
@@ -176,17 +183,18 @@ sfsistat mlfi_eom(SMFICTX * ctx)
 
     r = check_clamscan(priv->file, strres, MAXPATHLEN);
     if (r < 0) {
-	syslog(LOG_WARNING, "(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
-	(void)mlfi_cleanup(ctx, false);
-	return SMFIS_TEMPFAIL;
+		syslog(LOG_WARNING, "(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+		(void)mlfi_cleanup(ctx, false);
+		return SMFIS_TEMPFAIL;
     }
     if (*strres) {
-	syslog(LOG_WARNING, "(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
-	snprintf(buf, MAXPATHLEN, "Infected: %s", strres);
-	smfi_setreply(ctx, "554", "5.7.1", buf);
-	mlfi_cleanup(ctx, false);
-	return SMFIS_REJECT;
+		syslog(LOG_WARNING, "(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
+		snprintf(buf, MAXPATHLEN, "Infected: %s", strres);
+		smfi_setreply(ctx, "554", "5.7.1", buf);
+		mlfi_cleanup(ctx, false);
+		return SMFIS_REJECT;
     }
+
     return mlfi_cleanup(ctx, true);
 }
 
@@ -196,8 +204,9 @@ sfsistat mlfi_close(SMFICTX * ctx)
 
     //syslog(LOG_WARNING, "(mlfi_close)");
 
-    if (!priv)
-	return SMFIS_ACCEPT;
+    if (!priv) {
+		return SMFIS_ACCEPT;
+	}
 
     free(priv);
     smfi_setpriv(ctx, NULL);
@@ -216,12 +225,7 @@ sfsistat mlfi_cleanup(SMFICTX * ctx, bool ok)
     sfsistat rstat = SMFIS_CONTINUE;
     struct mlfiPriv *priv = MLFIPRIV;
 
-    /*
-     * syslog(LOG_WARNING, "(mlfi_cleanup)");
-     */
-
-    if (priv == NULL)
-	return rstat;
+    if (priv == NULL)  return rstat;
 
     if (ok) {
 	/* add a header to the message announcing our presence */
@@ -230,17 +234,13 @@ sfsistat mlfi_cleanup(SMFICTX * ctx, bool ok)
     /* release message-related memory */
     priv->mlfi_id[0] = '\0';
     if (priv->fileh) {
-
-	/*
-	 * syslog(LOG_WARNING, "(mlfi_cleanup) fclose");
-	 */
-	fclose(priv->fileh);
-	priv->fileh = NULL;
+		fclose(priv->fileh);
+		priv->fileh = NULL;
     }
     if (priv->file) {
-	unlink(priv->file);
-	free(priv->file);
-	priv->file = NULL;
+		unlink(priv->file);
+		free(priv->file);
+		priv->file = NULL;
     }
     /* return status */
     return rstat;
@@ -251,9 +251,9 @@ sfsistat mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
     struct mlfiPriv *priv = MLFIPRIV;
 
     if (fwrite(bodyp, bodylen, 1, priv->fileh) != 1) {
-	syslog(LOG_WARNING, "(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
-	(void)mlfi_cleanup(ctx, false);
-	return SMFIS_TEMPFAIL;;
+		syslog(LOG_WARNING, "(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
+		(void)mlfi_cleanup(ctx, false);
+		return SMFIS_TEMPFAIL;;
     }
     /* continue processing */
     return SMFIS_CONTINUE;
@@ -280,15 +280,16 @@ int check_clamscan(const char *file, char *strres, size_t strres_len)
     /* check file size */
     stat(file, &sb);
     if (sb.st_size > var_sizelimit) {
-	syslog(LOG_WARNING, "(check_clamscan) message size exceeds limit, not scanned, %s", file);
-	return 0;
+		syslog(LOG_WARNING, "(check_clamscan) message size exceeds limit, not scanned, %s", file);
+		return 0;
     }
     /* scan using libclamc clamscan() */
     r = clamscan(file, var_clamd_socket, strres, strres_len);
 
     /* reset virusname for non-viruses */
-    if (*strres && (!strcmp(strres, "Suspected.Zip") || !strcmp(strres, "Oversized.Zip")))
-	*strres = '\0';
+    if (*strres && (!strcmp(strres, "Suspected.Zip") || !strcmp(strres, "Oversized.Zip"))) {
+		*strres = '\0';
+	}
 
     return r;
 }
@@ -303,7 +304,11 @@ int main(int argc, char *argv[])
 {
     int c, r;
 	extern int yynerrs;
+	extern FILE *yyin;
     const char *args = "c:h";
+	char *cfg_file = NULL;
+	FILE *f;
+
 	struct smfiDesc smfilter =
 	{
     	"rmilter",			/* filter name */
@@ -329,10 +334,13 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'c':
 	    	if (optarg == NULL || *optarg == '\0') {
-				fprintf(stderr, "Illegal conn: %s\n",
+				fprintf(stderr, "Illegal config_file: %s\n",
 			      optarg);
 				exit(EX_USAGE);
 	 	   	}
+			else {
+				cfg_file = strdup (optarg);
+			}
 	    	break;
 		case 'h':
 		default:
@@ -360,9 +368,20 @@ int main(int argc, char *argv[])
 
 	LIST_INIT (&cfg->rules);
 	LIST_INIT (&cfg->clamav_servers);
+	
+	if (cfg_file == NULL) {
+		cfg_file = strdup ("/usr/local/etc/rmilter.conf");
+	}
 
-	if (!yyparse() || yynerrs > 0) {
-		syslog (LOG_ERR, "yyparse: cannot parse config file");
+	f = fopen (cfg_file, "r");
+	if (f == NULL) {
+		syslog (LOG_ERR, "cannot open file: %s", cfg_file);
+		return -1;
+	}
+	yyin = f;
+
+	if (yyparse() != 0 || yynerrs > 0) {
+		syslog (LOG_ERR, "yyparse: cannot parse config file, %d errors", yynerrs);
 		return -1;
 	}
 
@@ -375,12 +394,21 @@ int main(int argc, char *argv[])
      */
     umask(0007);
 
+	smfi_setconn(cfg->sock_cred);
+	if (smfi_register(smfilter) == MI_FAILURE) {
+		syslog(LOG_ERR, "smfi_register failed");
+		exit(EX_UNAVAILABLE);
+	}
+
     r = smfi_main();
 
     if (var_clamd_socket) {
-	free(var_clamd_socket);
-	var_clamd_socket = NULL;
+		free(var_clamd_socket);
+		var_clamd_socket = NULL;
     }
+
+	if (cfg_file != NULL) free (cfg_file);
+
     return r;
 }
 
