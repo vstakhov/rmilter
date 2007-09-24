@@ -39,6 +39,8 @@
 #include "libmilter/mfapi.h"
 #include "libclamc.h"
 #include "cfg_file.h"
+#include "spf.h"
+#include "rmilter.h"
 
 /* config options here... */
 
@@ -58,21 +60,12 @@ typedef int bool;
 
 pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-/* Structures and macros used */
 
-struct mlfiPriv {
-    char mlfi_ip_addr[sizeof("255.255.255.255")];
-    char mlfi_id[32];
-    char *file;
-    FILE *fileh;
-};
+static sfsistat mlfi_cleanup(SMFICTX *, bool);
+static int check_clamscan(const char *file, char *strres, size_t strres_len);
 
-#define MLFIPRIV	((struct mlfiPriv *) smfi_getpriv(ctx))
-
-extern sfsistat mlfi_cleanup(SMFICTX *, bool);
-extern int check_clamscan(const char *file, char *strres, size_t strres_len);
-
-static void usage (void)
+static void 
+usage (void)
 {
 	printf ("Usage: rmilter [-h] -c <config_file>\n"
 			"-h - this help message\n"
@@ -82,39 +75,138 @@ static void usage (void)
 
 /* Milter callbacks */
 
-sfsistat mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * hostaddr)
+static sfsistat 
+mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 {
-    struct mlfiPriv *priv;
+    struct mlfi_priv *priv;
 
-    priv = malloc(sizeof *priv);
+    priv = malloc(sizeof (struct mlfi_priv));
+
     if (priv == NULL) {
-	return SMFIS_TEMPFAIL;
+		return SMFIS_TEMPFAIL;
     }
-    memset(priv, '\0', sizeof *priv);
+    memset(priv, '\0', sizeof (struct mlfi_priv));
 
-    /*
-     * According to the sendmail API hostaddr is NULL if "the type is not
-     * supported in the current version". What the documentation doesn't say
-     * is the type of what.
-     */
+	LIST_INIT(&priv->priv_rcpt);
+	priv->priv_cur_rcpt = NULL;
+	priv->priv_rcptcount = 0;
+	TAILQ_INIT(&priv->priv_header);
+	TAILQ_INIT(&priv->priv_body);
 
-    strlcpy(priv->mlfi_ip_addr, "NULL", sizeof(priv->mlfi_ip_addr));
-    if ((hostaddr == NULL) || (&(((struct sockaddr_in *)(hostaddr))->sin_addr) == NULL))
-	syslog(LOG_WARNING, "(mlfi_connect) hostaddr is NULL");
-    else
-	(void)inet_ntop(AF_INET, &((struct sockaddr_in *)(hostaddr))->sin_addr,
-			priv->mlfi_ip_addr, sizeof(priv->mlfi_ip_addr));
-
-    //syslog(LOG_WARNING, "(mlfi_connect) ip: %s", priv->mlfi_ip_addr);
+	if (addr != NULL) {
+		switch (addr->sa_family) {
+		case AF_INET:
+			memcpy(&priv->priv_addr, addr, sizeof (struct sockaddr_in));
+			break;
+		default:
+			syslog (LOG_WARNING, "bad client address");
+		}
+	}
 
     smfi_setpriv(ctx, priv);
 
     return SMFIS_CONTINUE;
 }
 
-sfsistat mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
+static sfsistat
+mlfi_helo(SMFICTX *ctx, char *helostr)
 {
-    struct mlfiPriv *priv = MLFIPRIV;
+	struct mlfi_priv *priv;
+
+	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
+
+	strlcpy (priv->priv_helo, helostr, ADDRLEN);
+	priv->priv_helo[ADDRLEN] = '\0';
+
+	return SMFIS_CONTINUE;
+}
+
+
+
+static sfsistat
+mlfi_envfrom(SMFICTX *ctx, char **envfrom)
+{
+	char tmpfrom[ADDRLEN + 1];
+	char *idx;
+	struct mlfi_priv *priv;
+	struct rcpt *r;
+	struct header *h;
+	struct body *b;
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		syslog (LOG_ERR, "Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
+
+	while ((r = LIST_FIRST (&priv->priv_rcpt)) != NULL) {
+		LIST_REMOVE (r, r_list);
+		free (r);
+	}
+	while ((h = TAILQ_FIRST (&priv->priv_header)) != NULL) {
+		free (h->h_line);
+		TAILQ_REMOVE (&priv->priv_header, h,  h_list);
+		free(h);
+	}
+	while ((b = TAILQ_FIRST (&priv->priv_body)) != NULL) {
+		free (b->b_lines);
+		TAILQ_REMOVE (&priv->priv_body, b, b_list);
+		free (b);
+	}
+
+	/*
+	 * Strip spaces from the source address
+	 */
+	strlcpy (tmpfrom, *envfrom, ADDRLEN);
+	tmpfrom[ADDRLEN] = '\0';
+
+	/* 
+	 * Strip anything before the last '=' in the
+	 * source address. This avoid problems with
+	 * mailing lists using a unique sender address
+	 * for each retry.
+	 */
+	if ((idx = rindex (tmpfrom, '=')) == NULL)
+		idx = tmpfrom;
+
+	strlcpy (priv->priv_from, idx, ADDRLEN);
+	priv->priv_from[ADDRLEN] = '\0';
+
+	/*
+	 * Is the sender address SPF-compliant?
+	 */
+	if (spf_check (priv)) {
+		return SMFIS_CONTINUE;
+	}
+
+	return SMFIS_CONTINUE;
+}
+
+static sfsistat
+mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
+{
+	struct mlfi_priv *priv;
+	char rcpt[ADDRLEN + 1];
+
+	/*
+	 * Strip spaces from the recipient address
+	 */
+	strlcpy (rcpt, *envrcpt, ADDRLEN);
+	rcpt[ADDRLEN] = '\0';
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		syslog (LOG_ERR, "Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
+
+	/* TODO: Add acl check and rbl/dcc checks */
+
+	return SMFIS_CONTINUE;
+}
+
+static sfsistat 
+mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
+{
+    struct mlfi_priv *priv = MLFIPRIV;
     char buf[MAXPATHLEN];
     int fd;
 
@@ -124,18 +216,18 @@ sfsistat mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
      */
 
     if (!priv->fileh) {
-		snprintf(buf, MAXPATHLEN, "%s/msg.XXXXXXXX", var_tempdir);
+		snprintf (buf, MAXPATHLEN, "%s/msg.XXXXXXXX", var_tempdir);
 		priv->file = strdup(buf);
 		/* mkstemp is based on arc4random (3) and is not reentrable
 		 * so acquire mutex for it
 		 */
 		pthread_mutex_lock (&mkstemp_mtx);
-		fd = mkstemp(priv->file);
+		fd = mkstemp (priv->file);
 		pthread_mutex_unlock (&mkstemp_mtx);
 
 		if (fd == -1) {
 	    	syslog(LOG_WARNING, "(mlfi_header) mkstemp failed, %d: %m", errno);
-	    	(void)mlfi_cleanup(ctx, false);
+	    	(void)mlfi_cleanup (ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
 		priv->fileh = fdopen(fd, "w");
@@ -145,27 +237,29 @@ sfsistat mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
-		fprintf(priv->fileh, "Received: from %s\n", priv->mlfi_ip_addr);
+		/* fprintf (priv->fileh, "Received: from %s\n", priv->mlfi_ip_addr); */
     }
 
     /*
      * Write header line to temporary file.
      */
 
-    fprintf(priv->fileh, "%s: %s\n", headerf, headerv);
+    fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
     return SMFIS_CONTINUE;
 }
 
-sfsistat mlfi_eoh(SMFICTX * ctx)
+static sfsistat 
+mlfi_eoh(SMFICTX * ctx)
 {
-    struct mlfiPriv *priv = MLFIPRIV;
-    fprintf(priv->fileh, "\n");
+    struct mlfi_priv *priv = MLFIPRIV;
+    fprintf (priv->fileh, "\n");
     return SMFIS_CONTINUE;
 }
 
-sfsistat mlfi_eom(SMFICTX * ctx)
+static sfsistat 
+mlfi_eom(SMFICTX * ctx)
 {
-    struct mlfiPriv *priv = MLFIPRIV;
+    struct mlfi_priv *priv = MLFIPRIV;
     int r;
     char strres[MAXPATHLEN], buf[MAXPATHLEN];
     char *id;
@@ -175,32 +269,33 @@ sfsistat mlfi_eom(SMFICTX * ctx)
     if (id == NULL) {
 		id = "NOQUEUE";
 	}
-    strncpy(priv->mlfi_id, id, sizeof(priv->mlfi_id));
+    strncpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 
-    syslog(LOG_WARNING, "%s: tempfile=%s", priv->mlfi_id, priv->file);
+    syslog (LOG_WARNING, "%s: tempfile=%s", priv->mlfi_id, priv->file);
 
-    fflush(priv->fileh);
+    fflush (priv->fileh);
 
-    r = check_clamscan(priv->file, strres, MAXPATHLEN);
+    r = check_clamscan (priv->file, strres, MAXPATHLEN);
     if (r < 0) {
-		syslog(LOG_WARNING, "(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
-		(void)mlfi_cleanup(ctx, false);
+		syslog (LOG_WARNING, "(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
     }
     if (*strres) {
-		syslog(LOG_WARNING, "(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
-		snprintf(buf, MAXPATHLEN, "Infected: %s", strres);
-		smfi_setreply(ctx, "554", "5.7.1", buf);
-		mlfi_cleanup(ctx, false);
+		syslog (LOG_WARNING, "(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
+		snprintf (buf, MAXPATHLEN, "Infected: %s", strres);
+		smfi_setreply (ctx, "554", "5.7.1", buf);
+		mlfi_cleanup (ctx, false);
 		return SMFIS_REJECT;
     }
 
-    return mlfi_cleanup(ctx, true);
+    return mlfi_cleanup (ctx, true);
 }
 
-sfsistat mlfi_close(SMFICTX * ctx)
+static sfsistat 
+mlfi_close(SMFICTX * ctx)
 {
-    struct mlfiPriv *priv = MLFIPRIV;
+    struct mlfi_priv *priv = MLFIPRIV;
 
     //syslog(LOG_WARNING, "(mlfi_close)");
 
@@ -214,16 +309,18 @@ sfsistat mlfi_close(SMFICTX * ctx)
     return SMFIS_ACCEPT;
 }
 
-sfsistat mlfi_abort(SMFICTX * ctx)
+static sfsistat 
+mlfi_abort(SMFICTX * ctx)
 {
     /* syslog(LOG_WARNING, "(mlfi_abort)"); */
     return mlfi_cleanup(ctx, false);
 }
 
-sfsistat mlfi_cleanup(SMFICTX * ctx, bool ok)
+static sfsistat 
+mlfi_cleanup(SMFICTX * ctx, bool ok)
 {
     sfsistat rstat = SMFIS_CONTINUE;
-    struct mlfiPriv *priv = MLFIPRIV;
+    struct mlfi_priv *priv = MLFIPRIV;
 
     if (priv == NULL)  return rstat;
 
@@ -234,11 +331,11 @@ sfsistat mlfi_cleanup(SMFICTX * ctx, bool ok)
     /* release message-related memory */
     priv->mlfi_id[0] = '\0';
     if (priv->fileh) {
-		fclose(priv->fileh);
+		fclose (priv->fileh);
 		priv->fileh = NULL;
     }
     if (priv->file) {
-		unlink(priv->file);
+		unlink (priv->file);
 		free(priv->file);
 		priv->file = NULL;
     }
@@ -246,11 +343,12 @@ sfsistat mlfi_cleanup(SMFICTX * ctx, bool ok)
     return rstat;
 }
 
-sfsistat mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
+static sfsistat 
+mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 {
-    struct mlfiPriv *priv = MLFIPRIV;
+    struct mlfi_priv *priv = MLFIPRIV;
 
-    if (fwrite(bodyp, bodylen, 1, priv->fileh) != 1) {
+    if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
 		syslog(LOG_WARNING, "(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
 		(void)mlfi_cleanup(ctx, false);
 		return SMFIS_TEMPFAIL;;
@@ -269,7 +367,8 @@ sfsistat mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
  * clamd...)
  */
 
-int check_clamscan(const char *file, char *strres, size_t strres_len)
+static int 
+check_clamscan(const char *file, char *strres, size_t strres_len)
 {
     int r = -2;
     struct stat sb;
@@ -280,14 +379,14 @@ int check_clamscan(const char *file, char *strres, size_t strres_len)
     /* check file size */
     stat(file, &sb);
     if (sb.st_size > var_sizelimit) {
-		syslog(LOG_WARNING, "(check_clamscan) message size exceeds limit, not scanned, %s", file);
+		syslog (LOG_WARNING, "(check_clamscan) message size exceeds limit, not scanned, %s", file);
 		return 0;
     }
     /* scan using libclamc clamscan() */
-    r = clamscan(file, var_clamd_socket, strres, strres_len);
-
+    r = clamscan (file, var_clamd_socket, strres, strres_len);
+ 
     /* reset virusname for non-viruses */
-    if (*strres && (!strcmp(strres, "Suspected.Zip") || !strcmp(strres, "Oversized.Zip"))) {
+    if (*strres && (!strcmp (strres, "Suspected.Zip") || !strcmp (strres, "Oversized.Zip"))) {
 		*strres = '\0';
 	}
 
@@ -315,9 +414,9 @@ int main(int argc, char *argv[])
     	SMFI_VERSION,		/* version code -- do not change */
     	SMFIF_ADDHDRS,		/* flags */
     	mlfi_connect,		/* connection info filter */
-    	NULL,				/* SMTP HELO command filter */
-    	NULL,				/* envelope sender filter */
-    	NULL,				/* envelope recipient filter */
+    	mlfi_helo,				/* SMTP HELO command filter */
+    	mlfi_envfrom,				/* envelope sender filter */
+    	mlfi_envrcpt,				/* envelope recipient filter */
     	mlfi_header,		/* header filter */
     	mlfi_eoh,			/* end of header */
     	mlfi_body,			/* body block filter */
@@ -376,13 +475,13 @@ int main(int argc, char *argv[])
 	f = fopen (cfg_file, "r");
 	if (f == NULL) {
 		syslog (LOG_ERR, "cannot open file: %s", cfg_file);
-		return -1;
+		return EBADF;
 	}
 	yyin = f;
 
 	if (yyparse() != 0 || yynerrs > 0) {
 		syslog (LOG_ERR, "yyparse: cannot parse config file, %d errors", yynerrs);
-		return -1;
+		return EBADF;
 	}
 
     srandomdev();

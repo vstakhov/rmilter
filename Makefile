@@ -3,7 +3,7 @@
 CFLAGS = -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \
 		 -Wunused-value -ggdb -I /usr/local/include
-LIBS = -L /usr/local/lib -lmilter -lpcre 
+LIBS = -L /usr/local/lib -lmilter -lpcre -lspf2
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
 LEX ?= lex
@@ -42,4 +42,4 @@ install:
 
 clean:
 	rm -f *.o ${EXEC} *.core
-	rm -f cfg_lex.c cfg_yacc.c
+	rm -f cfg_lex.c cfg_yacc.c cfg_yacc.h
