@@ -12,6 +12,13 @@
 #include <sys/un.h>
 #include "pcre.h"
 
+#define COND_CONNECT_FLAG 0x1
+#define COND_HELO_FLAG 0x2
+#define COND_ENVFROM_FLAG 0x4
+#define COND_ENVRCPT_FLAG 0x8
+#define COND_HEADER_FLAG 0x10
+#define COND_BODY_FLAG 0x20
+
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
 	COND_CONNECT, 
@@ -49,6 +56,7 @@ struct condition {
 struct rule {
 	LIST_HEAD (condl, condition) *conditions;
 	struct action *act;
+	uint8_t flags;
 	LIST_ENTRY (rule) next;
 };
 
@@ -58,6 +66,7 @@ struct clamav_server {
 	union {
 		char *unix_path;
 		struct {
+			const char *addr_str;
 			struct in_addr addr;
 			uint16_t port;
 		} inet;
@@ -72,6 +81,8 @@ struct config_file {
 	char *spf_file;
 
 	char *sock_cred;
+
+	int clamav_servers_num;
 
 	LIST_HEAD (ruleset, rule) rules;
 	LIST_HEAD (clamavl, clamav_server) clamav_servers;

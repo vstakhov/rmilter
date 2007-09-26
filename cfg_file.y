@@ -14,6 +14,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <syslog.h>
+#include <netdb.h>
 
 #include "pcre.h"
 #include "cfg_file.h"
@@ -25,12 +26,14 @@
 extern struct config_file *cfg;
 
 struct condl *cur_conditions;
+uint8_t cur_flags = 0;
 
 static int
 add_clamav_server (struct config_file *cf, char *str)
 {
 	char *cur_tok, *host_tok, *err_str;
 	struct clamav_server *srv;
+	struct hostent *he;
 
 	if (str == NULL) return 0;
 	
@@ -49,6 +52,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		srv->sock_type = AF_UNIX;
 
 		LIST_INSERT_HEAD (&cf->clamav_servers, srv, next);
+		cf->clamav_servers_num++;
 		return 1;
 	} else if (strncmp (cur_tok, "inet", sizeof ("inet")) == 0) {
 		srv->sock.inet.port = htonl (strtol (str, &err_str, 10));
@@ -62,9 +66,23 @@ add_clamav_server (struct config_file *cf, char *str)
 			free (srv);
 			return 0;
 		}
+		else {
+			if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
+				/* Try to call gethostbyname */
+				he = gethostbyname (cur_tok);
+				if (he == NULL) {
+					free (srv);
+					return 0;
+				}
+				else {
+					memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
+				}
+			}
+		}
 
 		srv->sock_type = AF_INET;
 		LIST_INSERT_HEAD (&cf->clamav_servers, srv, next);
+		cf->clamav_servers_num++;
 		return 1;
 	}
 
@@ -185,6 +203,8 @@ rulebody	:
 
 				cur_rule->act = $1;
 				cur_rule->conditions = cur_conditions;
+				cur_rule->flags = cur_flags;
+				cur_flags = 0;
 				LIST_INSERT_HEAD (&cfg->rules, cur_rule, next);
 			}
 			;
@@ -270,6 +290,7 @@ term	:
 		$$ = create_cond(COND_CONNECT, $2, $3);
 		if ($$ == NULL)
 			YYERROR;
+		cur_flags |= COND_CONNECT_FLAG;
 		free($2);
 		free($3);
 	}
@@ -277,24 +298,28 @@ term	:
 		$$ = create_cond(COND_HELO, $2, NULL);
 		if ($$ == NULL)
 			YYERROR;
+		cur_flags |= COND_HELO_FLAG;
 		free($2);
 	}
 	| ENVFROM REGEXP	{
 		$$ = create_cond(COND_ENVFROM, $2, NULL);
 		if ($$ == NULL)
 			YYERROR;
+		cur_flags |= COND_ENVFROM_FLAG;
 		free($2);
 	}
 	| ENVRCPT REGEXP	{
 		$$ = create_cond(COND_ENVRCPT, $2, NULL);
 		if ($$ == NULL)
 			YYERROR;
+		cur_flags |= COND_ENVRCPT_FLAG;
 		free($2);
 	}
 	| HEADER REGEXP REGEXP	{
 		$$ = create_cond(COND_HEADER, $2, $3);
 		if ($$ == NULL)
 			YYERROR;
+		cur_flags |= COND_HEADER_FLAG;
 		free($2);
 		free($3);
 	}
@@ -302,6 +327,7 @@ term	:
 		$$ = create_cond(COND_BODY, $2, NULL);
 		if ($$ == NULL)
 			YYERROR;
+		cur_flags |= COND_BODY_FLAG;
 		free($2);
 	}
 	;
