@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <stdio.h>
 #include <netinet/in.h>
 #include "cfg_file.h"
 
@@ -17,6 +18,15 @@
 
 #ifndef NS_MAXDNAME
 #define NS_MAXDNAME 1025
+#endif
+
+/* Logging in postfix style */
+#if __ISO_C_VISIBLE >= 1999
+#define msg_err(args...) syslog(LOG_ERR, ##args)
+#define msg_warn(args...)	syslog(LOG_WARNING, ##args)
+#define msg_info(args...)	syslog(LOG_INFO, ##args)
+#else
+#error Need to be compiled with C99 compatible compiler
 #endif
 
 /* Structures and macros used */
@@ -37,6 +47,7 @@ struct body {
 
 struct mlfi_priv {
 	struct sockaddr_in priv_addr;
+	char priv_ip[INET_ADDRSTRLEN + 1];
 	char priv_hostname[ADDRLEN + 1];
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];

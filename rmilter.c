@@ -97,9 +97,10 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		switch (addr->sa_family) {
 		case AF_INET:
 			memcpy(&priv->priv_addr, addr, sizeof (struct sockaddr_in));
+			inet_ntop (AF_INET, addr, priv->priv_ip, INET_ADDRSTRLEN);
 			break;
 		default:
-			syslog (LOG_WARNING, "bad client address");
+			msg_warn ("bad client address");
 		}
 	}
 
@@ -134,7 +135,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	struct body *b;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
-		syslog (LOG_ERR, "Internal error: smfi_getpriv() returns NULL");
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -194,7 +195,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	rcpt[ADDRLEN] = '\0';
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
-		syslog (LOG_ERR, "Internal error: smfi_getpriv() returns NULL");
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -226,18 +227,18 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		pthread_mutex_unlock (&mkstemp_mtx);
 
 		if (fd == -1) {
-	    	syslog(LOG_WARNING, "(mlfi_header) mkstemp failed, %d: %m", errno);
+	    	msg_warn ("(mlfi_header) mkstemp failed, %d: %m", errno);
 	    	(void)mlfi_cleanup (ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
 		priv->fileh = fdopen(fd, "w");
 
 		if (!priv->fileh) {
-	    	syslog(LOG_WARNING, "(mlfi_header) can't open tempfile, %d: %m", errno);
+	    	msg_warn ("(mlfi_header) can't open tempfile, %d: %m", errno);
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
-		/* fprintf (priv->fileh, "Received: from %s\n", priv->mlfi_ip_addr); */
+		fprintf (priv->fileh, "Received: from %s\n", priv->priv_ip); 
     }
 
     /*
@@ -271,18 +272,18 @@ mlfi_eom(SMFICTX * ctx)
 	}
     strncpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 
-    syslog (LOG_WARNING, "%s: tempfile=%s", priv->mlfi_id, priv->file);
+    msg_warn ("%s: tempfile=%s", priv->mlfi_id, priv->file);
 
     fflush (priv->fileh);
 
     r = check_clamscan (priv->file, strres, MAXPATHLEN);
     if (r < 0) {
-		syslog (LOG_WARNING, "(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+		msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
     }
     if (*strres) {
-		syslog (LOG_WARNING, "(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
+		msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
 		snprintf (buf, MAXPATHLEN, "Infected: %s", strres);
 		smfi_setreply (ctx, "554", "5.7.1", buf);
 		mlfi_cleanup (ctx, false);
@@ -297,8 +298,6 @@ mlfi_close(SMFICTX * ctx)
 {
     struct mlfi_priv *priv = MLFIPRIV;
 
-    //syslog(LOG_WARNING, "(mlfi_close)");
-
     if (!priv) {
 		return SMFIS_ACCEPT;
 	}
@@ -312,7 +311,6 @@ mlfi_close(SMFICTX * ctx)
 static sfsistat 
 mlfi_abort(SMFICTX * ctx)
 {
-    /* syslog(LOG_WARNING, "(mlfi_abort)"); */
     return mlfi_cleanup(ctx, false);
 }
 
@@ -349,8 +347,8 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
     struct mlfi_priv *priv = MLFIPRIV;
 
     if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
-		syslog(LOG_WARNING, "(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
-		(void)mlfi_cleanup(ctx, false);
+		msg_warn ("(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
+		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;;
     }
     /* continue processing */
@@ -372,14 +370,13 @@ check_clamscan(const char *file, char *strres, size_t strres_len)
 {
     int r = -2;
     struct stat sb;
-    //syslog(LOG_WARNING, "(check_clamscan) %s", file);
 
     *strres = '\0';
 
     /* check file size */
     stat(file, &sb);
     if (sb.st_size > var_sizelimit) {
-		syslog (LOG_WARNING, "(check_clamscan) message size exceeds limit, not scanned, %s", file);
+		msg_warn ("(check_clamscan) message size exceeds limit, not scanned, %s", file);
 		return 0;
     }
     /* scan using libclamc clamscan() */
@@ -456,11 +453,11 @@ int main(int argc, char *argv[])
     }
 
     openlog("rmilter", LOG_PID, LOG_MAIL);
-    syslog(LOG_WARNING, "(main) starting...");
+    msg_warn ("(main) starting...");
 	
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
-		syslog (LOG_ERR, "malloc: %s", strerror (errno));
+		msg_warn ("malloc: %s", strerror (errno));
 		return -1;
 	}
 	bzero (cfg, sizeof (struct config_file));
@@ -474,13 +471,13 @@ int main(int argc, char *argv[])
 
 	f = fopen (cfg_file, "r");
 	if (f == NULL) {
-		syslog (LOG_ERR, "cannot open file: %s", cfg_file);
+		msg_warn ("cannot open file: %s", cfg_file);
 		return EBADF;
 	}
 	yyin = f;
 
 	if (yyparse() != 0 || yynerrs > 0) {
-		syslog (LOG_ERR, "yyparse: cannot parse config file, %d errors", yynerrs);
+		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
 		return EBADF;
 	}
 
@@ -495,7 +492,7 @@ int main(int argc, char *argv[])
 
 	smfi_setconn(cfg->sock_cred);
 	if (smfi_register(smfilter) == MI_FAILURE) {
-		syslog(LOG_ERR, "smfi_register failed");
+		msg_err ("smfi_register failed");
 		exit(EX_UNAVAILABLE);
 	}
 

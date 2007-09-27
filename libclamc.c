@@ -39,16 +39,13 @@
 #include <fcntl.h>
 
 #include "cfg_file.h"
+#include "rmilter.h"
 
 /* config options here... bad, but works */
 /*
 #define SCAN_SIZELIMIT	1024 * 1024
 */
 
-/* Logging in postfix style */
-
-#define msg_warn(args...)	syslog(LOG_WARNING, ##args)
-#define msg_info(args...)	syslog(LOG_INFO, ##args)
 
 /* Global mutexes */
 

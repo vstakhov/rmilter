@@ -16,7 +16,7 @@ LEX_SRC=cfg_file.l
 YACC_OUTPUT=cfg_yacc.c
 LEX_OUTPUT=cfg_lex.c
 
-SOURCES=spf.c rmilter.c libclamc.c ${LEX_OUTPUT} ${YACC_OUTPUT}
+SOURCES=regexp.c spf.c rmilter.c libclamc.c ${LEX_OUTPUT} ${YACC_OUTPUT}
 OBJECTS=${SOURCES:C/\.c/.o/g}
 
 all: lex build link
