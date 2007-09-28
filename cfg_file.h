@@ -50,6 +50,7 @@ struct condition {
     	int  not;
 	    pcre  *re;
     }	args[2];
+	enum condition_type type;
 	LIST_ENTRY (condition) next;
 };
 

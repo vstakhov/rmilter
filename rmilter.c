@@ -87,17 +87,16 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
     }
     memset(priv, '\0', sizeof (struct mlfi_priv));
 
-	LIST_INIT(&priv->priv_rcpt);
 	priv->priv_cur_rcpt = NULL;
 	priv->priv_rcptcount = 0;
-	TAILQ_INIT(&priv->priv_header);
-	TAILQ_INIT(&priv->priv_body);
 
 	if (addr != NULL) {
 		switch (addr->sa_family) {
 		case AF_INET:
 			memcpy(&priv->priv_addr, addr, sizeof (struct sockaddr_in));
 			inet_ntop (AF_INET, addr, priv->priv_ip, INET_ADDRSTRLEN);
+			if (hostname != NULL)
+				strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname) - 1);
 			break;
 		default:
 			msg_warn ("bad client address");
@@ -130,28 +129,10 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char tmpfrom[ADDRLEN + 1];
 	char *idx;
 	struct mlfi_priv *priv;
-	struct rcpt *r;
-	struct header *h;
-	struct body *b;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
-	}
-
-	while ((r = LIST_FIRST (&priv->priv_rcpt)) != NULL) {
-		LIST_REMOVE (r, r_list);
-		free (r);
-	}
-	while ((h = TAILQ_FIRST (&priv->priv_header)) != NULL) {
-		free (h->h_line);
-		TAILQ_REMOVE (&priv->priv_header, h,  h_list);
-		free(h);
-	}
-	while ((b = TAILQ_FIRST (&priv->priv_body)) != NULL) {
-		free (b->b_lines);
-		TAILQ_REMOVE (&priv->priv_body, b, b_list);
-		free (b);
 	}
 
 	/*

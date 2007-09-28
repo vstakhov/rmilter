@@ -137,6 +137,8 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 		}
 	}
 
+	new->type = type;
+
 	return new;
 }
 
