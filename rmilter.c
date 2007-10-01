@@ -69,6 +69,12 @@ static sfsistat mlfi_cleanup(SMFICTX *, bool);
 static int check_clamscan(const char *, char *, size_t);
 static int check_dcc(const struct mlfi_priv *, char *, size_t);
 
+int
+my_strcmp (const void *s1, const void *s2)
+{
+	return strcmp ((const char *)s1, (const char *)s2);
+}
+
 static void 
 usage (void)
 {
@@ -214,7 +220,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
-	if (spf_check (priv)) {
+	if (spf_check (priv, cfg)) {
 		return SMFIS_CONTINUE;
 	}
 
@@ -303,6 +309,8 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
     fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
 	/* Check header with regexp */
 	pthread_mutex_lock (&regexp_mtx);
+	priv->priv_cur_header.header_name = headerf;
+	priv->priv_cur_header.header_value = headerv;
 	act = regexp_check (cfg, priv, STAGE_HEADER);
 	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
@@ -441,6 +449,8 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
     }
 	/* Check body with regexp */
 	pthread_mutex_lock (&regexp_mtx);
+	priv->priv_cur_body.value = bodyp;
+	priv->priv_cur_body.len = bodylen;
 	act = regexp_check (cfg, priv, STAGE_BODY);
 	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
@@ -603,6 +613,7 @@ int main(int argc, char *argv[])
 
 	LIST_INIT (&cfg->rules);
 	LIST_INIT (&cfg->clamav_servers);
+	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	
 	if (cfg_file == NULL) {
 		cfg_file = strdup ("/usr/local/etc/rmilter.conf");
@@ -620,6 +631,9 @@ int main(int argc, char *argv[])
 		return EBADF;
 	}
 
+	/* Sort spf domains array */
+	qsort ((void *)cfg->spf_domains, sizeof (char *), cfg->spf_domains_num, my_strcmp);
+
     srandomdev();
 
     /*
@@ -636,11 +650,6 @@ int main(int argc, char *argv[])
 	}
 
     r = smfi_main();
-
-    if (var_clamd_socket) {
-		free(var_clamd_socket);
-		var_clamd_socket = NULL;
-    }
 
 	if (cfg_file != NULL) free (cfg_file);
 

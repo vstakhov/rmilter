@@ -19,6 +19,8 @@
 #define COND_HEADER_FLAG 0x10
 #define COND_BODY_FLAG 0x20
 
+#define MAX_SPF_DOMAINS 1024
+
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
 	COND_CONNECT, 
@@ -87,6 +89,10 @@ struct config_file {
 
 	LIST_HEAD (ruleset, rule) rules;
 	LIST_HEAD (clamavl, clamav_server) clamav_servers;
+	
+	/* Must be sorted */
+	char **spf_domains;
+	size_t spf_domains_num;
 };
 
 int yylex (void);

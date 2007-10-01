@@ -132,14 +132,11 @@ static struct action *
 check_body_rule (const struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
-	size_t blen;
-
-	blen = strlen (priv->priv_cur_body);
 
 	LIST_FOREACH (cond, cur->conditions, next) {
 		if (cond->type == COND_BODY) {
 			/* Body line */
-			if (check_condition (&cond->args[0], priv->priv_cur_body, blen)) {
+			if (check_condition (&cond->args[0], priv->priv_cur_body.value, priv->priv_cur_body.len)) {
 				return cur->act;
 			}
 		}

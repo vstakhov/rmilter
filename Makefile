@@ -6,8 +6,8 @@ CFLAGS = -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \
 		 -Wunused-value -ggdb -I /usr/local/include \
 		 -I./dcc-dccd-${DCC_VER}/include
-LIBS = -L /usr/local/lib -L./dcc-dccd-${DCC_VER}/dcclib \
-	   -lmilter -lpcre -lspf2 -ldcc
+LD_PATH = -L /usr/local/lib -L dcc-dccd-${DCC_VER}/dcclib
+LIBS = -lmilter -lpcre -lspf2 -ldcc
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
 LEX ?= lex
@@ -40,7 +40,7 @@ build: ${SOURCES}
 .endfor
 
 link: ${OBJECTS}
-	${CC} ${PTHREAD_FLAGS} ${LIBS} ${OBJECTS} -o ${EXEC}
+	${CC} ${PTHREAD_FLAGS} ${LD_PATH} ${OBJECTS} ${LIBS} -o ${EXEC}
 
 # pw user add -n rmilter -u 3310 -c 'Rambler milter' -s /sbin/nologin -d /nonexistent
 install:

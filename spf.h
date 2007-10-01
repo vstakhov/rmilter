@@ -9,7 +9,6 @@
 
 struct mlfi_priv;
 
-int read_spf_map (struct config_file *, const char *);
-int spf_check (struct mlfi_priv *);
+int spf_check (struct mlfi_priv *, struct config_file *);
 
 #endif /* SPF_H */

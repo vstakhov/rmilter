@@ -52,7 +52,10 @@ struct mlfi_priv {
 		char *header_name;
 		char *header_value;
 	} priv_cur_header;
-	char *priv_cur_body;
+	struct {
+		unsigned char *value;
+		size_t len;
+	} priv_cur_body;
     char mlfi_id[32];
     char *file;
     FILE *fileh;

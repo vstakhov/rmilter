@@ -72,5 +72,6 @@ local:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
 [a-zA-Z][a-zA-Z]*				return lookup (yytext);
 \/.+\/[a-zA-Z]?					yylval.string=strdup(yytext); return REGEXP;
+^[a-zA-Z0-9][a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
 [a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
 %%

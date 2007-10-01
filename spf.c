@@ -13,20 +13,18 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/syslog.h>
+#include <sys/mman.h>
 
 #include "spf2/spf.h"
 #include "cfg_file.h"
 #include "spf.h"
 #include "rmilter.h"
 
-int read_spf_map (struct config_file *cfg, const char *path)
-{	
-	/* Knob */
-	return 1;
-}
+/* Defined in rmilter.c */
+extern int my_strcmp (const void *, const void *);
 
 int
-spf_check(struct mlfi_priv *priv)
+spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 {
 	struct sockaddr_in *sa = &priv->priv_addr;
 	char *helo = priv->priv_helo;
@@ -36,7 +34,32 @@ spf_check(struct mlfi_priv *priv)
 	SPF_response_t *spf_response;
 	char from[NS_MAXDNAME + 1];
 	int res, result = 0;
+	char *domain_pos;
 	size_t len;
+
+	/*
+	 * And the enveloppe source e-mail
+	 */
+	if (fromp[0] == '<')
+		fromp++; /* strip leading < */
+	strlcpy (from, fromp, NS_MAXDNAME);
+	from[NS_MAXDNAME] = '\0';
+	len = strlen(from);
+	if (fromp[len - 1] == '>')
+		from[len - 1] = '\0'; /* strip trailing > */
+	domain_pos = strchr (from, '@');
+	
+	/* No domain part in envfrom field - do not make spf check */
+	if (domain_pos == NULL) {
+		return 1;	
+	}
+	
+	/* Search in spf_domains array */
+	if (! bsearch ((void *) domain_pos, cfg->spf_domains, sizeof (char *), 
+		cfg->spf_domains_num, my_strcmp)) {
+		/* Domain not found, stop check */
+		return 1;
+	}
 
 	if ((spf_server = SPF_server_new (SPF_DNS_CACHE, 0)) == NULL) {
 		syslog(LOG_ERR, "SPF_server_new failed");
@@ -70,16 +93,6 @@ spf_check(struct mlfi_priv *priv)
 		goto out3;
 	}
 
-	/*
-	 * And the enveloppe source e-mail
-	 */
-	if (fromp[0] == '<')
-		fromp++; /* strip leading < */
-	strlcpy (from, fromp, NS_MAXDNAME);
-	from[NS_MAXDNAME] = '\0';
-	len = strlen(from);
-	if (fromp[len - 1] == '>')
-		from[len - 1] = '\0'; /* strip trailing > */
 
 	if (SPF_request_set_env_from (spf_request, from) != 0) {
 		syslog (LOG_ERR, "SPF_request_set_env_from failed");

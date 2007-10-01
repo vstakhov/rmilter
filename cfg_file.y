@@ -142,6 +142,20 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 	return new;
 }
 
+static int
+add_spf_domain (struct config_file *cfg, char *domain)
+{
+	if (!domain) return 0;
+
+	if (cfg->spf_domains_num > MAX_SPF_DOMAINS) {
+		return 0;
+	}
+
+	cfg->spf_domains[cfg->spf_domains_num] = domain;
+	cfg->spf_domains_num ++;
+
+	return 1;
+}
 
 %}
 %union 
@@ -157,13 +171,14 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 %token	AND OR NOT
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
-%token  BINDSOCK SOCKCRED
+%token  BINDSOCK SOCKCRED DOMAIN
 %type	<string>	STRING
 %type	<string>	FILENAME
 %type	<string>	REGEXP
 %type   <string>  	SOCKCRED
 %type   <cond>    	expr_l expr term
-%type   <action>  		action
+%type   <action>  	action
+%type	<string>	DOMAIN
 %%
 
 file	: /* empty */
@@ -356,12 +371,20 @@ clamav_params:
 	;
 
 spf:
-	SPF EQSIGN FILENAME {
-		if (!read_spf_map (cfg, $3)) {
-			yyerror ("yyparse: read_spf_map");
+	SPF EQSIGN spf_params 
+	;
+spf_params:
+	DOMAIN {
+		if (!add_spf_domain (cfg, $1)) {
+			yyerror ("yyparse: add_spf_domain");
 			YYERROR;
 		}
-		free ($3);
+	}
+	| spf_params COMMA DOMAIN {
+		if (!add_spf_domain (cfg, $3)) {
+			yyerror ("yyparse: add_spf_domain");
+			YYERROR;
+		}
 	}
 	;
 
