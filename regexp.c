@@ -147,8 +147,8 @@ check_body_rule (const struct rule *cur, const struct mlfi_priv *priv)
 	return NULL;
 }
 
-int 
-regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum milter_stage stage, char **err_msg)
+struct action *
+regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum milter_stage stage)
 {
 	struct rule *cur;
 	struct action *r = NULL;
@@ -176,11 +176,10 @@ regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum 
 		}
 		/* Stop matching on finding matched rule */
 		if (r != NULL) {
-			*err_msg = r->message;
-			return r->type;
+			return r;
 		}
 	}
 	
-	/* Accept by default */
-	return ACTION_ACCEPT;
+	return NULL;
 }
+

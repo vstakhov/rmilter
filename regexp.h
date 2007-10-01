@@ -19,9 +19,8 @@ enum milter_stage {
 	STAGE_BODY
 };
 
-int regexp_check (const struct config_file *,	/* Config file */
-				  const struct mlfi_priv *,		/* Current priv data */
-				  enum milter_stage,			/* Current stage */
-				  char **);						/* Pointer to buffer */
+struct action * regexp_check (const struct config_file *,	/* Config file */
+				  const struct mlfi_priv *,					/* Current priv data */
+				  enum milter_stage);						/* Current Stage */
 
 #endif

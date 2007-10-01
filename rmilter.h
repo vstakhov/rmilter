@@ -29,6 +29,11 @@
 #error Need to be compiled with C99 compatible compiler
 #endif
 
+#define RCODE_REJECT    "554"
+#define RCODE_TEMPFAIL  "451"
+#define XCODE_REJECT    "5.7.1"
+#define XCODE_TEMPFAIL  "4.7.1"
+
 /* Structures and macros used */
 struct rcpt {
 	char r_addr[ADDRLEN + 1];

@@ -36,11 +36,14 @@
 #include <errno.h>
 #include <fcntl.h>
 
-#include "libmilter/mfapi.h"
+#include <libmilter/mfapi.h>
+
 #include "libclamc.h"
 #include "cfg_file.h"
 #include "spf.h"
 #include "rmilter.h"
+#include "regexp.h"
+#include "dccif.h"
 
 /* config options here... */
 
@@ -59,10 +62,12 @@ typedef int bool;
 /* Global mutexes */
 
 pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 
 static sfsistat mlfi_cleanup(SMFICTX *, bool);
-static int check_clamscan(const char *file, char *strres, size_t strres_len);
+static int check_clamscan(const char *, char *, size_t);
+static int check_dcc(const struct mlfi_priv *, char *, size_t);
 
 static void 
 usage (void)
@@ -71,6 +76,42 @@ usage (void)
 			"-h - this help message\n"
 			"-c - path to config file\n");
 	exit (0);
+}
+
+static sfsistat
+set_reply (SMFICTX *ctx, const struct action *act)
+{
+	int result = SMFIS_CONTINUE;
+
+	switch (act->type) {
+		case ACTION_ACCEPT:
+			result = SMFIS_ACCEPT;
+			break;
+		case ACTION_REJECT:
+			result = SMFIS_REJECT;
+			break;
+		case ACTION_TEMPFAIL:
+			result = SMFIS_TEMPFAIL;
+			break;
+		case ACTION_QUARANTINE:
+			result = SMFIS_DISCARD;
+			break;
+		case ACTION_DISCARD:
+			result = SMFIS_DISCARD;
+			break;
+	}
+	if (act->type == ACTION_REJECT &&
+	    smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT,
+		(char *)act->message) != MI_SUCCESS) {
+		msg_err("smfi_setreply");
+	}
+	if (act->type == ACTION_TEMPFAIL &&
+		smfi_setreply(ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL,
+		(char *)act->message) != MI_SUCCESS) {
+		msg_err("smfi_setreply");
+	}
+
+	return result;
 }
 
 /* Milter callbacks */
@@ -104,19 +145,35 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	}
 
     smfi_setpriv(ctx, priv);
-
-    return SMFIS_CONTINUE;
+	/* Cannot set reply here, so delay processing of connect stage */
+	return SMFIS_CONTINUE;
 }
 
 static sfsistat
 mlfi_helo(SMFICTX *ctx, char *helostr)
 {
 	struct mlfi_priv *priv;
+	struct action *act;
 
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
 	priv->priv_helo[ADDRLEN] = '\0';
+
+	/* Check connect */
+	pthread_mutex_lock (&regexp_mtx);
+	act = regexp_check (cfg, priv, STAGE_CONNECT);
+	pthread_mutex_unlock (&regexp_mtx);
+	if (act != NULL) {
+		return set_reply (ctx, act);
+	}
+	/* Check helo */
+	pthread_mutex_lock (&regexp_mtx);
+	act = regexp_check (cfg, priv, STAGE_HELO);
+	pthread_mutex_unlock (&regexp_mtx);
+	if (act != NULL) {
+		return set_reply (ctx, act);
+	}
 
 	return SMFIS_CONTINUE;
 }
@@ -129,6 +186,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char tmpfrom[ADDRLEN + 1];
 	char *idx;
 	struct mlfi_priv *priv;
+	struct action *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -160,6 +218,14 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		return SMFIS_CONTINUE;
 	}
 
+	/* Check envfrom */
+	pthread_mutex_lock (&regexp_mtx);
+	act = regexp_check (cfg, priv, STAGE_ENVFROM);
+	pthread_mutex_unlock (&regexp_mtx);
+	if (act != NULL) {
+		return set_reply (ctx, act);
+	}
+
 	return SMFIS_CONTINUE;
 }
 
@@ -167,13 +233,7 @@ static sfsistat
 mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 {
 	struct mlfi_priv *priv;
-	char rcpt[ADDRLEN + 1];
-
-	/*
-	 * Strip spaces from the recipient address
-	 */
-	strlcpy (rcpt, *envrcpt, ADDRLEN);
-	rcpt[ADDRLEN] = '\0';
+	struct action *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -181,6 +241,14 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	}
 
 	/* TODO: Add acl check and rbl/dcc checks */
+	/* Check recipient */
+	priv->priv_cur_rcpt = *envrcpt;
+	pthread_mutex_lock (&regexp_mtx);
+	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
+	pthread_mutex_unlock (&regexp_mtx);
+	if (act != NULL) {
+		return set_reply (ctx, act);
+	}
 
 	return SMFIS_CONTINUE;
 }
@@ -188,9 +256,15 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 static sfsistat 
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
-    struct mlfi_priv *priv = MLFIPRIV;
+    struct mlfi_priv *priv;
     char buf[MAXPATHLEN];
     int fd;
+	struct action *act;
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
 
     /*
      * Create temporary file, if this is first call of mlfi_header(), and it
@@ -227,13 +301,27 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
      */
 
     fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
+	/* Check header with regexp */
+	pthread_mutex_lock (&regexp_mtx);
+	act = regexp_check (cfg, priv, STAGE_HEADER);
+	pthread_mutex_unlock (&regexp_mtx);
+	if (act != NULL) {
+		return set_reply (ctx, act);
+	}
+
     return SMFIS_CONTINUE;
 }
 
 static sfsistat 
 mlfi_eoh(SMFICTX * ctx)
 {
-    struct mlfi_priv *priv = MLFIPRIV;
+    struct mlfi_priv *priv;
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
+
     fprintf (priv->fileh, "\n");
     return SMFIS_CONTINUE;
 }
@@ -241,10 +329,15 @@ mlfi_eoh(SMFICTX * ctx)
 static sfsistat 
 mlfi_eom(SMFICTX * ctx)
 {
-    struct mlfi_priv *priv = MLFIPRIV;
+    struct mlfi_priv *priv;
     int r;
     char strres[MAXPATHLEN], buf[MAXPATHLEN];
     char *id;
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
 
     /* set queue id */
     id = smfi_getsymval(ctx, "i");
@@ -270,6 +363,10 @@ mlfi_eom(SMFICTX * ctx)
 		mlfi_cleanup (ctx, false);
 		return SMFIS_REJECT;
     }
+	/* Check dcc */
+	if (check_dcc (priv, strres, MAXPATHLEN) == 0) {
+		return SMFIS_TEMPFAIL;
+	}
 
     return mlfi_cleanup (ctx, true);
 }
@@ -277,10 +374,11 @@ mlfi_eom(SMFICTX * ctx)
 static sfsistat 
 mlfi_close(SMFICTX * ctx)
 {
-    struct mlfi_priv *priv = MLFIPRIV;
+    struct mlfi_priv *priv;
 
-    if (!priv) {
-		return SMFIS_ACCEPT;
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
 	}
 
     free(priv);
@@ -299,9 +397,12 @@ static sfsistat
 mlfi_cleanup(SMFICTX * ctx, bool ok)
 {
     sfsistat rstat = SMFIS_CONTINUE;
-    struct mlfi_priv *priv = MLFIPRIV;
+    struct mlfi_priv *priv;
 
-    if (priv == NULL)  return rstat;
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
 
     if (ok) {
 	/* add a header to the message announcing our presence */
@@ -325,13 +426,26 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 static sfsistat 
 mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 {
-    struct mlfi_priv *priv = MLFIPRIV;
+    struct mlfi_priv *priv;
+	struct action *act;
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
 
     if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
 		msg_warn ("(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;;
     }
+	/* Check body with regexp */
+	pthread_mutex_lock (&regexp_mtx);
+	act = regexp_check (cfg, priv, STAGE_BODY);
+	pthread_mutex_unlock (&regexp_mtx);
+	if (act != NULL) {
+		return set_reply (ctx, act);
+	}
     /* continue processing */
     return SMFIS_CONTINUE;
 }
@@ -369,6 +483,50 @@ check_clamscan(const char *file, char *strres, size_t strres_len)
 	}
 
     return r;
+}
+
+static int
+check_dcc (const struct mlfi_priv *priv, char *strres, size_t strres_len)
+{
+	DCC_EMSG emsg;
+	char *homedir = 0;
+	char opts[] = "";
+	DCC_SOCKU sup;
+	DCCIF_RCPT *rcpts = NULL, *rcpt;
+	int	dccres;
+	int dccfd;
+
+	if (!priv->file) {
+		return 0;
+	}
+
+	if (priv->fileh) {
+		fclose (priv->fileh);
+	}
+
+	dccfd = open (priv->file, O_RDONLY);
+
+	if (dccfd == -1) {
+		msg_warn ("dcc data file open(): %s", strerror (errno));
+		return 0;
+	}
+
+	dcc_mk_su (&sup, AF_INET, &priv->priv_addr.sin_addr, 0);
+
+	rcpt = (DCCIF_RCPT *) malloc (sizeof (DCCIF_RCPT));
+	rcpt->next = rcpts;
+	rcpt->addr = "";
+	rcpt->user = "";
+	rcpt->ok = '?';
+	rcpts = rcpt;
+	
+	dccres = dccif (emsg, /*out body fd*/-1, /*out_body*/0,
+					opts, &sup, priv->priv_hostname, priv->priv_helo,
+					(priv->priv_from == 0) || (priv->priv_from[0] == 0) ? "<>" : priv->priv_from,
+					rcpts, dccfd, /*in_body*/0, homedir);
+	close (dccfd);
+
+	return 1;
 }
 
 
