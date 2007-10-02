@@ -13,7 +13,7 @@ pidfile = ./rmilter.pid;
 # sockets are separated by ','
 # Default: empty
 
-clamav = unix:/var/tmp/clamav.sock;
+clamav = inet:3310@localhost, unix:/var/tmp/clamav.sock;
 
 # bind_socket - socket credits for local bind:
 # unix:/path/to/file - bind to local socket
@@ -33,7 +33,7 @@ max_size = 10M;
 # spf_domains - path to file that contains hash of spf domains
 # Default: empty
 
-spf_domains = rambler.ru;
+spf_domains = rambler.ru, mail.ru;
 
 # rule definition:
 # rule {

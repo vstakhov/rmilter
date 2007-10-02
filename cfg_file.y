@@ -21,7 +21,7 @@
 #include "spf.h"
 
 #define yyerror(fmt, ...) syslog (LOG_ERR, fmt, ##__VA_ARGS__)
-#define YYDEBUG 1
+#define YYDEBUG 0
 
 extern struct config_file *cfg;
 
@@ -55,21 +55,21 @@ add_clamav_server (struct config_file *cf, char *str)
 		cf->clamav_servers_num++;
 		return 1;
 	} else if (strncmp (cur_tok, "inet", sizeof ("inet")) == 0) {
-		srv->sock.inet.port = htonl (strtol (str, &err_str, 10));
+		host_tok = strsep (&str, "@");
+		srv->sock.inet.port = htonl (strtol (host_tok, &err_str, 10));
 		if (*err_str != '\0') {
 			free (srv);
 			return 0;
 		}
 
-		host_tok = strsep (&cur_tok, "@");
-		if (!host_tok || !cur_tok || !inet_aton (cur_tok, &srv->sock.inet.addr)) {
+		if (!host_tok || !str) {
 			free (srv);
 			return 0;
 		}
 		else {
-			if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
+			if (!inet_aton (str, &srv->sock.inet.addr)) {
 				/* Try to call gethostbyname */
-				he = gethostbyname (cur_tok);
+				he = gethostbyname (str);
 				if (he == NULL) {
 					free (srv);
 					return 0;
@@ -395,7 +395,7 @@ clamav:
 
 clamav_params:
 	clamav_server
-	| clamav_server COMMA clamav_params
+	| clamav_params COMMA clamav_server
 	;
 
 clamav_server:
