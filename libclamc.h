@@ -3,6 +3,8 @@
 #ifndef LIBCLAMC_H
 #define LIBCLAMC_H 1
 
-int clamscan(const char *file, const char *sockets, char *strres, size_t strres_len);
+struct config_file;
+
+int clamscan(const char *file, const struct config_file *cfg, char *strres, size_t strres_len);
 
 #endif

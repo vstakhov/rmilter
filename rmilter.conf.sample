@@ -9,7 +9,7 @@ pidfile = ./rmilter.pid;
 
 # clamav - clamav socket definitions in format:
 # unix:/path/to/file
-# inet:host:port
+# inet:port@host
 # sockets are separated by ','
 # Default: empty
 
@@ -22,12 +22,22 @@ clamav = unix:/var/tmp/clamav.sock;
 
 bind_socket = unix:./rmilter.sock;
 
+# tempdir - path to directory that contains temporary files
+# Default: $TMPDIR
+tempdir = /tmp;
+
+# max_size - maximum size of scanned mail with clamav and dcc
+# Default: 0 (no limit)
+max_size = 10M;
+
 # spf_domains - path to file that contains hash of spf domains
 # Default: empty
 
+spf_domains = rambler.ru;
+
 # rule definition:
 # rule {
-#	accept|discard|reject|tempfail|quarantine [message]; <- action definition
+#	accept|discard|reject|tempfail|quarantine "[message]"; <- action definition
 #	[not] connect <regexp> <regexp>; <- conditions
 #	helo <regexp>;
 #	envfrom <regexp>;
@@ -35,3 +45,8 @@ bind_socket = unix:./rmilter.sock;
 #	header <regexp> <regexp>;
 #	body <regexp>;
 # };
+
+rule {
+	reject "No localhost";
+	helo /^localhost.localdomain$/;
+};

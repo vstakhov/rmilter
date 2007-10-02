@@ -330,7 +330,8 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
  * server (suppose scanned message killed clamd...)
  */
 
-int clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_len)
+int 
+clamscan(const char *file, const struct config_file *cfg, char *strres, size_t strres_len)
 {
     int retry = 5, r = -2;
     /* struct stat sb; */
@@ -340,15 +341,6 @@ int clamscan(const char *file, struct config_file *cfg, char *strres, size_t str
     int i, k;
 
     *strres = '\0';
-    /* check file size */
-/*
-    stat(file, &sb);
-    if (sb.st_size > SCAN_SIZELIMIT) {
-	msg_warn("(clamscan) message size exceeds limit, not scanned, %s", file);
-	return 0;
-    }
-*/
-
     /*
      * Parse sockets to use in balancing.
      */

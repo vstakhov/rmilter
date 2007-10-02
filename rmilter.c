@@ -47,10 +47,6 @@
 
 /* config options here... */
 
-char *var_clamd_socket = NULL;
-char *var_tempdir = NULL;
-size_t var_sizelimit = 1024 * 1024;
-
 struct config_file *cfg;
 
 #ifndef true
@@ -220,7 +216,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
-	if (spf_check (priv, cfg)) {
+	if (cfg->spf_domains_num > 0 && spf_check (priv, cfg)) {
 		return SMFIS_CONTINUE;
 	}
 
@@ -278,7 +274,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
      */
 
     if (!priv->fileh) {
-		snprintf (buf, MAXPATHLEN, "%s/msg.XXXXXXXX", var_tempdir);
+		snprintf (buf, MAXPATHLEN, "%s/msg.XXXXXXXX", cfg->temp_dir);
 		priv->file = strdup(buf);
 		/* mkstemp is based on arc4random (3) and is not reentrable
 		 * so acquire mutex for it
@@ -341,6 +337,7 @@ mlfi_eom(SMFICTX * ctx)
     int r;
     char strres[MAXPATHLEN], buf[MAXPATHLEN];
     char *id;
+    struct stat sb;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -358,19 +355,28 @@ mlfi_eom(SMFICTX * ctx)
 
     fflush (priv->fileh);
 
-    r = check_clamscan (priv->file, strres, MAXPATHLEN);
-    if (r < 0) {
-		msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
-		(void)mlfi_cleanup (ctx, false);
-		return SMFIS_TEMPFAIL;
+    /* check file size */
+    stat(priv->file, &sb);
+    if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
+		msg_warn ("message size exceeds limit, not scanned, %s", priv->file);
+		return mlfi_cleanup (ctx, true);
     }
-    if (*strres) {
-		msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
-		snprintf (buf, MAXPATHLEN, "Infected: %s", strres);
-		smfi_setreply (ctx, "554", "5.7.1", buf);
-		mlfi_cleanup (ctx, false);
-		return SMFIS_REJECT;
-    }
+
+	if (!LIST_EMPTY (&cfg->clamav_servers)) {
+	    r = check_clamscan (priv->file, strres, MAXPATHLEN);
+    	if (r < 0) {
+			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+			(void)mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+    	}
+    	if (*strres) {
+			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
+			snprintf (buf, MAXPATHLEN, "Infected: %s", strres);
+			smfi_setreply (ctx, "554", "5.7.1", buf);
+			mlfi_cleanup (ctx, false);
+			return SMFIS_REJECT;
+    	}
+	}
 	/* Check dcc */
 	if (check_dcc (priv, strres, MAXPATHLEN) == 0) {
 		return SMFIS_TEMPFAIL;
@@ -474,18 +480,11 @@ static int
 check_clamscan(const char *file, char *strres, size_t strres_len)
 {
     int r = -2;
-    struct stat sb;
 
     *strres = '\0';
 
-    /* check file size */
-    stat(file, &sb);
-    if (sb.st_size > var_sizelimit) {
-		msg_warn ("(check_clamscan) message size exceeds limit, not scanned, %s", file);
-		return 0;
-    }
     /* scan using libclamc clamscan() */
-    r = clamscan (file, var_clamd_socket, strres, strres_len);
+    r = clamscan (file, cfg, strres, strres_len);
  
     /* reset virusname for non-viruses */
     if (*strres && (!strcmp (strres, "Suspected.Zip") || !strcmp (strres, "Oversized.Zip"))) {
@@ -594,12 +593,6 @@ int main(int argc, char *argv[])
 		}
     }
 
-    if (!var_tempdir) {
-		var_tempdir = getenv("TMPDIR");
-
-	if (!var_tempdir)
-	    var_tempdir = strdup("/tmp");
-    }
 
     openlog("rmilter", LOG_PID, LOG_MAIL);
     msg_warn ("(main) starting...");
@@ -629,6 +622,19 @@ int main(int argc, char *argv[])
 	if (yyparse() != 0 || yynerrs > 0) {
 		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
 		return EBADF;
+	}
+
+	/* Strictly set temp dir */
+    if (!cfg->temp_dir) {
+		msg_warn ("tempdir is not set, trying to use $TMPDIR");
+		cfg->temp_dir = getenv("TMPDIR");
+
+		if (!cfg->temp_dir) {
+	    	cfg->temp_dir = strdup("/tmp");
+		}
+    }
+	if (cfg->sizelimit == 0) {
+		msg_warn ("maxsize is not set, no limits on size of scanned mail");
 	}
 
 	/* Sort spf domains array */

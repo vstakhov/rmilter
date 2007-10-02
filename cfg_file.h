@@ -81,9 +81,8 @@ struct config_file {
 	char *pid_file;
 	char *temp_dir;
 
-	char *spf_file;
-
 	char *sock_cred;
+	size_t sizelimit;
 
 	int clamav_servers_num;
 

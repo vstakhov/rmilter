@@ -47,6 +47,34 @@ lookup(char *s)
 		return (STRING);
 }
 
+static size_t
+parse_limit (const char *limit)
+{
+	size_t result = 0;
+	char *err_str;
+
+	if (!limit || *limit == '\0') return 0;
+
+	result = strtoul (limit, &err_str, 10);
+
+	if (*err_str != '\0') {
+		/* Megabytes */
+		if (*err_str == 'm' || *err_str == 'M') {
+			result *= 1048576L;
+		}
+		/* Kilobytes */
+		else if (*err_str == 'k' || *err_str == 'K') {
+			result *= 1024;
+		}
+		/* Gigabytes */
+		else if (*err_str == 'g' || *err_str == 'G') {
+			result *= 1073741824L;
+		}
+	}
+
+	return result;
+}
+
 %}
 
 %option  noyywrap
@@ -59,6 +87,7 @@ rule							return RULE;
 clamav							return CLAMAV;
 spf_domains						return SPF;
 bind_socket						return BINDSOCK;
+max_size						return MAXSIZE;
 \"								return QUOTE;
 \{								return OBRACE;
 \}								return EBRACE;
@@ -67,11 +96,13 @@ bind_socket						return BINDSOCK;
 =								return EQSIGN;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
+\".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;
+[0-9]+[kKmMgG]?					yylval.limit=parse_limit(yytext); return LIMIT;
 unix:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 local:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
-[a-zA-Z][a-zA-Z]*				return lookup (yytext);
+[a-zA-Z][a-zA-Z]*				yylval.string=strdup(yytext); return lookup (yytext);
 \/.+\/[a-zA-Z]?					yylval.string=strdup(yytext); return REGEXP;
-^[a-zA-Z0-9][a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
+[a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
 [a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
 %%

@@ -21,7 +21,7 @@
 #include "spf.h"
 
 #define yyerror(fmt, ...) syslog (LOG_ERR, fmt, ##__VA_ARGS__)
-#define YYDEBUG 0
+#define YYDEBUG 1
 
 extern struct config_file *cfg;
 
@@ -93,13 +93,30 @@ static struct action *
 create_action (enum action_type type, const char *message)
 {
 	struct action *new;
+	size_t len = strlen (message);
+
+	if (message == NULL) return NULL;
 
 	new = (struct action *)malloc (sizeof (struct action)); 
 
 	if (new == NULL) return NULL;
 
 	new->type = type;
-	new->message = strdup (message);
+	/* Trim quotes */
+	if (*message == '"') {
+		*message++;
+		len--;
+	}
+	if (message[len - 1] == '"') {
+		len--;
+	}
+
+	new->message = (char *)malloc (len + 1);
+
+	if (new->message == NULL) return NULL;
+
+	strlcpy (new->message, message, len);
+	new->message[len] = '\0';
 
 	return new;
 }
@@ -163,22 +180,26 @@ add_spf_domain (struct config_file *cfg, char *domain)
 	char *string;
 	struct condition *cond;
 	struct action *action;
+	size_t limit;
 }
 
-%token	ERROR STRING
+%token	ERROR STRING QUOTEDSTRING
 %token	ACCEPT REJECTL TEMPFAIL DISCARD QUARANTINE
 %token	CONNECT HELO ENVFROM ENVRCPT HEADER MACRO BODY
 %token	AND OR NOT
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN
+%token  MAXSIZE LIMIT
 %type	<string>	STRING
+%type	<string>	QUOTEDSTRING
 %type	<string>	FILENAME
 %type	<string>	REGEXP
 %type   <string>  	SOCKCRED
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN
+%type	<limit>		LIMIT
 %%
 
 file	: /* empty */
@@ -192,6 +213,7 @@ command	:
 	| clamav
 	| spf
 	| bindsock
+	| maxsize
 	;
 
 tempdir :
@@ -215,7 +237,8 @@ rulebody	:
 				struct rule *cur_rule;
 				cur_rule = (struct rule *) malloc (sizeof (struct rule));
 				if (cur_rule == NULL) {
-					syslog (LOG_ERR, "yyparse: malloc: %s", strerror (errno));
+					yyerror ("yyparse: malloc: %s", strerror (errno));
+					YYERROR;
 				}
 
 				cur_rule->act = $1;
@@ -227,41 +250,41 @@ rulebody	:
 			;
 
 action	: 
-	REJECTL STRING		{
+	REJECTL QUOTEDSTRING {
 		$$ = create_action(ACTION_REJECT, $2);
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: create_action");
+			yyerror ("yyparse: create_action");
 			YYERROR;
 		}
 		free($2);
 	}
-	| TEMPFAIL STRING	{
+	| TEMPFAIL QUOTEDSTRING {
 		$$ = create_action(ACTION_TEMPFAIL, $2);
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: create_action");
+			yyerror ("yyparse: create_action");
 			YYERROR;
 		}
 		free($2);
 	}
-	| QUARANTINE STRING	{
+	| QUARANTINE QUOTEDSTRING	{
 		$$ = create_action(ACTION_QUARANTINE, $2);
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: create_action");
+			yyerror ("yyparse: create_action");
 			YYERROR;
 		}
 		free($2);
 	}
-	| DISCARD 		{
+	| DISCARD {
 		$$ = create_action(ACTION_DISCARD, "");
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: create_action");
+			yyerror ("yyparse: create_action");
 			YYERROR;
 		}
 	}
-	| ACCEPT 		{
+	| ACCEPT {
 		$$ = create_action(ACTION_ACCEPT, "");
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: create_action");
+			yyerror ("yyparse: create_action");
 			YYERROR;
 		}
 	}
@@ -269,10 +292,15 @@ action	:
 
 expr_l	: 
 	expr SEMICOLON		{
+		cur_conditions = (struct condl *)malloc (sizeof (struct condl));
+		if (cur_conditions == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror (errno));
+			YYERROR;
+		}
 		LIST_INIT (cur_conditions);
 		$$ = $1;
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: malloc: %s", strerror(errno));
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
 		}
 		LIST_INSERT_HEAD (cur_conditions, $$, next);
@@ -280,7 +308,7 @@ expr_l	:
 	| expr_l expr	{
 		$$ = $2;
 		if ($$ == NULL) {
-			syslog(LOG_ERR, "yyparse: malloc: %s", strerror(errno));
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
 		}
 		LIST_INSERT_HEAD (cur_conditions, $$, next);
@@ -305,45 +333,57 @@ expr	:
 term	: 
 	CONNECT REGEXP REGEXP	{
 		$$ = create_cond(COND_CONNECT, $2, $3);
-		if ($$ == NULL)
+		if ($$ == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
+		}
 		cur_flags |= COND_CONNECT_FLAG;
 		free($2);
 		free($3);
 	}
 	| HELO REGEXP		{
 		$$ = create_cond(COND_HELO, $2, NULL);
-		if ($$ == NULL)
+		if ($$ == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
+		}
 		cur_flags |= COND_HELO_FLAG;
 		free($2);
 	}
 	| ENVFROM REGEXP	{
 		$$ = create_cond(COND_ENVFROM, $2, NULL);
-		if ($$ == NULL)
+		if ($$ == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
+		}
 		cur_flags |= COND_ENVFROM_FLAG;
 		free($2);
 	}
 	| ENVRCPT REGEXP	{
 		$$ = create_cond(COND_ENVRCPT, $2, NULL);
-		if ($$ == NULL)
+		if ($$ == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
+		}
 		cur_flags |= COND_ENVRCPT_FLAG;
 		free($2);
 	}
 	| HEADER REGEXP REGEXP	{
 		$$ = create_cond(COND_HEADER, $2, $3);
-		if ($$ == NULL)
+		if ($$ == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
+		}
 		cur_flags |= COND_HEADER_FLAG;
 		free($2);
 		free($3);
 	}
 	| BODY REGEXP		{
 		$$ = create_cond(COND_BODY, $2, NULL);
-		if ($$ == NULL)
+		if ($$ == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror(errno));
 			YYERROR;
+		}
 		cur_flags |= COND_BODY_FLAG;
 		free($2);
 	}
@@ -354,19 +394,17 @@ clamav:
 	;
 
 clamav_params:
-	SOCKCRED {
+	clamav_server
+	| clamav_server COMMA clamav_params
+	;
+
+clamav_server:
+	SOCKCRED	{
 		if (!add_clamav_server (cfg, $1)) {
 			yyerror ("yyparse: add_clamav_server");
 			YYERROR;
 		}
 		free ($1);
-	}
-	| clamav_params COMMA SOCKCRED {
-		if (!add_clamav_server (cfg, $3)) {
-			yyerror ("yyparse: add_clamav_server");
-			YYERROR;
-		}
-		free ($3);
 	}
 	;
 
@@ -374,14 +412,13 @@ spf:
 	SPF EQSIGN spf_params 
 	;
 spf_params:
+	spf_domain
+	| spf_params COMMA spf_domain
+	;
+
+spf_domain:
 	DOMAIN {
 		if (!add_spf_domain (cfg, $1)) {
-			yyerror ("yyparse: add_spf_domain");
-			YYERROR;
-		}
-	}
-	| spf_params COMMA DOMAIN {
-		if (!add_spf_domain (cfg, $3)) {
 			yyerror ("yyparse: add_spf_domain");
 			YYERROR;
 		}
@@ -391,6 +428,12 @@ spf_params:
 bindsock:
 	BINDSOCK EQSIGN SOCKCRED {
 		cfg->sock_cred = $3;
+	}
+	;
+
+maxsize:
+	MAXSIZE EQSIGN LIMIT {
+		cfg->sizelimit = $3;
 	}
 	;
 %%
