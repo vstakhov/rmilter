@@ -53,7 +53,7 @@ struct mlfi_priv {
 		char *header_value;
 	} priv_cur_header;
 	struct {
-		unsigned char *value;
+		char *value;
 		size_t len;
 	} priv_cur_body;
     char mlfi_id[32];

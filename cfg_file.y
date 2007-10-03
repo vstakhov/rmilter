@@ -28,6 +28,29 @@ extern struct config_file *cfg;
 struct condl *cur_conditions;
 uint8_t cur_flags = 0;
 
+static size_t
+copy_regexp (char **dst, const char *src)
+{
+	size_t len;
+	if (!src || *src == '\0') return 0;
+
+	len = strlen (src);
+
+	/* Skip slashes */
+	if (*src == '/') {
+		src++;
+		len--;
+	}
+	if (src[len - 1] == '/') {
+		len--;
+	}
+
+	*dst = malloc (len + 1);
+	if (!*dst) return 0;
+
+	return strlcpy (*dst, src, len + 1);
+}
+
 static int
 add_clamav_server (struct config_file *cf, char *str)
 {
@@ -56,7 +79,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		return 1;
 	} else if (strncmp (cur_tok, "inet", sizeof ("inet")) == 0) {
 		host_tok = strsep (&str, "@");
-		srv->sock.inet.port = htonl (strtol (host_tok, &err_str, 10));
+		srv->sock.inet.port = htons ((uint16_t)strtoul (host_tok, &err_str, 10));
 		if (*err_str != '\0') {
 			free (srv);
 			return 0;
@@ -104,7 +127,7 @@ create_action (enum action_type type, const char *message)
 	new->type = type;
 	/* Trim quotes */
 	if (*message == '"') {
-		*message++;
+		message++;
 		len--;
 	}
 	if (message[len - 1] == '"') {
@@ -115,8 +138,7 @@ create_action (enum action_type type, const char *message)
 
 	if (new->message == NULL) return NULL;
 
-	strlcpy (new->message, message, len);
-	new->message[len] = '\0';
+	strlcpy (new->message, message, len + 1);
 
 	return new;
 }
@@ -137,20 +159,28 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 		new->args[0].empty = 1;
 	}
 	else {
-		new->args[0].src = strdup (arg1);
-		new->args[0].re = pcre_compile (arg1, 0, &read_err, &offset, NULL);
-		if (new->args[0].re == NULL) {
+		if (!copy_regexp (&new->args[0].src, arg1)) {
 			new->args[0].empty = 1;
+		}
+		else {
+			new->args[0].re = pcre_compile (new->args[0].src, 0, &read_err, &offset, NULL);
+			if (new->args[0].re == NULL) {
+				new->args[0].empty = 1;
+			}
 		}
 	}
 	if (arg2 == NULL || *arg2 == '\0') {
 		new->args[1].empty = 1;
 	}
 	else {
-		new->args[1].src = strdup (arg2);
-		new->args[1].re = pcre_compile (arg2, 0, &read_err, &offset, NULL);
-		if (new->args[1].re == NULL) {
+		if (!copy_regexp (&new->args[1].src, arg2)) {
 			new->args[1].empty = 1;
+		}
+		else {
+			new->args[1].re = pcre_compile (new->args[1].src, 0, &read_err, &offset, NULL);
+			if (new->args[1].re == NULL) {
+				new->args[1].empty = 1;
+			}
 		}
 	}
 

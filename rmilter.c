@@ -37,6 +37,7 @@
 #include <fcntl.h>
 
 #include <libmilter/mfapi.h>
+#include "spf2/spf.h"
 
 #include "libclamc.h"
 #include "cfg_file.h"
@@ -63,12 +64,12 @@ pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 static sfsistat mlfi_cleanup(SMFICTX *, bool);
 static int check_clamscan(const char *, char *, size_t);
-static int check_dcc(const struct mlfi_priv *, char *, size_t);
+static int check_dcc(const struct mlfi_priv *);
 
 int
 my_strcmp (const void *s1, const void *s2)
 {
-	return strcmp ((const char *)s1, (const char *)s2);
+	return strcmp (*(const char **)s1, *(const char **)s2);
 }
 
 static void 
@@ -137,9 +138,9 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		switch (addr->sa_family) {
 		case AF_INET:
 			memcpy(&priv->priv_addr, addr, sizeof (struct sockaddr_in));
-			inet_ntop (AF_INET, addr, priv->priv_ip, INET_ADDRSTRLEN);
+			inet_ntop (AF_INET, &priv->priv_addr.sin_addr, priv->priv_ip, INET_ADDRSTRLEN);
 			if (hostname != NULL)
-				strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname) - 1);
+				strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
 			break;
 		default:
 			msg_warn ("bad client address");
@@ -160,7 +161,6 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
-	priv->priv_helo[ADDRLEN] = '\0';
 
 	/* Check connect */
 	pthread_mutex_lock (&regexp_mtx);
@@ -189,6 +189,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char *idx;
 	struct mlfi_priv *priv;
 	struct action *act;
+	int r, res = SMFIS_CONTINUE;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -199,7 +200,6 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	 * Strip spaces from the source address
 	 */
 	strlcpy (tmpfrom, *envfrom, ADDRLEN);
-	tmpfrom[ADDRLEN] = '\0';
 
 	/* 
 	 * Strip anything before the last '=' in the
@@ -211,13 +211,24 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		idx = tmpfrom;
 
 	strlcpy (priv->priv_from, idx, ADDRLEN);
-	priv->priv_from[ADDRLEN] = '\0';
 
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
-	if (cfg->spf_domains_num > 0 && spf_check (priv, cfg)) {
-		return SMFIS_CONTINUE;
+	if (cfg->spf_domains_num > 0) {
+		r = spf_check (priv, cfg);
+		switch (r) {
+			case SPF_RESULT_PASS:
+			case SPF_RESULT_SOFTFAIL:
+			case SPF_RESULT_NEUTRAL:
+			case SPF_RESULT_NONE:
+				res = SMFIS_CONTINUE;
+				break;
+			case SPF_RESULT_FAIL:
+	    		smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
+				return SMFIS_REJECT;
+				break;
+		}
 	}
 
 	/* Check envfrom */
@@ -228,7 +239,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		return set_reply (ctx, act);
 	}
 
-	return SMFIS_CONTINUE;
+	return res;
 }
 
 static sfsistat
@@ -372,14 +383,30 @@ mlfi_eom(SMFICTX * ctx)
     	if (*strres) {
 			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
 			snprintf (buf, MAXPATHLEN, "Infected: %s", strres);
-			smfi_setreply (ctx, "554", "5.7.1", buf);
+			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
     	}
 	}
 	/* Check dcc */
-	if (check_dcc (priv, strres, MAXPATHLEN) == 0) {
-		return SMFIS_TEMPFAIL;
+	r = check_dcc (priv);
+	switch (r) {
+		case 'A':
+			break;
+		case 'G':
+			msg_warn ("(mlfi_eom, %s) greylisting by dcc", priv->mlfi_id);
+			smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, "Try again later");
+			mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+		case 'R':
+			msg_warn ("(mlfi_eom, %s) rejected by dcc", priv->mlfi_id);
+			smfi_setreply (ctx, "550", XCODE_REJECT, buf);
+			mlfi_cleanup (ctx, false);
+			return SMFIS_REJECT;
+		case 'S': /* XXX - dcc selective reject - not implemented yet */
+		case 'T': /* Temp failure by dcc */
+		default:
+			break;
 	}
 
     return mlfi_cleanup (ctx, true);
@@ -455,7 +482,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
     }
 	/* Check body with regexp */
 	pthread_mutex_lock (&regexp_mtx);
-	priv->priv_cur_body.value = bodyp;
+	priv->priv_cur_body.value = (char *)bodyp;
 	priv->priv_cur_body.len = bodylen;
 	act = regexp_check (cfg, priv, STAGE_BODY);
 	pthread_mutex_unlock (&regexp_mtx);
@@ -495,7 +522,7 @@ check_clamscan(const char *file, char *strres, size_t strres_len)
 }
 
 static int
-check_dcc (const struct mlfi_priv *priv, char *strres, size_t strres_len)
+check_dcc (const struct mlfi_priv *priv)
 {
 	DCC_EMSG emsg;
 	char *homedir = 0;
@@ -535,7 +562,7 @@ check_dcc (const struct mlfi_priv *priv, char *strres, size_t strres_len)
 					rcpts, dccfd, /*in_body*/0, homedir);
 	close (dccfd);
 
-	return 1;
+	return dccres;
 }
 
 
@@ -638,7 +665,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Sort spf domains array */
-	qsort ((void *)cfg->spf_domains, sizeof (char *), cfg->spf_domains_num, my_strcmp);
+	qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
 
     srandomdev();
 

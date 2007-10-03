@@ -50,3 +50,7 @@ rule {
 	reject "No localhost";
 	helo /^localhost.localdomain$/;
 };
+rule {
+        reject "Blah blah";
+        header /^From:$/ /.*vsevolod.*/;
+};

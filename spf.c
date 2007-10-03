@@ -43,7 +43,6 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 	if (fromp[0] == '<')
 		fromp++; /* strip leading < */
 	strlcpy (from, fromp, NS_MAXDNAME);
-	from[NS_MAXDNAME] = '\0';
 	len = strlen(from);
 	if (fromp[len - 1] == '>')
 		from[len - 1] = '\0'; /* strip trailing > */
@@ -55,8 +54,9 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 	}
 	
 	/* Search in spf_domains array */
-	if (! bsearch ((void *) domain_pos, cfg->spf_domains, sizeof (char *), 
-		cfg->spf_domains_num, my_strcmp)) {
+	domain_pos ++;
+	if (! bsearch ((void *) &domain_pos, cfg->spf_domains, cfg->spf_domains_num, 
+					sizeof (char *), my_strcmp)) {
 		/* Domain not found, stop check */
 		return 1;
 	}
@@ -103,8 +103,12 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 	 * Get the SPF result
 	 */
 	SPF_request_query_mailfrom (spf_request, &spf_response);
-	if ((res = SPF_response_result (spf_response)) == SPF_RESULT_PASS)
+	if ((res = SPF_response_result (spf_response)) == SPF_RESULT_PASS) {
 		result = 1;
+	}
+	else {
+		result = res;
+	}
 
 	SPF_response_free (spf_response);
 out3:
