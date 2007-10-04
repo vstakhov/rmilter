@@ -124,7 +124,7 @@ use_dcc							return USEDCC;
 ;								return SEMICOLON;
 ,								return COMMA;
 =								return EQSIGN;
-yes|YES|no|NO|0|1				yylval.flag=parse_flag(yytext); printf ("%d\n", yylval.flag); return FLAG;
+yes|YES|no|NO|0|1				yylval.flag=parse_flag(yytext); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
 \".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;
