@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/param.h>
 #include <stdio.h>
 #include <netinet/in.h>
 #include "cfg_file.h"
@@ -58,7 +59,7 @@ struct mlfi_priv {
 		size_t len;
 	} priv_cur_body;
     char mlfi_id[32];
-    char *file;
+    char file[PATH_MAX];
     FILE *fileh;
 };
 

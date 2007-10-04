@@ -252,7 +252,7 @@ static sfsistat
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
     struct mlfi_priv *priv;
-    char buf[MAXPATHLEN];
+    char buf[PATH_MAX];
     int fd;
 	struct action *act;
 
@@ -267,8 +267,8 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
      */
 
     if (!priv->fileh) {
-		snprintf (buf, MAXPATHLEN, "%s/msg.XXXXXXXX", cfg->temp_dir);
-		priv->file = strdup(buf);
+		snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
+		strlcpy (priv->file, buf, sizeof (priv->file));
 		/* mkstemp is based on arc4random (3) and is not reentrable
 		 * so acquire mutex for it
 		 */
@@ -328,7 +328,7 @@ mlfi_eom(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
     int r;
-    char strres[MAXPATHLEN], buf[MAXPATHLEN];
+    char strres[PATH_MAX], buf[PATH_MAX];
     char *id;
     struct stat sb;
 
@@ -376,7 +376,7 @@ mlfi_eom(SMFICTX * ctx)
     }
 
 	if (!LIST_EMPTY (&cfg->clamav_servers)) {
-	    r = check_clamscan (priv->file, strres, MAXPATHLEN);
+	    r = check_clamscan (priv->file, strres, PATH_MAX);
     	if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
 			(void)mlfi_cleanup (ctx, false);
@@ -384,7 +384,7 @@ mlfi_eom(SMFICTX * ctx)
     	}
     	if (*strres) {
 			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
-			snprintf (buf, MAXPATHLEN, "Infected: %s", strres);
+			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
@@ -459,10 +459,9 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		fclose (priv->fileh);
 		priv->fileh = NULL;
     }
-    if (priv->file) {
+    if (*priv->file) {
 		unlink (priv->file);
-		free(priv->file);
-		priv->file = NULL;
+		*priv->file = '\0';
     }
     /* return status */
     return rstat;
@@ -532,11 +531,11 @@ check_dcc (const struct mlfi_priv *priv)
 	char *homedir = 0;
 	char opts[] = "";
 	DCC_SOCKU sup;
-	DCCIF_RCPT *rcpts = NULL, *rcpt;
+	DCCIF_RCPT *rcpts = NULL, rcpt;
 	int	dccres;
 	int dccfd;
 
-	if (!priv->file) {
+	if (!*priv->file) {
 		return 0;
 	}
 
@@ -553,12 +552,11 @@ check_dcc (const struct mlfi_priv *priv)
 
 	dcc_mk_su (&sup, AF_INET, &priv->priv_addr.sin_addr, 0);
 
-	rcpt = (DCCIF_RCPT *) malloc (sizeof (DCCIF_RCPT));
-	rcpt->next = rcpts;
-	rcpt->addr = priv->priv_rcpt;
-	rcpt->user = "";
-	rcpt->ok = '?';
-	rcpts = rcpt;
+	rcpt.next = rcpts;
+	rcpt.addr = priv->priv_rcpt;
+	rcpt.user = "";
+	rcpt.ok = '?';
+	rcpts = &rcpt;
 	
 	dccres = dccif (emsg, /*out body fd*/-1, /*out_body*/0,
 					opts, &sup, priv->priv_hostname, priv->priv_helo,
