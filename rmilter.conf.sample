@@ -35,6 +35,11 @@ max_size = 10M;
 
 spf_domains = rambler.ru, mail.ru;
 
+# use_dcc - whether use or not dcc system
+# Default: no
+
+use_dcc = yes;
+
 # rule definition:
 # rule {
 #	accept|discard|reject|tempfail|quarantine "[message]"; <- action definition

@@ -75,6 +75,35 @@ parse_limit (const char *limit)
 	return result;
 }
 
+static char
+parse_flag (const char *str)
+{
+	if (!str || !*str) return -1;
+
+	if (*str == '1' && *(str + 1) == '\0') {
+		return 1;
+	}
+
+	if ((*str == 'Y' || *str == 'y') &&
+		(*(str + 1) == 'E' || *(str + 1) == 'e') &&
+		(*(str + 2) == 'S' || *(str + 2) == 's') &&
+		*(str + 3) == '\0') {
+		return 1;		
+	}
+
+	if (*str == '0' && *(str + 1) == '\0') {
+		return 0;
+	}
+
+	if ((*str == 'N' || *str == 'n') &&
+		(*(str + 1) == 'O' || *(str + 1) == 'o') &&
+		*(str + 2) == '\0') {
+		return 0;		
+	}
+
+	return -1;
+}
+
 %}
 
 %option  noyywrap
@@ -88,12 +117,14 @@ clamav							return CLAMAV;
 spf_domains						return SPF;
 bind_socket						return BINDSOCK;
 max_size						return MAXSIZE;
+use_dcc							return USEDCC;
 \"								return QUOTE;
 \{								return OBRACE;
 \}								return EBRACE;
 ;								return SEMICOLON;
 ,								return COMMA;
 =								return EQSIGN;
+yes|YES|no|NO|0|1				yylval.flag=parse_flag(yytext); printf ("%d\n", yylval.flag); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
 \".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;

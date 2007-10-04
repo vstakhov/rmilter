@@ -211,16 +211,17 @@ add_spf_domain (struct config_file *cfg, char *domain)
 	struct condition *cond;
 	struct action *action;
 	size_t limit;
+	char flag;
 }
 
-%token	ERROR STRING QUOTEDSTRING
+%token	ERROR STRING QUOTEDSTRING FLAG
 %token	ACCEPT REJECTL TEMPFAIL DISCARD QUARANTINE
 %token	CONNECT HELO ENVFROM ENVRCPT HEADER MACRO BODY
 %token	AND OR NOT
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN
-%token  MAXSIZE LIMIT
+%token  MAXSIZE LIMIT USEDCC
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
 %type	<string>	FILENAME
@@ -230,6 +231,7 @@ add_spf_domain (struct config_file *cfg, char *domain)
 %type   <action>  	action
 %type	<string>	DOMAIN
 %type	<limit>		LIMIT
+%type	<flag>		FLAG
 %%
 
 file	: /* empty */
@@ -244,6 +246,7 @@ command	:
 	| spf
 	| bindsock
 	| maxsize
+	| usedcc
 	;
 
 tempdir :
@@ -466,5 +469,13 @@ maxsize:
 		cfg->sizelimit = $3;
 	}
 	;
+usedcc:
+	USEDCC EQSIGN FLAG {
+		if ($3 == -1) {
+			yyerror ("yyparse: parse flag");
+			YYERROR;
+		}
+		cfg->use_dcc = $3;
+	}
 %%
 

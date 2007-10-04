@@ -189,7 +189,6 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char *idx;
 	struct mlfi_priv *priv;
 	struct action *act;
-	int r, res = SMFIS_CONTINUE;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -212,25 +211,6 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 	strlcpy (priv->priv_from, idx, ADDRLEN);
 
-	/*
-	 * Is the sender address SPF-compliant?
-	 */
-	if (cfg->spf_domains_num > 0) {
-		r = spf_check (priv, cfg);
-		switch (r) {
-			case SPF_RESULT_PASS:
-			case SPF_RESULT_SOFTFAIL:
-			case SPF_RESULT_NEUTRAL:
-			case SPF_RESULT_NONE:
-				res = SMFIS_CONTINUE;
-				break;
-			case SPF_RESULT_FAIL:
-	    		smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
-				return SMFIS_REJECT;
-				break;
-		}
-	}
-
 	/* Check envfrom */
 	pthread_mutex_lock (&regexp_mtx);
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
@@ -239,7 +219,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		return set_reply (ctx, act);
 	}
 
-	return res;
+	return SMFIS_CONTINUE;
 }
 
 static sfsistat
@@ -252,8 +232,10 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
-
-	/* TODO: Add acl check and rbl/dcc checks */
+	/* Copy first recipient to priv - this is needed for dcc checking */
+	if (!priv->priv_cur_rcpt) {
+		strlcpy (priv->priv_rcpt, *envrcpt, sizeof (priv->priv_rcpt));
+	}
 	/* Check recipient */
 	priv->priv_cur_rcpt = *envrcpt;
 	pthread_mutex_lock (&regexp_mtx);
@@ -360,7 +342,27 @@ mlfi_eom(SMFICTX * ctx)
     if (id == NULL) {
 		id = "NOQUEUE";
 	}
-    strncpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+    strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+
+	/*
+	 * Is the sender address SPF-compliant?
+	 */
+	if (cfg->spf_domains_num > 0) {
+		r = spf_check (priv, cfg);
+		switch (r) {
+			case SPF_RESULT_PASS:
+			case SPF_RESULT_SOFTFAIL:
+			case SPF_RESULT_NEUTRAL:
+			case SPF_RESULT_NONE:
+				break;
+			case SPF_RESULT_FAIL:
+				msg_warn ("Rejecting sender %s due to SPF policy violations", priv->priv_from);
+	    		smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
+				(void)mlfi_cleanup (ctx, false);
+				return SMFIS_REJECT;
+				break;
+		}
+	}
 
     msg_warn ("%s: tempfile=%s", priv->mlfi_id, priv->file);
 
@@ -389,24 +391,26 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 	/* Check dcc */
-	r = check_dcc (priv);
-	switch (r) {
-		case 'A':
-			break;
-		case 'G':
-			msg_warn ("(mlfi_eom, %s) greylisting by dcc", priv->mlfi_id);
-			smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, "Try again later");
-			mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
-		case 'R':
-			msg_warn ("(mlfi_eom, %s) rejected by dcc", priv->mlfi_id);
-			smfi_setreply (ctx, "550", XCODE_REJECT, buf);
-			mlfi_cleanup (ctx, false);
-			return SMFIS_REJECT;
-		case 'S': /* XXX - dcc selective reject - not implemented yet */
-		case 'T': /* Temp failure by dcc */
-		default:
-			break;
+	if (cfg->use_dcc == 1) {
+		r = check_dcc (priv);
+		switch (r) {
+			case 'A':
+				break;
+			case 'G':
+				msg_warn ("(mlfi_eom, %s) greylisting by dcc", priv->mlfi_id);
+				smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, "Try again later");
+				mlfi_cleanup (ctx, false);
+				return SMFIS_TEMPFAIL;
+			case 'R':
+				msg_warn ("(mlfi_eom, %s) rejected by dcc", priv->mlfi_id);
+				smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
+				mlfi_cleanup (ctx, false);
+				return SMFIS_REJECT;
+			case 'S': /* XXX - dcc selective reject - not implemented yet */
+			case 'T': /* Temp failure by dcc */
+			default:
+				break;
+		}
 	}
 
     return mlfi_cleanup (ctx, true);
@@ -551,7 +555,7 @@ check_dcc (const struct mlfi_priv *priv)
 
 	rcpt = (DCCIF_RCPT *) malloc (sizeof (DCCIF_RCPT));
 	rcpt->next = rcpts;
-	rcpt->addr = "";
+	rcpt->addr = priv->priv_rcpt;
 	rcpt->user = "";
 	rcpt->ok = '?';
 	rcpts = rcpt;

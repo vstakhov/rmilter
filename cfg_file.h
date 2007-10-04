@@ -92,6 +92,8 @@ struct config_file {
 	/* Must be sorted */
 	char **spf_domains;
 	size_t spf_domains_num;
+
+	char use_dcc;
 };
 
 int yylex (void);

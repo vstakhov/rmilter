@@ -23,12 +23,12 @@ load_rc_config $name
 : ${rmilter_enable="NO"}
 : ${rmilter_pidfile="/var/run/rmilter/rmilter.pid"}
 : ${rmilter_socket="/var/run/rmilter/sock"}
-: ${rmilter_user="rmilter"}
+: ${rmilter_user="postfix"}
 
 stop_postcmd="rm -f $rmilter_pidfile $rmilter_socket"
 start_precmd="rm -f $rmilter_socket"
 
-command=${procname}
-command_args="-c /usr/local/etc/rmilter.conf"
+command="/usr/sbin/daemon"
+command_args="-p $rmilter_pidfile $procname -c /usr/local/etc/rmilter.conf"
 
 run_rc_command "$1"
