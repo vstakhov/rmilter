@@ -141,7 +141,8 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		return 0;
 
     if (srv->sock_type == AF_LOCAL) {
-	/* unix socket, use 'SCAN <filename>' command on clamd */
+		/* unix socket, use 'SCAN <filename>' command on clamd */
+		snprintf(buf, sizeof(buf), "SCAN %s\n", file);
 
 		if (!realpath(file, path)) {
 	    	msg_warn("clamav: realpath, %d: %m", errno);
