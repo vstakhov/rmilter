@@ -356,7 +356,7 @@ mlfi_eom(SMFICTX * ctx)
 			case SPF_RESULT_NONE:
 				break;
 			case SPF_RESULT_FAIL:
-				msg_warn ("Rejecting sender %s due to SPF policy violations", priv->priv_from);
+				msg_warn ("(mlfi_eom, %s) rejecting sender %s due to SPF policy violations", priv->mlfi_id, priv->priv_from);
 	    		smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
 				(void)mlfi_cleanup (ctx, false);
 				return SMFIS_REJECT;
@@ -375,7 +375,7 @@ mlfi_eom(SMFICTX * ctx)
 		return mlfi_cleanup (ctx, true);
     }
 
-	if (!LIST_EMPTY (&cfg->clamav_servers)) {
+	if (cfg->clamav_servers_num != 0) {
 	    r = check_clamscan (priv->file, strres, PATH_MAX);
     	if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
@@ -634,7 +634,6 @@ int main(int argc, char *argv[])
 	bzero (cfg, sizeof (struct config_file));
 
 	LIST_INIT (&cfg->rules);
-	LIST_INIT (&cfg->clamav_servers);
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	
 	if (cfg_file == NULL) {
@@ -669,6 +668,7 @@ int main(int argc, char *argv[])
 	/* Sort spf domains array */
 	qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
 
+	cfg->clamav_servers_alive = cfg->clamav_servers_num;
     srandomdev();
 
     /*

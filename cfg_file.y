@@ -64,8 +64,11 @@ add_clamav_server (struct config_file *cf, char *str)
 
 	if (str == NULL || cur_tok == NULL || *cur_tok == '\0') return 0;
 
-	srv = (struct clamav_server *) malloc (sizeof (struct clamav_server));
-	bzero (srv, sizeof (struct clamav_server));
+	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
+		yyerror ("yyparse: maximum number of clamav servers is %d", MAX_CLAMAV_SERVERS);
+	}
+
+	srv = &cf->clamav_servers[cf->clamav_servers_num];
 
 	if (srv == NULL) return 0;
 
@@ -73,20 +76,18 @@ add_clamav_server (struct config_file *cf, char *str)
 		strncmp (cur_tok, "unix", sizeof ("unix")) == 0) {
 		srv->sock.unix_path = strdup (str);
 		srv->sock_type = AF_UNIX;
+		srv->active = 1;
 
-		LIST_INSERT_HEAD (&cf->clamav_servers, srv, next);
 		cf->clamav_servers_num++;
 		return 1;
 	} else if (strncmp (cur_tok, "inet", sizeof ("inet")) == 0) {
 		host_tok = strsep (&str, "@");
 		srv->sock.inet.port = htons ((uint16_t)strtoul (host_tok, &err_str, 10));
 		if (*err_str != '\0') {
-			free (srv);
 			return 0;
 		}
 
 		if (!host_tok || !str) {
-			free (srv);
 			return 0;
 		}
 		else {
@@ -94,7 +95,6 @@ add_clamav_server (struct config_file *cf, char *str)
 				/* Try to call gethostbyname */
 				he = gethostbyname (str);
 				if (he == NULL) {
-					free (srv);
 					return 0;
 				}
 				else {
@@ -104,7 +104,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		}
 
 		srv->sock_type = AF_INET;
-		LIST_INSERT_HEAD (&cf->clamav_servers, srv, next);
+		srv->active = 1;
 		cf->clamav_servers_num++;
 		return 1;
 	}

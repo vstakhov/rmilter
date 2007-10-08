@@ -20,6 +20,7 @@
 #define COND_BODY_FLAG 0x20
 
 #define MAX_SPF_DOMAINS 1024
+#define MAX_CLAMAV_SERVERS 128
 
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
@@ -74,7 +75,13 @@ struct clamav_server {
 			uint16_t port;
 		} inet;
 	} sock;
-	LIST_ENTRY (clamav_server) next;
+	
+	/* Number of requests to clamav server */
+	int failed_attempts;
+	/* Time in seconds when it is needed to check this server again if it is marked inactive */
+	double next_check;
+	/* Flag that specify whether this server active */
+	char active;
 };
 
 struct config_file {
@@ -83,11 +90,12 @@ struct config_file {
 
 	char *sock_cred;
 	size_t sizelimit;
-
-	int clamav_servers_num;
+	
+	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
+	size_t clamav_servers_num;
+	size_t clamav_servers_alive;
 
 	LIST_HEAD (ruleset, rule) rules;
-	LIST_HEAD (clamavl, clamav_server) clamav_servers;
 	
 	/* Must be sorted */
 	char **spf_domains;

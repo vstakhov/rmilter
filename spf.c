@@ -62,12 +62,12 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 	}
 
 	if ((spf_server = SPF_server_new (SPF_DNS_CACHE, 0)) == NULL) {
-		syslog(LOG_ERR, "SPF_server_new failed");
+		msg_err ("spf: SPF_server_new failed");
 		goto out1;
 	}
 
 	if ((spf_request = SPF_request_new (spf_server)) == NULL) {
-		syslog (LOG_ERR, "SPF_request_new failed");
+		msg_err ("spf: SPF_request_new failed");
 		goto out2;
 	}
 
@@ -79,23 +79,23 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 		res = SPF_request_set_ipv4 (spf_request, sa->sin_addr);
 		break;
 	default:
-		syslog (LOG_ERR, "unknown address family %d", sa->sin_family);
+		msg_err ("spf: unknown address family %d", sa->sin_family);
 		goto out3;
 	}
 	if (res != 0) {
-		syslog (LOG_ERR, "SPF_request_set_ip_str failed");
+		msg_err ("spf: SPF_request_set_ip_str failed");
 		goto out3;
 	}
 
 	/* HELO string */
 	if (SPF_request_set_helo_dom (spf_request, helo) != 0) {
-		syslog (LOG_ERR, "SPF_request_set_helo_dom failed");
+		msg_err ("spf: SPF_request_set_helo_dom failed");
 		goto out3;
 	}
 
 
 	if (SPF_request_set_env_from (spf_request, from) != 0) {
-		syslog (LOG_ERR, "SPF_request_set_env_from failed");
+		msg_err ("spf: SPF_request_set_env_from failed");
 		goto out3;
 	}
 
