@@ -10,9 +10,6 @@
 		done (required by internal rambler.ru scalability patches
 		to clamd)
 
-	Usage:
-	rmilter -c config_file
-
 	Rmilter-clam was originally written by Maxim Dounin, mdounin@rambler-co.ru
 
 	$Id$
