@@ -72,7 +72,8 @@ my_strcmp (const void *s1, const void *s2)
 static void 
 usage (void)
 {
-	printf ("Usage: rmilter [-h] -c <config_file>\n"
+	printf ("Rambler Milter Version " MVERSION "\n"
+			"Usage: rmilter [-h] -c <config_file>\n"
 			"-h - this help message\n"
 			"-c - path to config file\n");
 	exit (0);

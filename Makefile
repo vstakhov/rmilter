@@ -3,10 +3,12 @@
 DCC_VER=1.2.74
 LOCALBASE?=/usr/local
 
+VERSION = "1.0"
+
 CFLAGS += -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \
 		 -Wunused-value -ggdb -I${LOCALBASE}/include \
-		 -I./dcc-dccd-${DCC_VER}/include
+		 -I./dcc-dccd-${DCC_VER}/include -DMVERSION=${VERSION}
 LD_PATH += -L${LOCALBASE}/lib  -Ldcc-dccd-${DCC_VER}/dcclib
 LIBS += -lmilter -lpcre -lspf2 -ldcc
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
