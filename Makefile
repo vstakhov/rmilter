@@ -45,12 +45,9 @@ build: ${SOURCES}
 link: ${OBJECTS}
 	${CC} ${PTHREAD_FLAGS} ${LD_PATH} ${OBJECTS} ${LIBS} -o ${EXEC}
 
-# pw user add -n rmilter -u 3310 -c 'Rambler milter' -s /sbin/nologin -d /nonexistent
 install:
 	install -b ${EXEC} ${PREFIX}/sbin/${EXEC}
 	install -v ${EXEC}.sh ${PREFIX}/etc/rc.d
-	install -v -d -m 755 -o ${PREFIX} -g postfix /var/run/rmilter
-	install -v -d -m 700 -o ${PREFIX} /spool3/var/clam-tmp
 
 clean:
 	rm -f *.o ${EXEC} *.core
