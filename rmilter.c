@@ -446,10 +446,6 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		return SMFIS_TEMPFAIL;
 	}
 
-    if (ok) {
-	/* add a header to the message announcing our presence */
-	/* smfi_addheader(ctx, "X-Virus-Scanned", "clamav"); */
-    }
     /* release message-related memory */
     priv->mlfi_id[0] = '\0';
     if (priv->fileh) {
