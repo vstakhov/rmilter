@@ -1,19 +1,20 @@
 # $Id$
 
 DCC_VER=1.2.74
+LOCALBASE?=/usr/local
 
-CFLAGS = -W -Wall -Wpointer-arith -Wno-unused-parameter \
+CFLAGS += -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \
-		 -Wunused-value -ggdb -I /usr/local/include \
+		 -Wunused-value -ggdb -I${LOCALBASE}/include \
 		 -I./dcc-dccd-${DCC_VER}/include
-LD_PATH = -L /usr/local/lib -L dcc-dccd-${DCC_VER}/dcclib
-LIBS = -lmilter -lpcre -lspf2 -ldcc
+LD_PATH += -L${LOCALBASE}/lib  -Ldcc-dccd-${DCC_VER}/dcclib
+LIBS += -lmilter -lpcre -lspf2 -ldcc
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
 LEX ?= lex
 YACC ?= yacc
 EXEC=rmilter
-LOCALBASE=/usr/local
+PREFIX?=/usr/local
 
 YACC_SRC=cfg_file.y
 LEX_SRC=cfg_file.l
@@ -44,10 +45,10 @@ link: ${OBJECTS}
 
 # pw user add -n rmilter -u 3310 -c 'Rambler milter' -s /sbin/nologin -d /nonexistent
 install:
-	install -b ${EXEC} ${LOCALBASE}/sbin/${EXEC}
-	install -v ${EXEC}.sh ${LOCALBASE}/etc/rc.d
-	install -v -d -m 755 -o ${EXEC} -g postfix /var/run/rmilter
-	install -v -d -m 700 -o ${EXEC} /spool3/var/clam-tmp
+	install -b ${EXEC} ${PREFIX}/sbin/${EXEC}
+	install -v ${EXEC}.sh ${PREFIX}/etc/rc.d
+	install -v -d -m 755 -o ${PREFIX} -g postfix /var/run/rmilter
+	install -v -d -m 700 -o ${PREFIX} /spool3/var/clam-tmp
 
 clean:
 	rm -f *.o ${EXEC} *.core
