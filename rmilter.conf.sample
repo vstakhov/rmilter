@@ -13,7 +13,12 @@ pidfile = /var/run/rmilter.pid;
 # sockets are separated by ','
 # Default: empty
 
-clamav = unix:/var/tmp/clamav.sock;
+clamav = inet:3310@localhost, unix:/var/tmp/clamav.sock;
+
+# memcached - memcached servers list in format:
+# host[:port][, host[:port]]
+
+memcached_servers = localhost, mcgi18.rambler.ru:11211;
 
 # bind_socket - socket credits for local bind:
 # unix:/path/to/file - bind to local socket

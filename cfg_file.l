@@ -113,7 +113,8 @@ parse_flag (const char *str)
 tempdir							return TEMPDIR;
 pidfile							return PIDFILE;
 rule							return RULE;
-clamav							return CLAMAV;
+clamav|clamav_servers			return CLAMAV;
+memcached|memcached_servers		return MEMCACHED;
 spf_domains						return SPF;
 bind_socket						return BINDSOCK;
 max_size						return MAXSIZE;
@@ -136,4 +137,5 @@ inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
 \/[^/\n]+\/						yylval.string=strdup(yytext); return REGEXP;
 [a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
 [a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
+[a-zA-Z0-9.-:]+					yylval.string=strdup(yytext); return MEMC_SRV;
 %%

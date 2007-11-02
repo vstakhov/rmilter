@@ -20,7 +20,9 @@
 #define COND_BODY_FLAG 0x20
 
 #define MAX_SPF_DOMAINS 1024
-#define MAX_CLAMAV_SERVERS 128
+#define MAX_CLAMAV_SERVERS 48
+#define MAX_MEMCACHED_SERVERS 48
+#define DEFAULT_MEMCACHED_PORT 11211
 
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
@@ -84,6 +86,11 @@ struct clamav_server {
 	char active;
 };
 
+struct memcached_server {
+	struct in_addr addr;
+	uint16_t port;
+};
+
 struct config_file {
 	char *pid_file;
 	char *temp_dir;
@@ -94,6 +101,9 @@ struct config_file {
 	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
 	size_t clamav_servers_num;
 	size_t clamav_servers_alive;
+
+	struct memcached_server memcached_servers[MAX_MEMCACHED_SERVERS];
+	size_t memcached_servers_num;
 
 	LIST_HEAD (ruleset, rule) rules;
 	

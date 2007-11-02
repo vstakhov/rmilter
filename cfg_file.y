@@ -52,6 +52,53 @@ copy_regexp (char **dst, const char *src)
 }
 
 static int
+add_memcached_server (struct config_file *cf, char *str)
+{
+	char *cur_tok, *err_str;
+	struct memcached_server *mc;
+	struct hostent *he;
+	uint16_t port;
+
+	if (str == NULL) return 0;
+
+	cur_tok = strsep (&str, ":");
+
+	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+
+	if(cf->memcached_servers_num == MAX_MEMCACHED_SERVERS) {
+		yyerror ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+	}
+	
+	mc = &cf->memcached_servers[cf->memcached_servers_num];
+	if (mc == NULL) return 0;
+	/* cur_tok - server name, str - server port */
+	if (str == NULL) {
+		port = htons(DEFAULT_MEMCACHED_PORT);
+	}
+	else {
+		port = htons ((uint16_t)strtoul (str, &err_str, 10));
+		if (*err_str != '\0') {
+	printf ("Shit2\n");
+			return 0;
+		}
+	}
+
+	if (!inet_aton (cur_tok, &mc->addr)) {
+		/* Try to call gethostbyname */
+		he = gethostbyname (cur_tok);
+		if (he == NULL) {
+			return 0;
+		}
+		else {
+			memcpy((char *)&mc->addr, he->h_addr, sizeof(struct in_addr));
+		}
+	}
+	mc->port = port;
+	cf->memcached_servers_num++;
+	return 1;
+}
+
+static int
 add_clamav_server (struct config_file *cf, char *str)
 {
 	char *cur_tok, *host_tok, *err_str;
@@ -65,7 +112,7 @@ add_clamav_server (struct config_file *cf, char *str)
 	if (str == NULL || cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
-		yyerror ("yyparse: maximum number of clamav servers is %d", MAX_CLAMAV_SERVERS);
+		yyerror ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
 	}
 
 	srv = &cf->clamav_servers[cf->clamav_servers_num];
@@ -221,12 +268,14 @@ add_spf_domain (struct config_file *cfg, char *domain)
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN
-%token  MAXSIZE LIMIT USEDCC
+%token  MAXSIZE LIMIT USEDCC MEMCACHED MEMC_SRV
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
 %type	<string>	FILENAME
 %type	<string>	REGEXP
 %type   <string>  	SOCKCRED
+%type	<string>	MEMC_SRV
+%type 	<string>	memcached_hosts
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN
@@ -247,6 +296,7 @@ command	:
 	| bindsock
 	| maxsize
 	| usedcc
+	| memcached
 	;
 
 tempdir :
@@ -477,5 +527,26 @@ usedcc:
 		}
 		cfg->use_dcc = $3;
 	}
-%%
+memcached:
+	MEMCACHED EQSIGN memcached_params
+	;
 
+memcached_params:
+	memcached_server
+	| memcached_params COMMA memcached_server
+	;
+
+memcached_server:
+	memcached_hosts {
+		if (!add_memcached_server (cfg, $1)) {
+			yyerror ("yyparse: add_memcached_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+memcached_hosts:
+	STRING
+	| MEMC_SRV
+	;
+%%
