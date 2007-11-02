@@ -5,7 +5,7 @@
 # pidfile - path to pid file
 # Default: pidfile = /var/run/rmilter.pid
 
-pidfile = ./rmilter.pid;
+pidfile = /var/run/rmilter.pid;
 
 # clamav - clamav socket definitions in format:
 # unix:/path/to/file
@@ -13,14 +13,14 @@ pidfile = ./rmilter.pid;
 # sockets are separated by ','
 # Default: empty
 
-clamav = inet:3310@localhost, unix:/var/tmp/clamav.sock;
+clamav = unix:/var/tmp/clamav.sock;
 
 # bind_socket - socket credits for local bind:
 # unix:/path/to/file - bind to local socket
 # inet:port@host - bind to inet socket
 # Default: bind_socket = unix:/var/tmp/rmilter.sock;
 
-bind_socket = unix:./rmilter.sock;
+bind_socket = unix:/var/tmp/rmilter.sock;
 
 # tempdir - path to directory that contains temporary files
 # Default: $TMPDIR
@@ -54,8 +54,4 @@ use_dcc = yes;
 rule {
 	reject "No localhost";
 	helo /^localhost.localdomain$/;
-};
-rule {
-        reject "Blah blah";
-        header /^From:$/ /.*vsevolod.*/;
 };
