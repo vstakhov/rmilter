@@ -371,24 +371,9 @@ mlfi_eom(SMFICTX * ctx)
     if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
 		msg_warn ("message size exceeds limit, not scanned, %s", priv->file);
 		return mlfi_cleanup (ctx, true);
-    }
-
-	if (cfg->clamav_servers_num != 0) {
-	    r = check_clamscan (priv->file, strres, PATH_MAX);
-    	if (r < 0) {
-			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
-			(void)mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
-    	}
-    	if (*strres) {
-			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
-			snprintf (buf, sizeof (buf), "Infected: %s", strres);
-			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
-			mlfi_cleanup (ctx, false);
-			return SMFIS_REJECT;
-    	}
 	}
-	/* Check dcc */
+
+ 	/* Check dcc */
 	if (cfg->use_dcc == 1) {
 		r = check_dcc (priv);
 		switch (r) {
@@ -409,6 +394,23 @@ mlfi_eom(SMFICTX * ctx)
 			default:
 				break;
 		}
+	}
+	
+	/* Check clamav */
+	if (cfg->clamav_servers_num != 0) {
+	    r = check_clamscan (priv->file, strres, PATH_MAX);
+    	if (r < 0) {
+			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+			(void)mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+    	}
+    	if (*strres) {
+			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
+			snprintf (buf, sizeof (buf), "Infected: %s", strres);
+			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
+			mlfi_cleanup (ctx, false);
+			return SMFIS_REJECT;
+    	}
 	}
 
     return mlfi_cleanup (ctx, true);
