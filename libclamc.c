@@ -421,10 +421,16 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
     gettimeofday(&t, NULL);
     tf = t.tv_sec + t.tv_usec / 1000000.0;
 
-    if (*strres)
-		msg_info("(clamscan) scan %f, %s, found %s", tf - ts, file, strres);
-    else
-		msg_info("(clamscan) scan %f, %s", tf - ts, file);
+    if (*strres) {
+		msg_info("(clamscan) scan %f, %s, found %s, %s", tf - ts,
+					(selected->sock_type == AF_UNIX) ? selected->sock.unix_path : selected->sock.inet.addr_str, 
+					strres, file);
+	}
+    else {
+		msg_info("(clamscan) scan %f, %s, %s", tf -ts, 
+					(selected->sock_type == AF_UNIX) ? selected->sock.unix_path : selected->sock.inet.addr_str,
+					file);
+	}
 
     return r;
 }

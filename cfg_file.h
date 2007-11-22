@@ -72,7 +72,7 @@ struct clamav_server {
 	union {
 		char *unix_path;
 		struct {
-			const char *addr_str;
+			char *addr_str;
 			struct in_addr addr;
 			uint16_t port;
 		} inet;

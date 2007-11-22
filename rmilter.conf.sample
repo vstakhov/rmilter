@@ -5,7 +5,7 @@
 # pidfile - path to pid file
 # Default: pidfile = /var/run/rmilter.pid
 
-pidfile = /var/run/rmilter.pid;
+pidfile = /var/run/rmilter/rmilter.pid;
 
 # clamav - clamav socket definitions in format:
 # unix:/path/to/file
@@ -13,7 +13,7 @@ pidfile = /var/run/rmilter.pid;
 # sockets are separated by ','
 # Default: empty
 
-clamav = inet:3310@localhost, unix:/var/tmp/clamav.sock;
+clamav = inet:3310@clam5.rambler.ru, inet:3310@clam6.rambler.ru, inet:3310@clam8.rambler.ru;
 
 # memcached - memcached servers list in format:
 # host[:port][, host[:port]]
@@ -25,11 +25,12 @@ memcached_servers = localhost, mcgi18.rambler.ru:11211;
 # inet:port@host - bind to inet socket
 # Default: bind_socket = unix:/var/tmp/rmilter.sock;
 
-bind_socket = unix:/var/tmp/rmilter.sock;
+bind_socket = unix:/var/run/rmilter/rmilter.sock;
 
 # tempdir - path to directory that contains temporary files
 # Default: $TMPDIR
-tempdir = /tmp;
+
+tempdir = /spool/tmp;
 
 # max_size - maximum size of scanned mail with clamav and dcc
 # Default: 0 (no limit)
@@ -56,7 +57,6 @@ use_dcc = yes;
 #	body <regexp>;
 # };
 
-rule {
-	reject "No localhost";
-	helo /^localhost.localdomain$/;
-};
+# Order of checks at EOM:
+# 
+# SPF -> DCC -> CLAMAV

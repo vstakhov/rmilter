@@ -104,6 +104,7 @@ add_clamav_server (struct config_file *cf, char *str)
 	char *cur_tok, *host_tok, *err_str;
 	struct clamav_server *srv;
 	struct hostent *he;
+	size_t s;
 
 	if (str == NULL) return 0;
 	
@@ -146,6 +147,9 @@ add_clamav_server (struct config_file *cf, char *str)
 				}
 				else {
 					memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
+					s = strlen (str) + 1;
+					srv->sock.inet.addr_str = (char *)malloc (s);
+					strlcpy (srv->sock.inet.addr_str, str, s);
 				}
 			}
 		}
