@@ -61,6 +61,7 @@ struct mlfi_priv {
     char mlfi_id[32];
     char file[PATH_MAX];
     FILE *fileh;
+	int filed;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

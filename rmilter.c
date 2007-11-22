@@ -286,6 +286,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
+		priv->filed = fd;
 		fprintf (priv->fileh, "Received: from %s\n", priv->priv_ip); 
     }
 
@@ -535,11 +536,13 @@ check_dcc (const struct mlfi_priv *priv)
 		return 0;
 	}
 
-	if (priv->fileh) {
-		fclose (priv->fileh);
+	if (priv->fileh == 0) {
+		dccfd = open (priv->file, O_RDONLY);
+	}
+	else {
+		dccfd = priv->filed;
 	}
 
-	dccfd = open (priv->file, O_RDONLY);
 
 	if (dccfd == -1) {
 		msg_warn ("dcc data file open(): %s", strerror (errno));
