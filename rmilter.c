@@ -161,16 +161,12 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
 
 	/* Check connect */
-	pthread_mutex_lock (&regexp_mtx);
 	act = regexp_check (cfg, priv, STAGE_CONNECT);
-	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
 	/* Check helo */
-	pthread_mutex_lock (&regexp_mtx);
 	act = regexp_check (cfg, priv, STAGE_HELO);
-	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
@@ -210,9 +206,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	strlcpy (priv->priv_from, idx, ADDRLEN);
 
 	/* Check envfrom */
-	pthread_mutex_lock (&regexp_mtx);
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
-	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
@@ -236,9 +230,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	}
 	/* Check recipient */
 	priv->priv_cur_rcpt = *envrcpt;
-	pthread_mutex_lock (&regexp_mtx);
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
-	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
@@ -286,7 +278,6 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
-		priv->filed = fd;
 		fprintf (priv->fileh, "Received: from %s\n", priv->priv_ip); 
     }
 
@@ -296,11 +287,9 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 
     fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
 	/* Check header with regexp */
-	pthread_mutex_lock (&regexp_mtx);
 	priv->priv_cur_header.header_name = headerf;
 	priv->priv_cur_header.header_value = headerv;
 	act = regexp_check (cfg, priv, STAGE_HEADER);
-	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
@@ -481,11 +470,9 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 		return SMFIS_TEMPFAIL;;
     }
 	/* Check body with regexp */
-	pthread_mutex_lock (&regexp_mtx);
 	priv->priv_cur_body.value = (char *)bodyp;
 	priv->priv_cur_body.len = bodylen;
 	act = regexp_check (cfg, priv, STAGE_BODY);
-	pthread_mutex_unlock (&regexp_mtx);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
@@ -536,13 +523,7 @@ check_dcc (const struct mlfi_priv *priv)
 		return 0;
 	}
 
-	if (priv->fileh == 0) {
-		dccfd = open (priv->file, O_RDONLY);
-	}
-	else {
-		dccfd = priv->filed;
-	}
-
+	dccfd = open (priv->file, O_RDONLY);
 
 	if (dccfd == -1) {
 		msg_warn ("dcc data file open(): %s", strerror (errno));

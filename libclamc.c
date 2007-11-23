@@ -64,9 +64,20 @@ pthread_mutex_t mx_clamav_write = PTHREAD_MUTEX_INITIALIZER;
 
 int poll_fd(int fd, int timeout, short events)
 {
-    int r;
+    int r, error;
     struct pollfd fds[1];
+	socklen_t len;
 
+	len = sizeof (error);
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&error, &len) == -1) {
+		msg_warn("clamav: before poll(3) getsockopt, %d: %m", errno);
+		return -1;
+	}
+	if (error != 0) {
+		msg_warn("clamav: before poll(3) SO_ERROR on socket, %d: %s", error, strerror (error));
+		return -1;
+	}
+	
     fds->fd = fd;
     fds->events = events;
     fds->revents = 0;
@@ -74,6 +85,17 @@ int poll_fd(int fd, int timeout, short events)
 		if (errno != EINTR)
 	    	break;
     }
+
+	len = sizeof (error);
+	if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&error, &len) == -1) {
+		msg_warn("clamav: after poll(3) getsockopt, %d: %m", errno);
+		return -1;
+	}
+	if (error != 0) {
+		msg_warn("clamav: after poll(3) SO_ERROR on socket, %d: %s", error, strerror (error));
+		return -1;
+	}
+
     return r;
 }
 
@@ -261,7 +283,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		close(s);
 		return -1;
     }
-
+	
     /*
      * read results
      */
@@ -273,7 +295,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
     }
 
     if (r < 0) {
-		msg_warn("clamav: read, %d: %m", errno);
+		msg_warn("clamav: read, %s, %d: %m", (srv->sock_type == AF_UNIX) ? srv->sock.unix_path : srv->sock.inet.addr_str, errno);
 		close(s);
 		return -1;
     }
@@ -361,6 +383,7 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 		k = random() % cfg->clamav_servers_num;
 		/* Minimum number of requests - set to maximum available value */
 		selected = &cfg->clamav_servers[k];
+#if 0
 		/* Check inactive timeout */
 		if (selected->active == 0 && ts >= selected->next_check) {
 			msg_info ("(clamscan) remarking server as active due to timeout");
@@ -383,12 +406,15 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 		if (selected->active == 0) {
 			continue;
 		}
+#endif
 
 		r = clamscan_socket (file, selected, strres, strres_len);
 		if (r == 0) {
+/*
 			pthread_mutex_lock (&mx_clamav_write);
 			selected->failed_attempts = 0;
 			pthread_mutex_unlock (&mx_clamav_write);
+*/
 	    	break;
 		}
 		if (r == -2) {
@@ -400,6 +426,7 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 	    	break;
 		}
 		msg_warn("(clamscan) failed to scan, retry, %s", file);
+#if 0
 		/* Increment failed attempts counter */
 		pthread_mutex_lock (&mx_clamav_write);
 		selected->failed_attempts++;
@@ -412,6 +439,7 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 			cfg->clamav_servers_alive--;
 		}
 		pthread_mutex_unlock (&mx_clamav_write);
+#endif
 		sleep(1);
     }
 

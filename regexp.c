@@ -4,11 +4,17 @@
 
 #include <sys/types.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "pcre.h"
 #include "rmilter.h"
 #include "cfg_file.h"
 #include "regexp.h"
+
+extern pthread_mutex_t regexp_mtx;
+
+#define C_LOCK() do { pthread_mutex_lock (&regexp_mtx); } while (0)
+#define C_UNLOCK() do { pthread_mutex_unlock (&regexp_mtx); } while (0)
 
 static int
 check_condition (struct cond_arg *arg, const char *match_str, size_t str_len)
@@ -153,22 +159,34 @@ regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum 
 	/* Check rules for specific stage */
 	LIST_FOREACH (cur, &cfg->rules, next) {
 		if ((cur->flags & COND_CONNECT_FLAG) != 0 && stage == STAGE_CONNECT) {
+			C_LOCK ();
 			r = check_connect_rule (cur, priv);
+			C_UNLOCK ();
 
 		} else if ((cur->flags & COND_HELO_FLAG) != 0 && stage == STAGE_HELO) {
+			C_LOCK ();
 			r = check_helo_rule (cur, priv);
+			C_UNLOCK ();
 
 		} else if ((cur->flags & COND_ENVFROM_FLAG) != 0 && stage == STAGE_ENVFROM) {
+			C_LOCK ();
 			r = check_envfrom_rule (cur, priv);
+			C_UNLOCK ();
 
 		} else if ((cur->flags & COND_ENVRCPT_FLAG) != 0 && stage == STAGE_ENVRCPT) {
+			C_LOCK ();
 			r = check_envrcpt_rule (cur, priv);
+			C_UNLOCK ();
 
 		} else if ((cur->flags & COND_HEADER_FLAG) != 0 && stage == STAGE_HEADER) {
+			C_LOCK ();
 			r = check_header_rule (cur, priv);
+			C_UNLOCK ();
 
 		} else if ((cur->flags & COND_BODY_FLAG) != 0 && stage == STAGE_BODY) {
+			C_LOCK ();
 			r = check_body_rule (cur, priv);
+			C_UNLOCK ();
 
 		}
 		/* Stop matching on finding matched rule */
@@ -180,3 +198,5 @@ regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum 
 	return NULL;
 }
 
+#undef C_LOCK
+#undef C_UNLOCK
