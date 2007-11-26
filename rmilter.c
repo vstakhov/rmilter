@@ -517,7 +517,7 @@ check_dcc (const struct mlfi_priv *priv)
 	DCC_SOCKU sup;
 	DCCIF_RCPT *rcpts = NULL, rcpt;
 	int	dccres;
-	int dccfd;
+	int dccfd, dccofd = -1;
 
 	if (!*priv->file) {
 		return 0;
@@ -538,11 +538,10 @@ check_dcc (const struct mlfi_priv *priv)
 	rcpt.ok = '?';
 	rcpts = &rcpt;
 	
-	dccres = dccif (emsg, /*out body fd*/-1, /*out_body*/0,
+	dccres = dccif (emsg, /*out body fd*/dccofd, /*out_body*/0,
 					opts, &sup, priv->priv_hostname, priv->priv_helo,
 					(priv->priv_from == 0) || (priv->priv_from[0] == 0) ? "<>" : priv->priv_from,
 					rcpts, dccfd, /*in_body*/0, homedir);
-	close (dccfd);
 
 	return dccres;
 }
