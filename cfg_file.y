@@ -20,10 +20,11 @@
 #include "cfg_file.h"
 #include "spf.h"
 
-#define yyerror(fmt, ...) syslog (LOG_ERR, fmt, ##__VA_ARGS__)
 #define YYDEBUG 0
 
 extern struct config_file *cfg;
+extern int yylineno;
+extern char *yytext;
 
 struct condl *cur_conditions;
 uint8_t cur_flags = 0;
@@ -66,7 +67,7 @@ add_memcached_server (struct config_file *cf, char *str)
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if(cf->memcached_servers_num == MAX_MEMCACHED_SERVERS) {
-		yyerror ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+		yywarn ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 	}
 	
 	mc = &cf->memcached_servers[cf->memcached_servers_num];
@@ -78,7 +79,6 @@ add_memcached_server (struct config_file *cf, char *str)
 	else {
 		port = htons ((uint16_t)strtoul (str, &err_str, 10));
 		if (*err_str != '\0') {
-	printf ("Shit2\n");
 			return 0;
 		}
 	}
@@ -113,7 +113,7 @@ add_clamav_server (struct config_file *cf, char *str)
 	if (str == NULL || cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
-		yyerror ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
+		yywarn ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
 	}
 
 	srv = &cf->clamav_servers[cf->clamav_servers_num];
@@ -124,7 +124,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		strncmp (cur_tok, "unix", sizeof ("unix")) == 0) {
 		srv->sock.unix_path = strdup (str);
 		srv->sock_type = AF_UNIX;
-		srv->active = 1;
+		srv->name = srv->sock.unix_path;
 
 		cf->clamav_servers_num++;
 		return 1;
@@ -146,16 +146,14 @@ add_clamav_server (struct config_file *cf, char *str)
 					return 0;
 				}
 				else {
+					srv->name = strdup (str);
 					memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
 					s = strlen (str) + 1;
-					srv->sock.inet.addr_str = (char *)malloc (s);
-					strlcpy (srv->sock.inet.addr_str, str, s);
 				}
 			}
 		}
 
 		srv->sock_type = AF_INET;
-		srv->active = 1;
 		cf->clamav_servers_num++;
 		return 1;
 	}
@@ -262,29 +260,36 @@ add_spf_domain (struct config_file *cfg, char *domain)
 	struct condition *cond;
 	struct action *action;
 	size_t limit;
+	bucket_t bucket;
 	char flag;
+	unsigned int seconds;
 }
 
 %token	ERROR STRING QUOTEDSTRING FLAG
 %token	ACCEPT REJECTL TEMPFAIL DISCARD QUARANTINE
 %token	CONNECT HELO ENVFROM ENVRCPT HEADER MACRO BODY
 %token	AND OR NOT
-%token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SPF DCC
+%token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV CLAMAV_CONNECT_TIMEOUT CLAMAV_PORT_TIMEOUT CLAMAV_RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
-%token  BINDSOCK SOCKCRED DOMAIN
-%token  MAXSIZE LIMIT USEDCC MEMCACHED MEMC_SRV
+%token  BINDSOCK SOCKCRED DOMAIN IPADDR HOSTPORT
+%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED
+%token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
+
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
 %type	<string>	FILENAME
 %type	<string>	REGEXP
 %type   <string>  	SOCKCRED
-%type	<string>	MEMC_SRV
+%type	<string>	IPADDR
+%type	<string>	HOSTPORT
 %type 	<string>	memcached_hosts
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN
-%type	<limit>		LIMIT
+%type	<limit>		SIZELIMIT
 %type	<flag>		FLAG
+%type	<bucket>	BUCKET;
+%type	<seconds>	SECONDS;
 %%
 
 file	: /* empty */
@@ -296,11 +301,15 @@ command	:
 	| pidfile
 	| rule
 	| clamav
+	| clamav_connect_timeout
+	| clamav_port_timeout
+	| clamav_results_timeout
 	| spf
 	| bindsock
 	| maxsize
 	| usedcc
 	| memcached
+	| limits
 	;
 
 tempdir :
@@ -476,6 +485,22 @@ term	:
 	}
 	;
 
+clamav_connect_timeout:
+	CLAMAV_CONNECT_TIMEOUT EQSIGN SECONDS {
+		cfg->clamav_connect_timeout = $3;
+	}
+	;
+clamav_port_timeout:
+	CLAMAV_PORT_TIMEOUT EQSIGN SECONDS {
+		cfg->clamav_port_timeout = $3;
+	}
+	;
+clamav_results_timeout:
+	CLAMAV_RESULTS_TIMEOUT EQSIGN SECONDS {
+		cfg->clamav_results_timeout = $3;
+	}
+	;
+
 clamav:
 	CLAMAV EQSIGN clamav_params
 	;
@@ -519,7 +544,7 @@ bindsock:
 	;
 
 maxsize:
-	MAXSIZE EQSIGN LIMIT {
+	MAXSIZE EQSIGN SIZELIMIT {
 		cfg->sizelimit = $3;
 	}
 	;
@@ -551,6 +576,120 @@ memcached_server:
 	;
 memcached_hosts:
 	STRING
-	| MEMC_SRV
+	| IPADDR
+	| DOMAIN
+	| HOSTPORT
+	;
+limits:
+	LIMITS OBRACE limitsbody EBRACE
+	;
+
+limitsbody:
+	limitcmd SEMICOLON
+	| limitsbody limitcmd SEMICOLON
+	;
+limitcmd:
+	limit_to
+	| limit_to_ip
+	| limit_to_ip_from
+	| limit_whitelist_ip
+	| limit_whitelist_rcpt
+	| limit_bounce_addrs
+	| limit_bounce_to
+	| limit_bounce_to_ip
+	;
+
+limit_to:
+	LIMIT_TO EQSIGN BUCKET {
+		cfg->limit_to.burst = $3.burst;
+		cfg->limit_to.rate = $3.rate;
+	}
+	;
+limit_to_ip:
+	LIMIT_TO_IP EQSIGN BUCKET {
+		cfg->limit_to_ip.burst = $3.burst;
+		cfg->limit_to_ip.rate = $3.rate;
+	}
+	;
+limit_to_ip_from:
+	LIMIT_TO_IP_FROM EQSIGN BUCKET {
+		cfg->limit_to_ip_from.burst = $3.burst;
+		cfg->limit_to_ip_from.rate = $3.rate;
+	}
+	;
+limit_whitelist_ip:
+	LIMIT_WHITELIST_IP EQSIGN whitelist_ip_list
+	;
+whitelist_ip_list:
+	IPADDR {
+		struct ip_list_entry *t;
+		t = (struct ip_list_entry *)malloc (sizeof (struct ip_list_entry));
+		if (inet_aton ($1, &t->addr) == 0) {
+			yyerror ("yyparse: invalid ip address: %s", $1);
+		}
+		LIST_INSERT_HEAD (&cfg->whitelist_ip, t, next);
+	}
+	| whitelist_ip_list COMMA IPADDR {
+		struct ip_list_entry *t;
+		t = (struct ip_list_entry *)malloc (sizeof (struct ip_list_entry));
+		if (inet_aton ($3, &t->addr) == 0) {
+			yyerror ("yyparse: invalid ip address: %s", $3);
+		}
+		LIST_INSERT_HEAD (&cfg->whitelist_ip, t, next);
+	}
+	;
+	
+limit_whitelist_rcpt:
+	LIMIT_WHITELIST_RCPT EQSIGN whitelist_rcpt_list
+	;
+whitelist_rcpt_list:
+	STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($1);
+		LIST_INSERT_HEAD (&cfg->whitelist_rcpt, t, next);
+	}
+	| whitelist_rcpt_list COMMA STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($3);
+		LIST_INSERT_HEAD (&cfg->whitelist_rcpt, t, next);
+	}
+	;
+
+limit_bounce_addrs:
+	LIMIT_BOUNCE_ADDRS EQSIGN bounce_addr_list
+	;
+bounce_addr_list:
+	STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($1);
+		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
+	}
+	| bounce_addr_list COMMA STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($3);
+		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
+	}
+	;
+
+
+limit_bounce_to:
+	LIMIT_BOUNCE_TO EQSIGN BUCKET {
+		cfg->limit_bounce_to.burst = $3.burst;
+		cfg->limit_bounce_to.rate = $3.rate;
+	}
+	;
+
+limit_bounce_to_ip:
+	LIMIT_BOUNCE_TO_IP EQSIGN BUCKET {
+		cfg->limit_bounce_to_ip.burst = $3.burst;
+		cfg->limit_bounce_to_ip.rate = $3.rate;
+	}
 	;
 %%
+/* 
+ * vi:ts=4 
+ */

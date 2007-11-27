@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <syslog.h>
 #include "cfg_file.h"
 #include "cfg_yacc.h"
 
@@ -75,6 +76,26 @@ parse_limit (const char *limit)
 	return result;
 }
 
+static unsigned int
+parse_seconds (const char *t)
+{
+	unsigned int result = 0;
+	char *err_str;
+
+	if (!t || *t == '\0') return 0;
+
+	result = strtoul (t, &err_str, 10);
+
+	if (*err_str != '\0') {
+		/* Seconds */
+		if (*err_str == 's' || *err_str == 'S') {
+			result *= 1000;
+		}
+	}
+
+	return result;
+}
+
 static char
 parse_flag (const char *str)
 {
@@ -104,21 +125,64 @@ parse_flag (const char *str)
 	return -1;
 }
 
+static void
+parse_bucket (char *str, bucket_t *bucket)
+{
+	char *cur_tok, *err_str;
+
+	bucket->burst = 0;
+	bucket->rate = 0;
+
+	cur_tok = strsep (&str, ":");
+	if (cur_tok == NULL || *cur_tok == '\0' || str == NULL || *str == '\0') {
+		yywarn ("parse_bucket: invalid bucket value %s", str);
+		return;
+	}
+
+	bucket->burst = strtol (cur_tok, &err_str, 10);
+	if (*err_str != '\0') {
+		yywarn ("parse_bucket: invalid bucket value %s", err_str);
+		bucket->burst = 0;
+		return;
+	}
+	bucket->rate = strtod (str, &err_str);
+	if (*err_str != '\0') {
+		yywarn ("parse_bucket: invalid bucket value %s", err_str);
+		bucket->rate = 0;
+		return;
+	}
+}
+
 %}
 
-%option  noyywrap
+%option noyywrap
+%option yylineno
 
 %%
-^#.*							/* ignore comments */;
+^[ \t]*#.*						/* ignore comments */;
 tempdir							return TEMPDIR;
 pidfile							return PIDFILE;
 rule							return RULE;
 clamav|clamav_servers			return CLAMAV;
+clamav_connect_timeout			return CLAMAV_CONNECT_TIMEOUT;
+clamav_port_timeout				return CLAMAV_PORT_TIMEOUT;
+clamav_results_timeout			return CLAMAV_RESULTS_TIMEOUT;
 memcached|memcached_servers		return MEMCACHED;
 spf_domains						return SPF;
 bind_socket						return BINDSOCK;
 max_size						return MAXSIZE;
 use_dcc							return USEDCC;
+
+limits							return LIMITS;
+limit_to						return LIMIT_TO;
+limit_to_ip						return LIMIT_TO_IP;
+limit_to_ip_from				return LIMIT_TO_IP_FROM;
+limit_whitelist_ip				return LIMIT_WHITELIST_IP;
+limit_whitelist_rcpt			return LIMIT_WHITELIST_RCPT;
+limit_bounce_addrs				return LIMIT_BOUNCE_ADDRS;
+limit_bounce_to					return LIMIT_BOUNCE_TO;
+limit_bounce_to_ip				return LIMIT_BOUNCE_TO_IP; 
+
 \"								return QUOTE;
 \{								return OBRACE;
 \}								return EBRACE;
@@ -129,13 +193,19 @@ yes|YES|no|NO|0|1				yylval.flag=parse_flag(yytext); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
 \".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;
-[0-9]+[kKmMgG]?					yylval.limit=parse_limit(yytext); return LIMIT;
+[0-9]+[kKmMgG]?					yylval.limit=parse_limit(yytext); return SIZELIMIT;
+[0-9]+[sS]|[0-9]+[mM][sS]		yylval.seconds=parse_seconds(yytext); return SECONDS;
+[0-9]+:[0-9]+[.]?[0-9]*			parse_bucket(yytext, &yylval.bucket); return BUCKET;
 unix:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 local:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
-[a-zA-Z][a-zA-Z]*				yylval.string=strdup(yytext); return lookup (yytext);
+[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}	yylval.string=strdup(yytext); return IPADDR;
+[a-zA-Z<][a-zA-Z@+>_-]*			yylval.string=strdup(yytext); return lookup (yytext);
 \/[^/\n]+\/						yylval.string=strdup(yytext); return REGEXP;
 [a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
+[a-zA-Z0-9.-]+:[0-9]{1,5}		yylval.string=strdup(yytext); return HOSTPORT;
 [a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
-[a-zA-Z0-9.-:]+					yylval.string=strdup(yytext); return MEMC_SRV;
 %%
+/* 
+ * vi:ts=4 
+ */

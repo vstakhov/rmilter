@@ -22,13 +22,9 @@
 #endif
 
 /* Logging in postfix style */
-#if __ISO_C_VISIBLE >= 1999
 #define msg_err(args...) syslog(LOG_ERR, ##args)
 #define msg_warn(args...)	syslog(LOG_WARNING, ##args)
 #define msg_info(args...)	syslog(LOG_INFO, ##args)
-#else
-#error Need to be compiled with C99 compatible compiler
-#endif
 
 #define RCODE_REJECT    "554"
 #define RCODE_TEMPFAIL  "451"
@@ -67,3 +63,6 @@ struct mlfi_priv {
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))
 
 #endif /* RMILTER_H */
+/* 
+ * vi:ts=4 
+ */

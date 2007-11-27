@@ -23,6 +23,21 @@
 #define MAX_CLAMAV_SERVERS 48
 #define MAX_MEMCACHED_SERVERS 48
 #define DEFAULT_MEMCACHED_PORT 11211
+/* Clamav timeouts */
+#define DEFAULT_CLAMAV_CONNECT_TIMEOUT 1000
+#define DEFAULT_CLAMAV_PORT_TIMEOUT 3000
+#define DEFAULT_CLAMAV_RESULTS_TIMEOUT 20000
+
+#define yyerror(fmt, ...) \
+		fprintf (stderr, "Config file parse error!\non line: %d\n", yylineno); \
+		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
+		fprintf (stderr, fmt, ##__VA_ARGS__); \
+		fprintf (stderr, "\n")
+#define yywarn(fmt, ...) \
+		fprintf (stderr, "Config file parse warning!\non line %d\n", yylineno); \
+		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
+		fprintf (stderr, fmt, ##__VA_ARGS__); \
+		fprintf (stderr, "\n")
 
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
@@ -42,6 +57,11 @@ enum action_type {
 	ACTION_DISCARD, 
 	ACTION_ACCEPT 
 };
+
+typedef struct bucket_s {
+	unsigned int burst;
+	double rate;
+} bucket_t;
 
 struct action {
 	enum action_type type;
@@ -72,24 +92,29 @@ struct clamav_server {
 	union {
 		char *unix_path;
 		struct {
-			char *addr_str;
 			struct in_addr addr;
 			uint16_t port;
 		} inet;
 	} sock;
-	
-	/* Number of requests to clamav server */
-	int failed_attempts;
-	/* Time in seconds when it is needed to check this server again if it is marked inactive */
-	double next_check;
-	/* Flag that specify whether this server active */
-	char active;
+
+	char *name;
 };
 
 struct memcached_server {
 	struct in_addr addr;
 	uint16_t port;
 };
+
+struct ip_list_entry {
+	struct in_addr addr;
+	LIST_ENTRY (ip_list_entry) next;
+};
+
+struct addr_list_entry {
+	char *addr;
+	LIST_ENTRY (addr_list_entry) next;
+};
+
 
 struct config_file {
 	char *pid_file;
@@ -100,7 +125,9 @@ struct config_file {
 	
 	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
 	size_t clamav_servers_num;
-	size_t clamav_servers_alive;
+	unsigned int clamav_connect_timeout;
+	unsigned int clamav_port_timeout;
+	unsigned int clamav_results_timeout;
 
 	struct memcached_server memcached_servers[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_num;
@@ -112,9 +139,23 @@ struct config_file {
 	size_t spf_domains_num;
 
 	char use_dcc;
+
+	/* limits section */
+	bucket_t limit_to;
+	bucket_t limit_to_ip;
+	bucket_t limit_to_ip_from;
+	bucket_t limit_bounce_to;
+	bucket_t limit_bounce_to_ip;
+
+	LIST_HEAD (whitelistipset, ip_list_entry) whitelist_ip;
+	LIST_HEAD (whitelistaddrset, addr_list_entry) whitelist_rcpt;
+	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
 };
 
 int yylex (void);
 int yyparse (void);
 
 #endif /* ifdef CFG_FILE_H */
+/* 
+ * vi:ts=4 
+ */

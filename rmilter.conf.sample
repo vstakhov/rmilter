@@ -15,6 +15,18 @@ pidfile = /var/run/rmilter/rmilter.pid;
 
 clamav = inet:3310@clam5.rambler.ru, inet:3310@clam6.rambler.ru, inet:3310@clam8.rambler.ru;
 
+# clamav_connect_timeout - timeout in miliseconds for connecting to clamav
+# Default: 1s
+clamav_connect_timeout = 1s;
+
+# clamav_port_timeout - timeout in miliseconds for waiting for clamav port response
+# Default: 4s
+clamav_port_timeout = 4s;
+
+# clamav_results_timeout - timeout in miliseconds for waiting for clamav response
+# Default: 20s
+clamav_results_timeout = 20s;
+
 # memcached - memcached servers list in format:
 # host[:port][, host[:port]]
 
@@ -56,6 +68,26 @@ use_dcc = yes;
 #	header <regexp> <regexp>;
 #	body <regexp>;
 # };
+
+# limits section
+limits {
+	# Whitelisted ip
+	limit_whitelist_ip = 194.67.45.4;
+	# Whitelisted recipients
+	limit_whitelist_rcpt =  postmaster, mailer-daemon;
+	# Addrs for bounce checks
+	limit_bounce_addrs = postmaster, mailer-daemon, symantec_antivirus_for_smtp_gateways, <>, null, fetchmail-daemon;
+	# Limit for bounce mail
+	limit_bounce_to = 5:0.000277778;
+	# Limit for bounce mail per one source ip
+	limit_bounce_to_ip = 5:0.000277778;
+	# Limit for all mail per recipient
+	limit_to = 20:0.016666667;
+	# Limit for all mail per one source ip
+	limit_to_ip = 30:0.025;
+	# Limit for all mail per one source ip and from address
+	limit_to_ip_from = 100:0.033333333;
+};
 
 # Order of checks at EOM:
 # 

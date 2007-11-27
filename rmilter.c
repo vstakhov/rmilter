@@ -613,6 +613,12 @@ int main(int argc, char *argv[])
 	bzero (cfg, sizeof (struct config_file));
 
 	LIST_INIT (&cfg->rules);
+	LIST_INIT (&cfg->whitelist_ip);
+	LIST_INIT (&cfg->whitelist_rcpt);
+	LIST_INIT (&cfg->bounce_addrs);
+	cfg->clamav_connect_timeout = DEFAULT_CLAMAV_CONNECT_TIMEOUT;
+	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
+	cfg->clamav_results_timeout = DEFAULT_CLAMAV_RESULTS_TIMEOUT;
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	
 	if (cfg_file == NULL) {
@@ -647,7 +653,6 @@ int main(int argc, char *argv[])
 	/* Sort spf domains array */
 	qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
 
-	cfg->clamav_servers_alive = cfg->clamav_servers_num;
     srandomdev();
 
     /*
@@ -670,4 +675,6 @@ int main(int argc, char *argv[])
     return r;
 }
 
-/* eof */
+/* 
+ * vi:ts=4 
+ */
