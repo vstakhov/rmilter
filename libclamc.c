@@ -344,7 +344,6 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
     struct timeval t;
     double ts, tf;
     struct clamav_server *selected = NULL;
-	int k;
 
     *strres = '\0';
     /*
@@ -360,43 +359,20 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 
     /* try to scan with available servers */
     while (1) {
-		k = random() % cfg->clamav_servers_num;
-		/* Minimum number of requests - set to maximum available value */
-		selected = &cfg->clamav_servers[k];
-#if 0
-		/* Check inactive timeout */
-		if (selected->active == 0 && ts >= selected->next_check) {
-			msg_info ("(clamscan) remarking server as active due to timeout");
-			pthread_mutex_lock (&mx_clamav_write);
-			selected->active = 1;
-			cfg->clamav_servers_alive++;
-			pthread_mutex_unlock (&mx_clamav_write);
+		selected = (struct clamav_server *) get_random_upstream ((void *)cfg->clamav_servers,
+											cfg->clamav_servers_num, sizeof (struct clamav_server),
+											t.tv_sec, cfg->clamav_error_time, cfg->clamav_dead_time, cfg->clamav_maxerrors);
+		if (selected == NULL) {
+			msg_err ("clamscan: upstream get error, %s", file);
+			return -1;
 		}
-		/* No active servers were found */
-		if (cfg->clamav_servers_alive == 0) {
-			msg_warn ("(clamscan) all servers are marked as inactive, trying to restore all");
-			pthread_mutex_lock (&mx_clamav_write);
-			for(k = 0; k < cfg->clamav_servers_num; k++) {
-				cfg->clamav_servers[k].active = 1;
-			}
-			cfg->clamav_servers_alive = cfg->clamav_servers_num;
-			pthread_mutex_unlock (&mx_clamav_write);
-			continue;
-		}
-		if (selected->active == 0) {
-			continue;
-		}
-#endif
 
 		r = clamscan_socket (file, selected, strres, strres_len, cfg);
 		if (r == 0) {
-/*
-			pthread_mutex_lock (&mx_clamav_write);
-			selected->failed_attempts = 0;
-			pthread_mutex_unlock (&mx_clamav_write);
-*/	
+			upstream_ok (&selected->up, t.tv_sec);
 	    	break;
 		}
+		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
 	    	msg_warn("(clamscan) unexpected problem, %s, %s", selected->name, file);
 	    	break;
@@ -406,20 +382,6 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 	    	break;
 		}
 		msg_warn("(clamscan) failed to scan, retry, %s, %s", selected->name, file);
-#if 0
-		/* Increment failed attempts counter */
-		pthread_mutex_lock (&mx_clamav_write);
-		selected->failed_attempts++;
-		/* Mark server inactive */
-		if (selected->failed_attempts > MAX_FAILED) {
-			msg_warn ("(clamscan) marking clamav server as inactive after %d failed scan attempts", selected->failed_attempts);
-			selected->active = 0;
-			tf = ts + INACTIVE_INTERVAL * (selected->failed_attempts - MAX_FAILED);
-			selected->next_check = (tf - ts) > MAX_TIMEOUT ? (ts + MAX_TIMEOUT) : tf;
-			cfg->clamav_servers_alive--;
-		}
-		pthread_mutex_unlock (&mx_clamav_write);
-#endif
 		sleep(1);
     }
 
@@ -442,3 +404,7 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 
     return r;
 }
+
+/* 
+ * vi:ts=4 
+ */

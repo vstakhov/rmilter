@@ -23,7 +23,7 @@ LEX_SRC=cfg_file.l
 YACC_OUTPUT=cfg_yacc.c
 LEX_OUTPUT=cfg_lex.c
 
-SOURCES=regexp.c spf.c rmilter.c libclamc.c ${LEX_OUTPUT} ${YACC_OUTPUT}
+SOURCES=upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ${LEX_OUTPUT} ${YACC_OUTPUT}
 OBJECTS=${SOURCES:C/\.c/.o/g}
 
 all: dcc lex build link
@@ -38,9 +38,10 @@ lex: ${LEX_SRC} ${YACC_SRC}
 	${YACC} -d -o ${YACC_OUTPUT} ${YACC_SRC}
 
 build: ${SOURCES}
-.for src in ${SOURCES}
-	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c ${src} 
-.endfor
+	for src in ${SOURCES} ; do \
+	echo ${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c $$src ; \
+	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c $$src  || exit ; \
+	done
 
 link: ${OBJECTS}
 	${CC} ${PTHREAD_FLAGS} ${LD_PATH} ${OBJECTS} ${LIBS} -o ${EXEC}

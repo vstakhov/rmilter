@@ -611,16 +611,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	bzero (cfg, sizeof (struct config_file));
-
-	LIST_INIT (&cfg->rules);
-	LIST_INIT (&cfg->whitelist_ip);
-	LIST_INIT (&cfg->whitelist_rcpt);
-	LIST_INIT (&cfg->bounce_addrs);
-	cfg->clamav_connect_timeout = DEFAULT_CLAMAV_CONNECT_TIMEOUT;
-	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
-	cfg->clamav_results_timeout = DEFAULT_CLAMAV_RESULTS_TIMEOUT;
-	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
-	
+	init_defaults (cfg);
+		
 	if (cfg_file == NULL) {
 		cfg_file = strdup ("/usr/local/etc/rmilter.conf");
 	}

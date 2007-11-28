@@ -11,6 +11,7 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include "pcre.h"
+#include "upstream.h"
 
 #define COND_CONNECT_FLAG 0x1
 #define COND_HELO_FLAG 0x2
@@ -27,6 +28,12 @@
 #define DEFAULT_CLAMAV_CONNECT_TIMEOUT 1000
 #define DEFAULT_CLAMAV_PORT_TIMEOUT 3000
 #define DEFAULT_CLAMAV_RESULTS_TIMEOUT 20000
+/* Memcached timeouts */
+#define DEFAULT_MEMCACHED_CONNECT_TIMEOUT 1000
+/* Upstream timeouts */
+#define DEFAULT_UPSTREAM_ERROR_TIME 10
+#define DEFAULT_UPSTREAM_DEAD_TIME 300
+#define DEFAULT_UPSTREAM_MAXERRORS 10
 
 #define yyerror(fmt, ...) \
 		fprintf (stderr, "Config file parse error!\non line: %d\n", yylineno); \
@@ -87,6 +94,7 @@ struct rule {
 };
 
 struct clamav_server {
+	struct upstream up;
 	int sock_type;
 
 	union {
@@ -101,6 +109,7 @@ struct clamav_server {
 };
 
 struct memcached_server {
+	struct upstream up;
 	struct in_addr addr;
 	uint16_t port;
 };
@@ -112,6 +121,7 @@ struct ip_list_entry {
 
 struct addr_list_entry {
 	char *addr;
+	size_t len;
 	LIST_ENTRY (addr_list_entry) next;
 };
 
@@ -125,12 +135,19 @@ struct config_file {
 	
 	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
 	size_t clamav_servers_num;
+	unsigned int clamav_error_time;
+	unsigned int clamav_dead_time;
+	unsigned int clamav_maxerrors;
 	unsigned int clamav_connect_timeout;
 	unsigned int clamav_port_timeout;
 	unsigned int clamav_results_timeout;
 
 	struct memcached_server memcached_servers[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_num;
+	unsigned int memcached_error_time;
+	unsigned int memcached_dead_time;
+	unsigned int memcached_maxerrors;
+	unsigned int memcached_connect_timeout;
 
 	LIST_HEAD (ruleset, rule) rules;
 	
@@ -151,6 +168,13 @@ struct config_file {
 	LIST_HEAD (whitelistaddrset, addr_list_entry) whitelist_rcpt;
 	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
 };
+
+int add_memcached_server (struct config_file *cf, char *str);
+int add_clamav_server (struct config_file *cf, char *str);
+struct action * create_action (enum action_type type, const char *message);
+struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
+int add_spf_domain (struct config_file *cfg, char *domain);
+void init_defaults (struct config_file *cfg);
 
 int yylex (void);
 int yyparse (void);
