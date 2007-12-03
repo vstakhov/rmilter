@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "upstream.h"
 
 #ifdef _THREAD_SAFE
@@ -82,10 +83,14 @@ revive_all_upstreams (void *ups, size_t members, size_t msize)
 	U_UNLOCK ();
 }
 
-struct upstream *
-get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
-{
-	int i, alive, selected;
+/* 
+ * Scan all upstreams for errors and mark upstreams dead or alive depends on conditions,
+ * return number of alive upstreams 
+ */
+static int
+rescan_upstreams (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
+{	
+	int i, alive;
 	struct upstream *cur;
 	u_char *p;
 	
@@ -104,14 +109,31 @@ get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t
 		revive_all_upstreams (ups, members, msize);
 		alive = members;
 	}
-
-	selected = rand () % alive;
 	
+	return alive;
+
+}
+
+/* Return alive upstream by its number */
+static struct upstream *
+get_upstream_by_number (void *ups, size_t members, size_t msize, int selected)
+{
+	int i;
+	u_char *p, *c;
+	struct upstream *cur;
+
 	i = 0;
 	p = ups;
+	c = ups;
 	for (;;) {
+		/* Out of range, return NULL */
+		if (p > c + members * msize) {
+			break;
+		}
+
 		cur = (struct upstream *)p;
 		p += msize;
+
 		if (cur->dead) {
 			/* Skip inactive upstreams */
 			continue;
@@ -125,6 +147,52 @@ get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t
 
 	/* Error */
 	return NULL;
+
+}
+
+struct upstream *
+get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
+{
+	int alive, selected;
+	
+	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
+	selected = rand () % alive;
+	
+	return get_upstream_by_number (ups, members, msize, selected); 
+}
+
+struct upstream *
+get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now, 
+						time_t error_timeout, time_t revive_timeout, size_t max_errors,
+						char *key, size_t keylen)
+{
+	int alive;
+	uint32_t h, i;
+	char *p;
+	
+	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
+
+	i = keylen;      /* Work back through the key length */
+	p = key;         /* Character pointer */
+	h = 0;           /* The hash value */
+
+	while (i--) {
+		h += *p++;
+		h += (h << 10);
+		h ^= (h >> 6);
+	}
+
+	h += (h << 3);
+	h ^= (h >> 11);
+	h += (h << 15);
+
+	if (h == 0) {
+		h = 1;
+	}
+
+	h = h % alive;
+
+	return get_upstream_by_number (ups, members, msize, h); 
 }
 
 #undef U_LOCK
