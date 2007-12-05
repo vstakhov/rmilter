@@ -19,12 +19,17 @@
 #include <netdb.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 
 #include "cfg_file.h"
 #include "rmilter.h"
+#include "memcached.h"
+#include "upstream.h"
 #include "ratelimit.h"
 
-struct memcached_bucket_s {
+#define EXPIRE_TIME 86400
+
+struct ratelimit_bucket_s {
 	double tm;
 	double count;
 };
@@ -83,14 +88,14 @@ is_whitelisted (struct in_addr *addr, char *rcpt, struct config_file *cfg)
 }
 
 static int
-is_bounce (char *rcpt, struct config_file *cfg)
+is_bounce (char *from, struct config_file *cfg)
 {
 	size_t user_part_len;
 	struct addr_list_entry *cur_addr;
 
-	user_part_len = extract_user_part (rcpt);
+	user_part_len = extract_user_part (from);
 	LIST_FOREACH (cur_addr, &cfg->bounce_addrs, next) {
-		if (cur_addr->len == user_part_len && strncasecmp (cur_addr->addr, rcpt, user_part_len) == 0) {
+		if (cur_addr->len == user_part_len && strncasecmp (cur_addr->addr, from, user_part_len) == 0) {
 			/* Bounce rcpt */
 			return 1;
 		}
@@ -121,11 +126,106 @@ make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
 	}
 }
 
-int
-rate_check (struct mlfi_priv *priv, struct config_file *cfg)
+static int
+check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keytype type, bucket_t *bucket, double tm, int is_update)
 {
-	/* XXX: Write this part after writing memcached library */
-	return 0;
+	struct memcached_server *selected;
+	struct ratelimit_bucket_s b;
+	memcached_ctx_t mctx;
+	memcached_param_t cur_param;
+	size_t s;
+	
+	make_key (cur_param.key, sizeof (cur_param.key), type, priv);
+
+	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers,
+											cfg->memcached_servers_num, sizeof (struct memcached_server),
+											floor(tm), cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+											cur_param.key, strlen(cur_param.key));
+	
+	if (selected == NULL) {
+		return -1;
+	}
+
+	mctx.protocol = UDP_TEXT;
+	memcpy(&mctx.addr, &selected->addr, sizeof (struct in_addr));
+	mctx.port = selected->port;
+	mctx.timeout = cfg->memcached_connect_timeout;
+
+	if (memc_init_ctx (&mctx) == -1) {
+		return -1;
+	}
+	
+	cur_param.buf = (void *)&b;
+	cur_param.bufsize = sizeof (struct ratelimit_bucket_s);
+	s = 1;
+	if (memc_get (&mctx, &cur_param, &s) == -1) {
+		return -1;
+	}
+
+	/* Leak from bucket at specified rate */
+	b.count -= (tm - b.tm) * bucket->rate;
+	b.count += is_update;
+	b.tm = tm;
+	if (b.count < 0) {
+		b.count = 0;
+	}
+	/* Update rate limit */
+	if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) == -1) {
+		return -1;
+	}
+
+	if (b.count > bucket->burst) {
+		/* Rate limit exceeded */
+		return 0;
+	}
+	/* Rate limit not exceeded */
+	return 1;
+}
+
+int
+rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
+{
+	double t;
+	struct timeval tm;
+	int r;
+
+	if (is_whitelisted (&priv->priv_addr.sin_addr, priv->priv_cur_rcpt, cfg) != 0) {
+		msg_info ("rate_check: address is whitelisted, skipping checks");
+		return 1;
+	}
+
+	if (gettimeofday (&tm, NULL) == -1) {
+		return -1;
+	}
+
+	t = tm.tv_sec + tm.tv_usec / 1000000.;
+
+	if (is_bounce (priv->priv_from, cfg) != 0) {
+		msg_debug ("rate_check: bounce address detected, doing special checks: %s", priv->priv_from);
+		r = check_specific_limit (priv, cfg, BOUNCE_TO, &cfg->limit_bounce_to, t, is_update);
+		if (r != 1) {
+			return r;
+		}
+		r = check_specific_limit (priv, cfg, BOUNCE_TO_IP, &cfg->limit_bounce_to_ip, t, is_update);
+		if (r != 1) {
+			return r;
+		}
+	}
+	/* Check other limits */
+	r = check_specific_limit (priv, cfg, TO, &cfg->limit_to, t, is_update);
+	if (r != 1) {
+		return r;
+	}
+	r = check_specific_limit (priv, cfg, TO_IP, &cfg->limit_to_ip, t, is_update);
+	if (r != 1) {
+		return r;
+	}
+	r = check_specific_limit (priv, cfg, TO_IP_FROM, &cfg->limit_to_ip_from, t, is_update);
+	if (r != 1) {
+		return r;
+	}
+	
+	return 1;
 }
 
 /* 

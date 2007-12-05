@@ -62,7 +62,8 @@ pthread_mutex_t mx_clamav_write = PTHREAD_MUTEX_INITIALIZER;
  * poll_fd() - wait for some POLLIN event on socket for timeout milliseconds.
  */
 
-int poll_fd(int fd, int timeout, short events)
+static int 
+poll_fd(int fd, int timeout, short events)
 {
     int r;
     struct pollfd fds[1];
@@ -83,7 +84,8 @@ int poll_fd(int fd, int timeout, short events)
  * connect_t() - connect socket with timeout
  */
 
-int connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
+static int 
+connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 {
     int r, ofl;
     int s_error = 0;
