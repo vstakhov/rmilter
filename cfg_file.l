@@ -172,6 +172,7 @@ connect_timeout					return CONNECT_TIMEOUT;
 port_timeout					return PORT_TIMEOUT;
 results_timeout					return RESULTS_TIMEOUT;
 memcached						return MEMCACHED;
+protocol						return PROTOCOL;
 spf_domains						return SPF;
 bind_socket						return BINDSOCK;
 max_size						return MAXSIZE;

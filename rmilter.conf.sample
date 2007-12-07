@@ -14,7 +14,7 @@ clamav {
 	# inet:port@host
 	# sockets are separated by ','
 	# Default: empty
-	servers = inet:3310@clam5.rambler.ru, inet:3310@clam6.rambler.ru, inet:3310@clam8.rambler.ru;
+	servers = clam5.rambler.ru, clam6.rambler.ru, clam8.rambler.ru;
 	# connect_timeout - timeout in miliseconds for connecting to clamav
 	# Default: 1s
 	connect_timeout = 1s;
@@ -62,6 +62,10 @@ memcached {
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
+
+	# protocol - protocol that is using for connecting to memcached (tcp or udp)
+	# Default: udp
+	protocol = tcp;
 };
 
 # bind_socket - socket credits for local bind:

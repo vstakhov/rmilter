@@ -146,7 +146,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		return -1;
 	}
 
-	mctx.protocol = UDP_TEXT;
+	mctx.protocol = cfg->memcached_protocol;
 	memcpy(&mctx.addr, &selected->addr, sizeof (struct in_addr));
 	mctx.port = selected->port;
 	mctx.timeout = cfg->memcached_connect_timeout;

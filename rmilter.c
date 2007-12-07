@@ -42,6 +42,7 @@
 #include "rmilter.h"
 #include "regexp.h"
 #include "dccif.h"
+#include "ratelimit.h"
 
 /* config options here... */
 
@@ -179,8 +180,7 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 static sfsistat
 mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 {
-	char tmpfrom[ADDRLEN + 1];
-	char *idx;
+	char *tmpfrom;
 	struct mlfi_priv *priv;
 	struct action *act;
 
@@ -190,20 +190,13 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
 
 	/*
-	 * Strip spaces from the source address
+	 * Get recipient addr
 	 */
-	strlcpy (tmpfrom, *envfrom, ADDRLEN);
-
-	/* 
-	 * Strip anything before the last '=' in the
-	 * source address. This avoid problems with
-	 * mailing lists using a unique sender address
-	 * for each retry.
-	 */
-	if ((idx = rindex (tmpfrom, '=')) == NULL)
-		idx = tmpfrom;
-
-	strlcpy (priv->priv_from, idx, ADDRLEN);
+    tmpfrom = smfi_getsymval(ctx, "mail_addr");
+    if (tmpfrom == NULL) {
+		tmpfrom = "<>";
+	}
+    strlcpy (priv->priv_from, tmpfrom, sizeof(priv->priv_from));
 
 	/* Check envfrom */
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
@@ -224,12 +217,21 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
-	/* Copy first recipient to priv - this is needed for dcc checking */
+	/* Copy first recipient to priv - this is needed for dcc checking and ratelimits */
 	if (!priv->priv_cur_rcpt) {
 		strlcpy (priv->priv_rcpt, *envrcpt, sizeof (priv->priv_rcpt));
 	}
-	/* Check recipient */
+	/* Check ratelimit */
 	priv->priv_cur_rcpt = *envrcpt;
+	if (rate_check (priv, cfg, 0) == 0) {
+		/* Rate is more than limit */
+		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
+			msg_err("smfi_setreply");
+		}
+	    (void)mlfi_cleanup (ctx, false);
+		return SMFIS_REJECT;
+	}
+	/* Check recipient */
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
 	if (act != NULL) {
 		return set_reply (ctx, act);
@@ -332,6 +334,16 @@ mlfi_eom(SMFICTX * ctx)
 	}
     strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 
+	/* Update rate limits for message */
+	priv->priv_cur_rcpt = priv->priv_rcpt;
+	if (rate_check (priv, cfg, 1) == 0) {
+		/* Rate is more than limit */
+		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
+			msg_err("smfi_setreply");
+		}
+		(void)mlfi_cleanup (ctx, false);
+		return SMFIS_REJECT;
+	}
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
@@ -344,7 +356,9 @@ mlfi_eom(SMFICTX * ctx)
 			case SPF_RESULT_NONE:
 				break;
 			case SPF_RESULT_FAIL:
-				msg_warn ("(mlfi_eom, %s) rejecting sender %s due to SPF policy violations", priv->mlfi_id, priv->priv_from);
+				msg_warn ("(mlfi_eom, %s) SPF check failed. Host %s[%s] is not allowed to send mail as %s ", 
+							priv->mlfi_id, (*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved", 
+							priv->priv_ip, priv->priv_from);
 	    		smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
 				(void)mlfi_cleanup (ctx, false);
 				return SMFIS_REJECT;

@@ -12,6 +12,7 @@
 #include <sys/un.h>
 #include "pcre.h"
 #include "upstream.h"
+#include "memcached.h"
 
 #define COND_CONNECT_FLAG 0x1
 #define COND_HELO_FLAG 0x2
@@ -24,6 +25,7 @@
 #define MAX_CLAMAV_SERVERS 48
 #define MAX_MEMCACHED_SERVERS 48
 #define DEFAULT_MEMCACHED_PORT 11211
+#define DEFAULT_CLAMAV_PORT 3321
 /* Clamav timeouts */
 #define DEFAULT_CLAMAV_CONNECT_TIMEOUT 1000
 #define DEFAULT_CLAMAV_PORT_TIMEOUT 3000
@@ -144,6 +146,7 @@ struct config_file {
 
 	struct memcached_server memcached_servers[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_num;
+	memc_proto_t memcached_protocol;
 	unsigned int memcached_error_time;
 	unsigned int memcached_dead_time;
 	unsigned int memcached_maxerrors;

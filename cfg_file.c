@@ -91,16 +91,16 @@ add_memcached_server (struct config_file *cf, char *str)
 int
 add_clamav_server (struct config_file *cf, char *str)
 {
-	char *cur_tok, *host_tok, *err_str;
+	char *cur_tok, *err_str;
 	struct clamav_server *srv;
 	struct hostent *he;
 	size_t s;
 
 	if (str == NULL) return 0;
 	
-	cur_tok = strsep (&str, ":@");
-
-	if (str == NULL || cur_tok == NULL || *cur_tok == '\0') return 0;
+	cur_tok = strsep (&str, ":");
+	
+	if (cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
 		yywarn ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
@@ -110,36 +110,35 @@ add_clamav_server (struct config_file *cf, char *str)
 
 	if (srv == NULL) return 0;
 
-	if (strncmp (cur_tok, "local", sizeof ("local")) == 0 ||
-		strncmp (cur_tok, "unix", sizeof ("unix")) == 0) {
-		srv->sock.unix_path = strdup (str);
+	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
+		srv->sock.unix_path = strdup (cur_tok);
 		srv->sock_type = AF_UNIX;
 		srv->name = srv->sock.unix_path;
 
 		cf->clamav_servers_num++;
 		return 1;
-	} else if (strncmp (cur_tok, "inet", sizeof ("inet")) == 0) {
-		host_tok = strsep (&str, "@");
-		srv->sock.inet.port = htons ((uint16_t)strtoul (host_tok, &err_str, 10));
-		if (*err_str != '\0') {
-			return 0;
-		}
 
-		if (!host_tok || !str) {
-			return 0;
+	} else {
+		if (str == '\0') {
+			srv->sock.inet.port = htons (DEFAULT_CLAMAV_PORT);
 		}
 		else {
-			if (!inet_aton (str, &srv->sock.inet.addr)) {
-				/* Try to call gethostbyname */
-				he = gethostbyname (str);
-				if (he == NULL) {
-					return 0;
-				}
-				else {
-					srv->name = strdup (str);
-					memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
-					s = strlen (str) + 1;
-				}
+			srv->sock.inet.port = htons ((uint16_t)strtoul (str, &err_str, 10));
+			if (*err_str != '\0') {
+				return 0;
+			}
+		}
+
+		if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
+			/* Try to call gethostbyname */
+			he = gethostbyname (cur_tok);
+			if (he == NULL) {
+				return 0;
+			}
+			else {
+				srv->name = strdup (cur_tok);
+				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
+				s = strlen (cur_tok) + 1;
 			}
 		}
 
@@ -263,6 +262,7 @@ init_defaults (struct config_file *cfg)
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->memcached_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
+	cfg->memcached_protocol = UDP_TEXT;
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 }

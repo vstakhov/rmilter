@@ -45,7 +45,7 @@ uint8_t cur_flags = 0;
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR HOSTPORT NUMBER
-%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED
+%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 
 %type	<string>	STRING
@@ -55,7 +55,7 @@ uint8_t cur_flags = 0;
 %type   <string>  	SOCKCRED
 %type	<string>	IPADDR
 %type	<string>	HOSTPORT
-%type 	<string>	memcached_hosts
+%type 	<string>	memcached_hosts clamav_addr
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN
@@ -285,12 +285,26 @@ clamav_server:
 	;
 
 clamav_params:
-	SOCKCRED	{
+	clamav_addr	{
 		if (!add_clamav_server (cfg, $1)) {
 			yyerror ("yyparse: add_clamav_server");
 			YYERROR;
 		}
 		free ($1);
+	}
+	;
+clamav_addr:
+	STRING {
+		$$ = $1;
+	}
+	| IPADDR{
+		$$ = $1;
+	}
+	| DOMAIN {
+		$$ = $1;
+	}
+	| HOSTPORT {
+		$$ = $1;
 	}
 	;
 clamav_error_time:
@@ -380,6 +394,7 @@ memcachedcmd:
 	| memcached_error_time
 	| memcached_dead_time
 	| memcached_maxerrors
+	| memcached_protocol
 	;
 
 memcached_servers:
@@ -424,6 +439,21 @@ memcached_maxerrors:
 memcached_connect_timeout:
 	CONNECT_TIMEOUT EQSIGN SECONDS {
 		cfg->memcached_connect_timeout = $3;
+	}
+	;
+
+memcached_protocol:
+	PROTOCOL EQSIGN STRING {
+		if (strncasecmp ($3, "udp", sizeof ("udp") - 1) == 0) {
+			cfg->memcached_protocol = UDP_TEXT;
+		}
+		else if (strncasecmp ($3, "tcp", sizeof ("tcp") - 1) == 0) {
+			cfg->memcached_protocol = TCP_TEXT;
+		}
+		else {
+			yyerror ("yyparse: cannot recognize protocol: %s", $3);
+			YYERROR;
+		}
 	}
 	;
 
@@ -473,6 +503,7 @@ whitelist_ip_list:
 		t = (struct ip_list_entry *)malloc (sizeof (struct ip_list_entry));
 		if (inet_aton ($1, &t->addr) == 0) {
 			yyerror ("yyparse: invalid ip address: %s", $1);
+			YYERROR;
 		}
 		LIST_INSERT_HEAD (&cfg->whitelist_ip, t, next);
 	}
@@ -481,6 +512,7 @@ whitelist_ip_list:
 		t = (struct ip_list_entry *)malloc (sizeof (struct ip_list_entry));
 		if (inet_aton ($3, &t->addr) == 0) {
 			yyerror ("yyparse: invalid ip address: %s", $3);
+			YYERROR;
 		}
 		LIST_INSERT_HEAD (&cfg->whitelist_ip, t, next);
 	}
