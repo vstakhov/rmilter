@@ -17,6 +17,7 @@
 #include <sys/poll.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/uio.h>
 
 #include "memcached.h"
 
@@ -25,6 +26,8 @@
 #define STORED_TRAILER "STORED" CRLF
 #define NOT_STORED_TRAILER "NOT STORED" CRLF
 #define EXISTS_TRAILER "EXISTS" CRLF
+#define DELETED_TRAILER "DELETED" CRLF
+#define NOT_FOUND_TRAILER "NOT_FOUND" CRLF
 #define CLIENT_ERROR_TRAILER "CLIENT_ERROR"
 #define SERVER_ERROR_TRAILER "SERVER_ERROR"
 
@@ -39,6 +42,9 @@ struct memc_udp_header
 	uint16_t unused;
 };
 
+/*
+ * Poll file descriptor for read or write during specified timeout
+ */
 static int
 poll_d (int fd, u_char want_read, u_char want_write, int timeout)
 {
@@ -63,6 +69,9 @@ poll_d (int fd, u_char want_read, u_char want_write, int timeout)
 	return r;
 }
 
+/*
+ * Make socket for udp connection
+ */
 static int
 memc_make_udp_sock (memcached_ctx_t *ctx)
 {
@@ -91,29 +100,48 @@ memc_make_udp_sock (memcached_ctx_t *ctx)
 	return connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in));
 }
 
+/*
+ * Make socket for tcp connection
+ */
 static int
-memc_read_udp_header (memcached_ctx_t *ctx, struct memc_udp_header *header)
+memc_make_tcp_sock (memcached_ctx_t *ctx)
 {
-	ssize_t r;
+	struct sockaddr_in sc;
+	int ofl, r;
 
-	/* Read udp header */
-	if ((r = poll_d (ctx->sock, 1, 0, ctx->timeout)) != -1) {
-		r = recv (ctx->sock, header, sizeof (struct memc_udp_header), 0);
-	}
-	if (r == -1) {
+	bzero (&sc, sizeof (struct sockaddr_in *));
+	sc.sin_family = AF_INET;
+	sc.sin_port = ctx->port;
+	memcpy (&sc.sin_addr, &ctx->addr, sizeof (struct in_addr));
+
+	ctx->sock = socket (PF_INET, SOCK_STREAM, 0);
+
+	if (ctx->sock == -1) {
 		return -1;
 	}
 
-	return 0;
+	/* set nonblocking */
+    ofl = fcntl(ctx->sock, F_GETFL, 0);
+    fcntl(ctx->sock, F_SETFL, ofl | O_NONBLOCK);
+	
+	if ((r = connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in))) == -1) {
+		if (r != EINPROGRESS) {
+			return -1;
+		}
+	}
+	/* Get write readiness */
+	if (poll_d (ctx->sock, 0, 1, ctx->timeout) == 1) {
+		return 0;
+	} 
+	else {
+		close (ctx->sock);
+		return -1;
+	}
 }
 
-static int
-memc_write_udp_header (memcached_ctx_t *ctx, struct memc_udp_header *header)
-{
-	return send (ctx->sock, header, sizeof (struct memc_udp_header), 0);
-}
-
-/* Parse VALUE reply from server and set len argument to value returned by memcached */
+/* 
+ * Parse VALUE reply from server and set len argument to value returned by memcached 
+ */
 static int
 memc_parse_header (char *buf, size_t *len, char **end)
 {
@@ -148,7 +176,9 @@ memc_parse_header (char *buf, size_t *len, char **end)
 
 	return -1;
 }
-
+/*
+ * Common read command handler for memcached
+ */
 memc_error_t
 memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem)
 {
@@ -158,25 +188,45 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 	ssize_t r, sum = 0, written = 0;
 	size_t datalen;
 	struct memc_udp_header header;
+	struct iovec iov[2];
 	
 	for (i = 0; i < *nelem; i++) {
 		if (ctx->protocol == UDP_TEXT) {
 			/* Send udp header */
 			bzero (&header, sizeof (header));
-			memc_write_udp_header (ctx, &header);
+			header.dg_sent = htons (1);
 		}
 
 		r = snprintf (udp_buf, UDP_BUFSIZ, "%s %s" CRLF, cmd, params[i].key);
-		send (ctx->sock, udp_buf, i + 1, 0);
+		if (ctx->protocol == UDP_TEXT) {
+			iov[0].iov_base = &header;
+			iov[0].iov_len = sizeof (struct memc_udp_header);
+			iov[1].iov_base = udp_buf;
+			iov[1].iov_len = r;
+			writev (ctx->sock, iov, 2);
+		}
+		else {
+			write (ctx->sock, udp_buf, r);
+		}
 
 		/* Read reply from server */
+		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+			return SERVER_ERROR;
+		}
 		/* Read header */
 		if (ctx->protocol == UDP_TEXT) {
-			if (memc_read_udp_header (ctx, &header) == -1) {
+			iov[0].iov_base = &header;
+			iov[0].iov_len = sizeof (struct memc_udp_header);
+			iov[1].iov_base = udp_buf;
+			iov[1].iov_len = UDP_BUFSIZ;
+			if ((r = readv (ctx->sock, iov, 2)) == -1) {
 				return SERVER_ERROR;
 			}
 		}
-		r = recv (ctx->sock, udp_buf, UDP_BUFSIZ - 1, 0);
+		else {
+			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+		}
+
 		if (r > 0) {
 			sum += r;
 			udp_buf[r] = 0;
@@ -197,7 +247,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			/* Check if we already have all data in buffer */
 			if (sum >= datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
 				/* Store all data in param's buffer */
-				memcpy (p, params[i].buf, datalen);
+				memcpy (params[i].buf, p, datalen);
 				return OK;
 			}
 			else {
@@ -213,14 +263,22 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 		p = udp_buf;
 
 		while (sum < datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
-			/* Read header */
+			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+				return SERVER_ERROR;
+			}
 			if (ctx->protocol == UDP_TEXT) {
-				if (memc_read_udp_header (ctx, &header) == -1) {
+				iov[0].iov_base = &header;
+				iov[0].iov_len = sizeof (struct memc_udp_header);
+				iov[1].iov_base = udp_buf;
+				iov[1].iov_len = UDP_BUFSIZ;
+				if ((r = readv (ctx->sock, iov, 2)) == -1) {
 					return SERVER_ERROR;
 				}
 			}
+			else {
+				r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+			}
 
-			r = recv (ctx->sock, p, UDP_BUFSIZ - 1, 0);
 			sum += r;
 			if (r <= 0) {
 				break;
@@ -241,6 +299,9 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 	return OK;
 }
 
+/*
+ * Common write command handler for memcached
+ */
 memc_error_t
 memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem, int expire)
 {
@@ -248,27 +309,54 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 	int i;
 	ssize_t r;
 	struct memc_udp_header header;
+	struct iovec iov[4];
 	
 	for (i = 0; i < *nelem; i++) {
 		if (ctx->protocol == UDP_TEXT) {
 			/* Send udp header */
 			bzero (&header, sizeof (header));
-			memc_write_udp_header (ctx, &header);
+			header.dg_sent = htons (1);
 		}
 
 		r = snprintf (udp_buf, UDP_BUFSIZ, "%s %s 0 %d %zu" CRLF, cmd, params[i].key, expire, params[i].bufsize);
-		send (ctx->sock, udp_buf, i + 1, 0);
-		
-		/* Send all other data */
-		r = send (ctx->sock, params[i].buf, params[i].bufsize, 0);
+		if (ctx->protocol == UDP_TEXT) {
+			iov[0].iov_base = &header;
+			iov[0].iov_len = sizeof (struct memc_udp_header);
+			iov[1].iov_base = udp_buf;
+			iov[1].iov_len = r;
+			iov[2].iov_base = params[i].buf;
+			iov[2].iov_len = params[i].bufsize;
+			iov[3].iov_base = CRLF;
+			iov[3].iov_len = sizeof (CRLF) - 1;
+			writev (ctx->sock, iov, 4);
+		}
+		else {
+			iov[0].iov_base = udp_buf;
+			iov[0].iov_len = r;
+			iov[1].iov_base = params[i].buf;
+			iov[1].iov_len = params[i].bufsize;
+			iov[2].iov_base = CRLF;
+			iov[2].iov_len = sizeof (CRLF) - 1;
+			writev (ctx->sock, iov, 3);	
+		}
+
 		/* Read reply from server */
+		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+			return SERVER_ERROR;
+		}
 		/* Read header */
 		if (ctx->protocol == UDP_TEXT) {
-			if (memc_read_udp_header (ctx, &header) == -1) {
+			iov[0].iov_base = &header;
+			iov[0].iov_len = sizeof (struct memc_udp_header);
+			iov[1].iov_base = udp_buf;
+			iov[1].iov_len = UDP_BUFSIZ;
+			if ((r = readv (ctx->sock, iov, 2)) == -1) {
 				return SERVER_ERROR;
 			}
 		}
-		r = recv (ctx->sock, udp_buf, UDP_BUFSIZ - 1, 0);
+		else {
+			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+		}
 		
 		if (strncmp (udp_buf, STORED_TRAILER, sizeof (STORED_TRAILER) - 1) == 0) {
 			continue;
@@ -286,7 +374,72 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 
 	return OK;
 }
+/*
+ * Delete command handler
+ */
+memc_error_t
+memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
+{
+	char udp_buf[UDP_BUFSIZ];
+	int i;
+	ssize_t r;
+	struct memc_udp_header header;
+	struct iovec iov[2];
+	
+	for (i = 0; i < *nelem; i++) {
+		if (ctx->protocol == UDP_TEXT) {
+			/* Send udp header */
+			bzero (&header, sizeof (header));
+			header.dg_sent = htons(1);
+		}
 
+		r = snprintf (udp_buf, UDP_BUFSIZ, "delete %s" CRLF, params[i].key);
+		if (ctx->protocol == UDP_TEXT) {
+			iov[0].iov_base = &header;
+			iov[0].iov_len = sizeof (struct memc_udp_header);
+			iov[1].iov_base = udp_buf;
+			iov[1].iov_len = r;
+			writev (ctx->sock, iov, 2);
+		}
+		else {
+			write (ctx->sock, udp_buf, r);
+		}
+
+		/* Read reply from server */
+		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+			return SERVER_ERROR;
+		}
+		/* Read header */
+		if (ctx->protocol == UDP_TEXT) {
+			iov[0].iov_base = &header;
+			iov[0].iov_len = sizeof (struct memc_udp_header);
+			iov[1].iov_base = udp_buf;
+			iov[1].iov_len = UDP_BUFSIZ;
+			if ((r = readv (ctx->sock, iov, 2)) == -1) {
+				return SERVER_ERROR;
+			}
+		}
+		else {
+			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+		}
+
+		if (strncmp (udp_buf, DELETED_TRAILER, sizeof (DELETED_TRAILER) - 1) == 0) {
+			continue;
+		}
+		else if (strncmp (udp_buf, NOT_FOUND_TRAILER, sizeof (NOT_FOUND_TRAILER) - 1) == 0) {
+			return NOT_EXISTS;
+		}
+		else {
+			return SERVER_ERROR;
+		}
+	}
+
+	return OK;
+}
+
+/* 
+ * Initialize memcached context for specified protocol
+ */
 int 
 memc_init_ctx (memcached_ctx_t *ctx)
 {
@@ -298,8 +451,10 @@ memc_init_ctx (memcached_ctx_t *ctx)
 		case UDP_TEXT:
 			return memc_make_udp_sock (ctx);
 			break;
-		/* Not implemented */
 		case TCP_TEXT:
+			return memc_make_tcp_sock (ctx);
+			break;
+		/* Not implemented */
 		case UDP_BIN:
 		case TCP_BIN:
 		default:
@@ -307,6 +462,9 @@ memc_init_ctx (memcached_ctx_t *ctx)
 	}
 }
 
+/*
+ * Close context connection
+ */
 int
 memc_close_ctx (memcached_ctx_t *ctx)
 {
@@ -315,6 +473,40 @@ memc_close_ctx (memcached_ctx_t *ctx)
 	}
 
 	return 0;
+}
+
+const char * memc_strerror (memc_error_t err)
+{
+	const char *p;
+
+	switch (err) {
+		case OK:
+			p = "Ok";
+			break;
+		case BAD_COMMAND:
+			p = "Bad command";
+			break;
+		case CLIENT_ERROR:
+			p = "Client error";
+			break;
+		case SERVER_ERROR:
+			p = "Server error";
+			break;
+		case NOT_EXISTS:
+			p = "Key not found";
+			break;
+		case EXISTS:
+			p = "Key already exists";
+			break;
+		case WRONG_LENGTH:
+			p = "Wrong result length";
+			break;
+		default:
+			p = "Unknown error";
+			break;
+	}
+
+	return p;
 }
 
 /* 

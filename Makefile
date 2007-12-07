@@ -37,7 +37,7 @@ lex: ${LEX_SRC} ${YACC_SRC}
 	${LEX} -o${LEX_OUTPUT} ${LEX_SRC}
 	${YACC} -d -o ${YACC_OUTPUT} ${YACC_SRC}
 
-build: ${SOURCES}
+build: 
 	@for src in ${SOURCES} ; do \
 	echo ${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c $$src ; \
 	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c $$src  || exit ; \
@@ -45,6 +45,12 @@ build: ${SOURCES}
 
 link: ${OBJECTS}
 	${CC} ${PTHREAD_FLAGS} ${LD_PATH} ${OBJECTS} ${LIBS} -o ${EXEC}
+
+memctest: upstream.c memcached.c memcached-test.c
+	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c upstream.c
+	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c memcached.c
+	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c memcached-test.c
+	${CC} ${PTHREAD_FLAGS} ${LD_PATH} upstream.o memcached.o memcached-test.o ${LIBS} -o memcached-test
 
 install:
 	install -b ${EXEC} ${PREFIX}/sbin/${EXEC}

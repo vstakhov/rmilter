@@ -17,6 +17,9 @@ pthread_mutex_t upstream_mtx = PTHREAD_MUTEX_INITIALIZER;
 #define U_UNLOCK() do {} while (0)
 #endif
 
+/*
+ * Check upstream parameters and mark it whether valid or dead
+ */
 static void
 check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
 {
@@ -39,6 +42,9 @@ check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t re
 	}
 }
 
+/* 
+ * Call this function after failed upstream request
+ */
 void
 upstream_fail (struct upstream *up, time_t now)
 {
@@ -52,7 +58,9 @@ upstream_fail (struct upstream *up, time_t now)
 		U_UNLOCK ();
 	}
 }
-
+/* 
+ * Call this function after successfull upstream request
+ */
 void
 upstream_ok (struct upstream *up, time_t now)
 {
@@ -63,7 +71,9 @@ upstream_ok (struct upstream *up, time_t now)
 		U_UNLOCK ();
 	}
 }
-
+/* 
+ * Mark all upstreams as active. This function is used when all upstreams are marked as inactive
+ */
 void
 revive_all_upstreams (void *ups, size_t members, size_t msize) 
 {
@@ -150,6 +160,9 @@ get_upstream_by_number (void *ups, size_t members, size_t msize, int selected)
 
 }
 
+/*
+ * Recheck all upstreams and return random active upstream
+ */
 struct upstream *
 get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
 {
@@ -161,6 +174,9 @@ get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t
 	return get_upstream_by_number (ups, members, msize, selected); 
 }
 
+/*
+ * Return upstream by hash, that is calculated from active upstreams number
+ */
 struct upstream *
 get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now, 
 						time_t error_timeout, time_t revive_timeout, size_t max_errors,

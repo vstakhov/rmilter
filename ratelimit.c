@@ -169,9 +169,18 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	if (b.count < 0) {
 		b.count = 0;
 	}
-	/* Update rate limit */
-	if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) == -1) {
-		return -1;
+
+	if (is_update && b.count == 0) {
+		/* Delete key if bucket is empty */
+		if (memc_delete (&mctx, &cur_param, &s) == -1) {
+			return -1;
+		}
+	}
+	else {
+		/* Update rate limit */
+		if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) == -1) {
+			return -1;
+		}
 	}
 
 	if (b.count > bucket->burst) {

@@ -78,6 +78,10 @@ int memc_init_ctx (memcached_ctx_t *ctx);
 
 memc_error_t memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem);
 memc_error_t memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem, int expire);
+memc_error_t memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem);
+
+/* Return symbolic name of memcached error*/
+const char * memc_strerror (memc_error_t err);
 
 /* Destroy socket from ctx */
 int memc_close_ctx (memcached_ctx_t *ctx);
