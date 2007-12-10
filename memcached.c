@@ -125,7 +125,7 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
     fcntl(ctx->sock, F_SETFL, ofl | O_NONBLOCK);
 	
 	if ((r = connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in))) == -1) {
-		if (r != EINPROGRESS) {
+		if (errno != EINPROGRESS) {
 			return -1;
 		}
 	}
