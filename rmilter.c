@@ -190,10 +190,10 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
 
 	/*
-	 * Get recipient addr
+	 * Get mail from addr
 	 */
-    tmpfrom = smfi_getsymval(ctx, "mail_addr");
-    if (tmpfrom == NULL) {
+    tmpfrom = smfi_getsymval(ctx, "{mail_addr}");
+    if (tmpfrom == NULL || *tmpfrom == '\0') {
 		tmpfrom = "<>";
 	}
     strlcpy (priv->priv_from, tmpfrom, sizeof(priv->priv_from));
@@ -212,17 +212,25 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 {
 	struct mlfi_priv *priv;
 	struct action *act;
+	char *tmprcpt;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
+	/*
+	 * Get recipient address
+	 */
+    tmprcpt = smfi_getsymval(ctx, "{rcpt_addr}");
+    if (tmprcpt == NULL || *tmprcpt == '\0') {
+		tmprcpt = "<>";
+	}
 	/* Copy first recipient to priv - this is needed for dcc checking and ratelimits */
 	if (!priv->priv_cur_rcpt) {
-		strlcpy (priv->priv_rcpt, *envrcpt, sizeof (priv->priv_rcpt));
+		strlcpy (priv->priv_rcpt, tmprcpt, sizeof (priv->priv_rcpt));
 	}
 	/* Check ratelimit */
-	priv->priv_cur_rcpt = *envrcpt;
+	priv->priv_cur_rcpt = tmprcpt;
 	if (rate_check (priv, cfg, 0) == 0) {
 		/* Rate is more than limit */
 		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
