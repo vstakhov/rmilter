@@ -10,8 +10,8 @@ pidfile = /var/run/rmilter/rmilter.pid;
 
 clamav {
 	# servers - clamav socket definitions in format:
-	# unix:/path/to/file
-	# inet:port@host
+	# /path/to/file
+	# host[:port]
 	# sockets are separated by ','
 	# Default: empty
 	servers = clam5.rambler.ru, clam6.rambler.ru, clam8.rambler.ru;

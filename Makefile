@@ -43,7 +43,7 @@ build:
 	${CC} ${CFLAGS} ${PTHREAD_FLAGS} -c $$src  || exit ; \
 	done
 
-link: ${OBJECTS}
+link:
 	${CC} ${PTHREAD_FLAGS} ${LD_PATH} ${OBJECTS} ${LIBS} -o ${EXEC}
 
 memctest: upstream.c memcached.c memcached-test.c

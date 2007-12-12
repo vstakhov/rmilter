@@ -306,6 +306,9 @@ clamav_addr:
 	| HOSTPORT {
 		$$ = $1;
 	}
+	| FILENAME {
+		$$ = $1;
+	}
 	;
 clamav_error_time:
 	ERROR_TIME EQSIGN NUMBER {
