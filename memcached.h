@@ -11,6 +11,7 @@ typedef enum memc_error {
 	BAD_COMMAND,
 	CLIENT_ERROR,
 	SERVER_ERROR,
+	SERVER_TIMEOUT,
 	NOT_EXISTS,
 	EXISTS,
 	WRONG_LENGTH
@@ -30,7 +31,9 @@ typedef struct memcached_ctx_s {
 	struct in_addr addr;
 	uint16_t port;
 	int sock;
-	int timeout;	
+	int timeout;
+	/* Counter that is used for memcached operations in network byte order */
+	uint16_t count;
 } memcached_ctx_t;
 
 typedef struct memcached_param_s {
