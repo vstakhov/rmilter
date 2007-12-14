@@ -134,6 +134,10 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
 	size_t s;
+
+	if (bucket->burst == 0 || bucket->rate == 0) {
+		return 1;
+	}
 	
 	make_key (cur_param.key, sizeof (cur_param.key), type, priv);
 
