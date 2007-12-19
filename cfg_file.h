@@ -10,6 +10,7 @@
 #include <sys/queue.h>
 #include <netinet/in.h>
 #include <sys/un.h>
+#include <pthread.h>
 #include "pcre.h"
 #include "upstream.h"
 #include "memcached.h"
@@ -47,6 +48,10 @@
 		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
 		fprintf (stderr, fmt, ##__VA_ARGS__); \
 		fprintf (stderr, "\n")
+
+#define CFG_RLOCK() do { pthread_rwlock_rdlock (&cfg_mtx); } while (0) 
+#define CFG_WLOCK() do { pthread_rwlock_wrlock (&cfg_mtx); } while (0) 
+#define CFG_UNLOCK() do { pthread_rwlock_unlock (&cfg_mtx); } while (0) 
 
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
@@ -129,6 +134,7 @@ struct addr_list_entry {
 
 
 struct config_file {
+	char *cfg_name;
 	char *pid_file;
 	char *temp_dir;
 
@@ -178,9 +184,11 @@ struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 int add_spf_domain (struct config_file *cfg, char *domain);
 void init_defaults (struct config_file *cfg);
+void free_config (struct config_file *cfg);
 
 int yylex (void);
 int yyparse (void);
+void yyrestart (FILE *);
 
 #endif /* ifdef CFG_FILE_H */
 /* 

@@ -163,6 +163,8 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	cur_param.bufsize = sizeof (struct ratelimit_bucket_s);
 	s = 1;
 	if (memc_get (&mctx, &cur_param, &s) == -1) {
+		memc_close_ctx (&mctx);
+		upstream_fail (&selected->up, floor (tm));
 		return -1;
 	}
 
@@ -177,15 +179,22 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	if (is_update && b.count == 0) {
 		/* Delete key if bucket is empty */
 		if (memc_delete (&mctx, &cur_param, &s) == -1) {
+			memc_close_ctx (&mctx);
+			upstream_fail (&selected->up, floor (tm));
 			return -1;
 		}
 	}
 	else {
 		/* Update rate limit */
 		if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) == -1) {
+			memc_close_ctx (&mctx);
+			upstream_fail (&selected->up, floor (tm));
 			return -1;
 		}
 	}
+
+	memc_close_ctx (&mctx);
+	upstream_ok (&selected->up, floor (tm));
 
 	if (b.count > bucket->burst) {
 		/* Rate limit exceeded */

@@ -44,41 +44,51 @@
 #include "dccif.h"
 #include "ratelimit.h"
 
-/* config options here... */
-
-struct config_file *cfg;
-
 #ifndef true
 typedef int bool;
 #define false	0
 #define true	1
 #endif				/* ! true */
 
-/* Global mutexes */
-
-pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
-
-
+static sfsistat mlfi_connect(SMFICTX *, char *, _SOCK_ADDR *);
+static sfsistat mlfi_helo(SMFICTX *, char *);
+static sfsistat mlfi_envfrom(SMFICTX *, char **);
+static sfsistat mlfi_envrcpt(SMFICTX *, char **);
+static sfsistat mlfi_header(SMFICTX * , char *, char *);
+static sfsistat mlfi_eoh(SMFICTX *);
+static sfsistat mlfi_body(SMFICTX *, u_char *, size_t);
+static sfsistat mlfi_eom(SMFICTX *);
+static sfsistat mlfi_close(SMFICTX *);
+static sfsistat mlfi_abort(SMFICTX *);
 static sfsistat mlfi_cleanup(SMFICTX *, bool);
 static int check_clamscan(const char *, char *, size_t);
 static int check_dcc(const struct mlfi_priv *);
 
-int
-my_strcmp (const void *s1, const void *s2)
+struct smfiDesc smfilter =
 {
-	return strcmp (*(const char **)s1, *(const char **)s2);
-}
+    	"rmilter",		/* filter name */
+    	SMFI_VERSION,	/* version code -- do not change */
+    	SMFIF_ADDHDRS,	/* flags */
+    	mlfi_connect,	/* connection info filter */
+    	mlfi_helo,		/* SMTP HELO command filter */
+    	mlfi_envfrom,	/* envelope sender filter */
+    	mlfi_envrcpt,	/* envelope recipient filter */
+    	mlfi_header,	/* header filter */
+    	mlfi_eoh,		/* end of header */
+    	mlfi_body,		/* body block filter */
+    	mlfi_eom,		/* end of message */
+    	mlfi_abort,		/* message aborted */
+    	mlfi_close,		/* connection cleanup */
+		NULL,			/* unknown situation */
+		NULL,			/* SMTP DATA callback */
+		NULL			/* Negotiation callback */
+};
 
-static void 
-usage (void)
-{
-	printf ("Rambler Milter Version " MVERSION "\n"
-			"Usage: rmilter [-h] -c <config_file>\n"
-			"-h - this help message\n"
-			"-c - path to config file\n");
-	exit (0);
-}
+extern struct config_file *cfg;
+
+/* Milter mutexes */
+pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 static sfsistat
 set_reply (SMFICTX *ctx, const struct action *act)
@@ -566,127 +576,6 @@ check_dcc (const struct mlfi_priv *priv)
 					rcpts, dccfd, /*in_body*/0, homedir);
 
 	return dccres;
-}
-
-
-
-/*****************************************************************************/
-
-
-
-int main(int argc, char *argv[])
-{
-    int c, r;
-	extern int yynerrs;
-	extern FILE *yyin;
-    const char *args = "c:h";
-	char *cfg_file = NULL;
-	FILE *f;
-
-	struct smfiDesc smfilter =
-	{
-    	"rmilter",			/* filter name */
-    	SMFI_VERSION,		/* version code -- do not change */
-    	SMFIF_ADDHDRS,		/* flags */
-    	mlfi_connect,		/* connection info filter */
-    	mlfi_helo,				/* SMTP HELO command filter */
-    	mlfi_envfrom,				/* envelope sender filter */
-    	mlfi_envrcpt,				/* envelope recipient filter */
-    	mlfi_header,		/* header filter */
-    	mlfi_eoh,			/* end of header */
-    	mlfi_body,			/* body block filter */
-    	mlfi_eom,			/* end of message */
-    	mlfi_abort,			/* message aborted */
-    	mlfi_close,			/* connection cleanup */
-		NULL,				/* unknown situation */
-		NULL,				/* SMTP DATA callback */
-		NULL				/* Negotiation callback */
-	};
-
-    /* Process command line options */
-    while ((c = getopt(argc, argv, args)) != -1) {
-		switch (c) {
-		case 'c':
-	    	if (optarg == NULL || *optarg == '\0') {
-				fprintf(stderr, "Illegal config_file: %s\n",
-			      optarg);
-				exit(EX_USAGE);
-	 	   	}
-			else {
-				cfg_file = strdup (optarg);
-			}
-	    	break;
-		case 'h':
-		default:
-			usage ();
-	    	break;
-		}
-    }
-
-
-    openlog("rmilter", LOG_PID, LOG_MAIL);
-    msg_warn ("(main) starting...");
-	
-	cfg = (struct config_file*) malloc (sizeof (struct config_file));
-	if (cfg == NULL) {
-		msg_warn ("malloc: %s", strerror (errno));
-		return -1;
-	}
-	bzero (cfg, sizeof (struct config_file));
-	init_defaults (cfg);
-		
-	if (cfg_file == NULL) {
-		cfg_file = strdup ("/usr/local/etc/rmilter.conf");
-	}
-
-	f = fopen (cfg_file, "r");
-	if (f == NULL) {
-		msg_warn ("cannot open file: %s", cfg_file);
-		return EBADF;
-	}
-	yyin = f;
-
-	if (yyparse() != 0 || yynerrs > 0) {
-		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
-		return EBADF;
-	}
-
-	/* Strictly set temp dir */
-    if (!cfg->temp_dir) {
-		msg_warn ("tempdir is not set, trying to use $TMPDIR");
-		cfg->temp_dir = getenv("TMPDIR");
-
-		if (!cfg->temp_dir) {
-	    	cfg->temp_dir = strdup("/tmp");
-		}
-    }
-	if (cfg->sizelimit == 0) {
-		msg_warn ("maxsize is not set, no limits on size of scanned mail");
-	}
-
-	/* Sort spf domains array */
-	qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
-
-    srandomdev();
-
-    /*
-     * Hack to set milter unix socket permissions, but it also affect
-     * temporary file too :( temporary directory shuld be owned by user
-     * rmilter-clam and have permissions 700
-     */
-    umask(0007);
-
-	smfi_setconn(cfg->sock_cred);
-	if (smfi_register(smfilter) == MI_FAILURE) {
-		msg_err ("smfi_register failed");
-		exit(EX_UNAVAILABLE);
-	}
-
-    r = smfi_main();
-
-	if (cfg_file != NULL) free (cfg_file);
-
-    return r;
 }
 
 /* 

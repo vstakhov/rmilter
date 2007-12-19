@@ -7,6 +7,7 @@ struct upstream {
 	unsigned int errors;
 	time_t time;
 	unsigned char dead;
+	unsigned char priority;
 };
 
 void upstream_fail (struct upstream *up, time_t now);

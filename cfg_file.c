@@ -266,3 +266,86 @@ init_defaults (struct config_file *cfg)
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 }
+
+void
+free_config (struct config_file *cfg)
+{
+	int i;
+	struct rule *cur, *tmp_rule;
+	struct condition *cond, *tmp_cond;
+	struct ip_list_entry *ip_cur, *ip_tmp;
+	struct addr_list_entry *addr_cur, *addr_tmp;
+
+	if (cfg->pid_file) {
+		free (cfg->pid_file);
+	}
+	if (cfg->temp_dir) {
+		free (cfg->temp_dir);
+	}
+	if (cfg->sock_cred) {
+		free (cfg->sock_cred);
+	}
+
+	if (cfg->spf_domains) {
+		for (i = 0; i < MAX_SPF_DOMAINS; i++) {
+			free (cfg->spf_domains[i]);
+		}
+		free (cfg->spf_domains);
+	}
+	
+	for (i = 0; i < cfg->clamav_servers_num; i++) {
+		free (cfg->clamav_servers[i].name);
+	}
+	/* Free rules list */
+	LIST_FOREACH_SAFE (cur, &cfg->rules, next, tmp_rule) {
+		LIST_FOREACH_SAFE (cond, cur->conditions, next, tmp_cond) {
+			if (!cond->args[0].empty) {
+				if (cond->args[0].re != NULL) {
+					pcre_free (cond->args[0].re);
+				}
+				if (cond->args[0].src != NULL) {
+					free (cond->args[0].src);
+				}
+			}
+			if (!cond->args[1].empty) {
+				if (cond->args[1].re != NULL) {
+					pcre_free (cond->args[1].re);
+				}
+				if (cond->args[1].src != NULL) {
+					free (cond->args[1].src);
+				}
+			}
+			LIST_REMOVE (cond, next);
+			free (cond);
+		}
+		if (cur->act->message) {
+			free (cur->act->message);
+		}
+		free (cur->act);
+		LIST_REMOVE (cur, next);
+		free (cur);
+	}
+	/* Free whitelists and bounce list*/
+	LIST_FOREACH_SAFE (ip_cur, &cfg->whitelist_ip, next, ip_tmp) {
+		LIST_REMOVE (ip_cur, next);
+		free (ip_cur);
+	}
+	LIST_FOREACH_SAFE (addr_cur, &cfg->whitelist_rcpt, next, addr_tmp) {
+		if (addr_cur->addr) {
+			free (addr_cur->addr);
+		}
+		LIST_REMOVE (addr_cur, next);
+		free (addr_cur);
+	}
+	LIST_FOREACH_SAFE (addr_cur, &cfg->bounce_addrs, next, addr_tmp) {
+		if (addr_cur->addr) {
+			free (addr_cur->addr);
+		}
+		LIST_REMOVE (addr_cur, next);
+		free (addr_cur);
+	}
+}
+
+/*
+ * vi:ts=4
+ */
