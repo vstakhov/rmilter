@@ -53,6 +53,8 @@
 #define CFG_WLOCK() do { pthread_rwlock_wrlock (&cfg_mtx); } while (0) 
 #define CFG_UNLOCK() do { pthread_rwlock_unlock (&cfg_mtx); } while (0) 
 
+extern pthread_rwlock_t cfg_mtx;
+
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
 	COND_CONNECT, 

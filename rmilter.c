@@ -85,6 +85,7 @@ struct smfiDesc smfilter =
 };
 
 extern struct config_file *cfg;
+extern pthread_rwlock_t cfg_mtx;
 
 /* Milter mutexes */
 pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -170,7 +171,8 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
-
+	
+	CFG_RLOCK();
 	/* Check connect */
 	act = regexp_check (cfg, priv, STAGE_CONNECT);
 	if (act != NULL) {
@@ -181,6 +183,8 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
+
+	CFG_UNLOCK();
 
 	return SMFIS_CONTINUE;
 }
@@ -208,12 +212,14 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
     strlcpy (priv->priv_from, tmpfrom, sizeof(priv->priv_from));
 
+	CFG_RLOCK();
 	/* Check envfrom */
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
 
+	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
 }
 
@@ -239,6 +245,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	if (!priv->priv_cur_rcpt) {
 		strlcpy (priv->priv_rcpt, tmprcpt, sizeof (priv->priv_rcpt));
 	}
+	CFG_RLOCK();
 	/* Check ratelimit */
 	priv->priv_cur_rcpt = tmprcpt;
 	if (rate_check (priv, cfg, 0) == 0) {
@@ -255,6 +262,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		return set_reply (ctx, act);
 	}
 
+	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
 }
 
@@ -276,6 +284,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
      * not yet created
      */
 
+	CFG_RLOCK();
     if (!priv->fileh) {
 		snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
 		strlcpy (priv->file, buf, sizeof (priv->file));
@@ -314,6 +323,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		return set_reply (ctx, act);
 	}
 
+	CFG_UNLOCK();
     return SMFIS_CONTINUE;
 }
 
@@ -352,6 +362,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
     strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 
+	CFG_RLOCK();
 	/* Update rate limits for message */
 	priv->priv_cur_rcpt = priv->priv_rcpt;
 	if (rate_check (priv, cfg, 1) == 0) {
@@ -435,6 +446,7 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 
+	CFG_UNLOCK();
     return mlfi_cleanup (ctx, true);
 }
 
@@ -504,11 +516,15 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	/* Check body with regexp */
 	priv->priv_cur_body.value = (char *)bodyp;
 	priv->priv_cur_body.len = bodylen;
+	CFG_RLOCK();
+
 	act = regexp_check (cfg, priv, STAGE_BODY);
 	if (act != NULL) {
 		return set_reply (ctx, act);
 	}
     /* continue processing */
+
+	CFG_UNLOCK();
     return SMFIS_CONTINUE;
 }
 
