@@ -85,7 +85,6 @@ struct smfiDesc smfilter =
 };
 
 extern struct config_file *cfg;
-extern pthread_rwlock_t cfg_mtx;
 
 /* Milter mutexes */
 pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;

@@ -2,6 +2,9 @@
 # $Id$
 #
 
+# .include - directive to include other config file
+.include ./rmilter-grey.conf
+
 # pidfile - path to pid file
 # Default: pidfile = /var/run/rmilter.pid
 
