@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include "upstream.h"
 
+
 #ifdef _THREAD_SAFE
 pthread_mutex_t upstream_mtx = PTHREAD_MUTEX_INITIALIZER;
 #define U_LOCK() do { pthread_mutex_lock (&upstream_mtx); } while (0)
@@ -29,6 +30,7 @@ check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t re
 			up->dead = 0;
 			up->errors = 0;
 			up->time = 0;
+			up->weight = up->priority;
 			U_UNLOCK ();
 		}
 	}
@@ -37,7 +39,15 @@ check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t re
 			U_LOCK ();
 			up->dead = 1;
 			up->time = now;
+			up->weight = 0;
 			U_UNLOCK ();
+		}
+		else {
+			if (up->weight <= 0) {
+				U_LOCK ();
+				up->weight = up->priority;
+				U_UNLOCK ();
+			}
 		}
 	}
 }
@@ -68,6 +78,7 @@ upstream_ok (struct upstream *up, time_t now)
 		U_LOCK ();
 		up->errors = 0;
 		up->time = 0;
+		up->weight --;
 		U_UNLOCK ();
 	}
 }
@@ -88,6 +99,7 @@ revive_all_upstreams (void *ups, size_t members, size_t msize)
 		cur->time = 0;
 		cur->errors = 0;
 		cur->dead = 0;
+		cur->weight = cur->priority;
 		p += msize;
 	}
 	U_UNLOCK ();
@@ -209,6 +221,35 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 	h = h % alive;
 
 	return get_upstream_by_number (ups, members, msize, h); 
+}
+
+/*
+ * Recheck all upstreams and return upstream in round-robin order according to weight and priority
+ */
+struct upstream *
+get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
+{
+	int alive, max_weight, i;
+	struct upstream *cur, *selected = NULL;
+	u_char *p;
+	
+	/* Recheck all upstreams */
+	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
+
+	p = ups;
+	max_weight = 0;
+	for (i = 0; i < members; i++) {
+		cur = (struct upstream *)p;
+		if (!cur->dead) {
+			if (max_weight < cur->weight) {
+				max_weight = cur->weight;
+				selected = cur;
+			}
+		}
+		p += msize;
+	}
+
+	return selected;
 }
 
 #undef U_LOCK
