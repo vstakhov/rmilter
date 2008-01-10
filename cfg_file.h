@@ -14,6 +14,7 @@
 #include "pcre.h"
 #include "upstream.h"
 #include "memcached.h"
+#include "radix.h"
 
 #define COND_CONNECT_FLAG 0x1
 #define COND_HELO_FLAG 0x2
@@ -178,6 +179,9 @@ struct config_file {
 	LIST_HEAD (whitelistipset, ip_list_entry) whitelist_ip;
 	LIST_HEAD (whitelistaddrset, addr_list_entry) whitelist_rcpt;
 	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
+	
+	unsigned int greylisting_timeout;
+	radix_tree_t *grey_whitelist_tree;
 };
 
 int add_memcached_server (struct config_file *cf, char *str);
@@ -187,6 +191,7 @@ struct condition * create_cond (enum condition_type type, const char *arg1, cons
 int add_spf_domain (struct config_file *cfg, char *domain);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
+int add_ip_radix (struct config_file *cfg, char *ipnet);
 
 int yylex (void);
 int yyparse (void);

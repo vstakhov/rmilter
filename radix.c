@@ -15,7 +15,6 @@ radix_tree_create()
         return NULL;
     }
 
-    tree->free = NULL;
     tree->start = NULL;
     tree->size = 0;
 
@@ -35,7 +34,7 @@ radix_tree_create()
 
 int
 radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
-    uintptr_t value)
+    unsigned char value)
 {
     uint32_t           bit;
     radix_node_t  *node, *next;
@@ -57,7 +56,7 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
             break;
         }
 
-        bit >>= 1;
+        bit >>= 8;
         node = next;
     }
 
@@ -88,7 +87,7 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
             node->left = next;
         }
 
-        bit >>= 1;
+        bit >>= 8;
         node = next;
     }
 
@@ -101,8 +100,9 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
 int
 radix32tree_delete(radix_tree_t *tree, uint32_t key, uint32_t mask)
 {
-    uint32_t           bit;
+    uint32_t       bit;
     radix_node_t  *node;
+	radix_node_t  *tmp;
 
     bit = 0x80000000;
     node = tree->root;
@@ -115,7 +115,7 @@ radix32tree_delete(radix_tree_t *tree, uint32_t key, uint32_t mask)
             node = node->left;
         }
 
-        bit >>= 1;
+        bit >>= 8;
     }
 
     if (node == NULL) {
@@ -139,10 +139,9 @@ radix32tree_delete(radix_tree_t *tree, uint32_t key, uint32_t mask)
             node->parent->left = NULL;
         }
 
-        node->right = tree->free;
-        tree->free = node;
-
+		tmp = node;
         node = node->parent;
+		free (tmp);
 
         if (node->right || node->left) {
             break;
@@ -161,7 +160,7 @@ radix32tree_delete(radix_tree_t *tree, uint32_t key, uint32_t mask)
 }
 
 
-uintptr_t
+unsigned char
 radix32tree_find(radix_tree_t *tree, uint32_t key)
 {
     uint32_t           bit;
@@ -184,7 +183,7 @@ radix32tree_find(radix_tree_t *tree, uint32_t key)
             node = node->left;
         }
 
-        bit >>= 1;
+        bit >>= 8;
     }
 
     return value;
@@ -195,12 +194,6 @@ static void *
 radix_alloc(radix_tree_t *tree)
 {
     char  *p;
-
-    if (tree->free) {
-        p = (char *) tree->free;
-        tree->free = tree->free->right;
-        return p;
-    }
 
     if (tree->size < sizeof(radix_node_t)) {
         tree->start = malloc(sizeof(radix_node_t));

@@ -242,6 +242,55 @@ add_spf_domain (struct config_file *cfg, char *domain)
 	return 1;
 }
 
+int
+add_ip_radix (struct config_file *cfg, char *ipnet)
+{
+	uint32_t mask;
+	uint32_t ip;
+	char *token;
+	struct in_addr ina;
+
+	token = strsep (&ipnet, "/");
+
+	if (ipnet == NULL) {
+		/* Assume /32 if no mask is given */
+		mask = 0xFFFFFFFF;
+	}
+	else {
+		mask = atoi (ipnet);
+		if (mask != 24 && mask != 16 && mask != 8 && mask != 32) {
+			yywarn ("add_ip_radix: invalid netmask value, can only operate with /8 /16 /24 and /32 masks");
+		}
+		switch (mask) {
+			case 8:
+				mask = 0xFF000000;
+				break;
+			case 16:
+				mask = 0xFFFF0000;
+				break;
+			case 24:
+				mask = 0xFFFFFF00;
+				break;
+			case 32:
+			default:
+				mask = 0xFFFFFFFF;
+		}
+	}
+
+	if (inet_aton (token, &ina) == 0) {
+		yyerror ("add_ip_radix: invalid ip address: %s", token);
+		return 0;
+	}
+
+	ip = (uint32_t)ina.s_addr;
+	if (radix32tree_insert (cfg->grey_whitelist_tree, ip, mask, 1) == -1) {
+		yyerror ("add_ip_radix: cannot insert ip to tree");
+		return 0;
+	}
+
+	return 1;
+}
+
 void
 init_defaults (struct config_file *cfg)
 {
@@ -263,6 +312,8 @@ init_defaults (struct config_file *cfg)
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->memcached_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
 	cfg->memcached_protocol = UDP_TEXT;
+	
+	cfg->grey_whitelist_tree = radix_tree_create ();
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 }
@@ -344,6 +395,9 @@ free_config (struct config_file *cfg)
 		LIST_REMOVE (addr_cur, next);
 		free (addr_cur);
 	}
+
+	radix32tree_delete (cfg->grey_whitelist_tree, 0, 0);
+	free (cfg->grey_whitelist_tree);
 }
 
 /*
