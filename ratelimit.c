@@ -156,6 +156,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	mctx.timeout = cfg->memcached_connect_timeout;
 
 	if (memc_init_ctx (&mctx) == -1) {
+		upstream_fail (&selected->up, floor (tm));
 		return -1;
 	}
 	

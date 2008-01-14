@@ -10,7 +10,7 @@ CFLAGS += -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wunused-value -ggdb -I${LOCALBASE}/include \
 		 -I./dcc-dccd-${DCC_VER}/include -DMVERSION=\"${VERSION}\"
 LD_PATH += -L${LOCALBASE}/lib  -Ldcc-dccd-${DCC_VER}/dcclib
-LIBS += -lmilter -lpcre -lspf2 -ldcc -lm
+LIBS += -lmilter -lpcre -lspf2 -ldcc -lm -lmd
 PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
 LEX ?= lex

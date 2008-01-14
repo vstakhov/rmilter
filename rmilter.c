@@ -32,7 +32,10 @@
 #include <db.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <md5.h>
 
+/* XXX hack to work on FreeBSD < 7 */
+#define SMFI_VERSION 4
 #include <libmilter/mfapi.h>
 #include "spf2/spf.h"
 
@@ -50,10 +53,13 @@ typedef int bool;
 #define true	1
 #endif				/* ! true */
 
+#define MD5_SIZE 16
+
 static sfsistat mlfi_connect(SMFICTX *, char *, _SOCK_ADDR *);
 static sfsistat mlfi_helo(SMFICTX *, char *);
 static sfsistat mlfi_envfrom(SMFICTX *, char **);
 static sfsistat mlfi_envrcpt(SMFICTX *, char **);
+static sfsistat mlfi_data(SMFICTX *);
 static sfsistat mlfi_header(SMFICTX * , char *, char *);
 static sfsistat mlfi_eoh(SMFICTX *);
 static sfsistat mlfi_body(SMFICTX *, u_char *, size_t);
@@ -80,7 +86,7 @@ struct smfiDesc smfilter =
     	mlfi_abort,		/* message aborted */
     	mlfi_close,		/* connection cleanup */
 		NULL,			/* unknown situation */
-		NULL,			/* SMTP DATA callback */
+		mlfi_data,		/* SMTP DATA callback */
 		NULL			/* Negotiation callback */
 };
 
@@ -261,6 +267,90 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		return set_reply (ctx, act);
 	}
 
+	CFG_UNLOCK();
+	return SMFIS_CONTINUE;
+}
+
+static sfsistat
+mlfi_data(SMFICTX *ctx)
+{
+    struct mlfi_priv *priv;
+	MD5_CTX mdctx;
+	u_char final[MD5_SIZE];
+	struct memcached_server *selected;
+	memcached_ctx_t mctx;
+	memcached_param_t cur_param;
+	struct timeval tm;
+	u_char p;
+	size_t s;
+
+	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
+		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		return SMFIS_TEMPFAIL;
+	}
+
+	CFG_RLOCK();
+	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL) {
+		/* Check whitelist */
+		if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+			MD5Init(&mdctx);
+			/* Make hash from components: envfrom, ip address, envrcpt */
+			MD5Update(&mdctx, (const u_char *)priv->priv_from, strlen(priv->priv_from));
+			MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
+			MD5Update(&mdctx, (const u_char *)priv->priv_cur_rcpt, strlen(priv->priv_cur_rcpt));
+			MD5Final(final, &mdctx);
+
+			if (gettimeofday (&tm, NULL) == -1) {
+				msg_err ("mlfi_data: gettimeofday failed");
+				CFG_UNLOCK();
+	    		(void)mlfi_cleanup (ctx, false);
+				return SMFIS_TEMPFAIL;
+			}
+
+			selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers,
+											cfg->memcached_servers_num, sizeof (struct memcached_server),
+											(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+											(char *)final, MD5_SIZE);
+			if (selected == NULL) {
+				msg_err ("mlfi_data: cannot get memcached upstream");
+				CFG_UNLOCK();
+	    		(void)mlfi_cleanup (ctx, false);
+				return SMFIS_TEMPFAIL;
+			}
+			mctx.protocol = cfg->memcached_protocol;
+			memcpy(&mctx.addr, &selected->addr, sizeof (struct in_addr));
+			mctx.port = selected->port;
+			mctx.timeout = cfg->memcached_connect_timeout;
+
+			if (memc_init_ctx (&mctx) == -1) {
+				msg_err ("mlfi_data: cannot connect to memcached upstream");
+				upstream_fail (&selected->up, tm.tv_sec);
+				CFG_UNLOCK();
+	    		(void)mlfi_cleanup (ctx, false);
+				return SMFIS_TEMPFAIL;
+			}
+			memcpy (cur_param.key, final, MD5_SIZE);
+			p = '1';
+			s = 1;
+			cur_param.buf = &p;
+			cur_param.bufsize = sizeof (p);
+			/* Try to get record from memcached */
+			if (memc_get (&mctx, &cur_param, &s) == NOT_EXISTS) {
+				s = 1;
+				/* Write record to memcached */
+				if (memc_set (&mctx, &cur_param, &s, cfg->greylisting_timeout) == OK) {
+					upstream_ok (&selected->up, tm.tv_sec);
+					if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
+						msg_err("mlfi_data: smfi_setreply failed");
+					}
+					CFG_UNLOCK();
+	    			(void)mlfi_cleanup (ctx, false);
+					return SMFIS_TEMPFAIL;
+				}
+			}
+			memc_close_ctx (&mctx);
+		}
+	}
 	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
 }
