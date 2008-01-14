@@ -187,6 +187,7 @@ use_dcc							return USEDCC;
 greylisting						return GREYLISTING;
 whitelist						return WHITELIST;
 timeout							return TIMEOUT;
+expire							return EXPIRE;
 
 limits							return LIMITS;
 limit_to						return LIMIT_TO;

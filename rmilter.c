@@ -280,8 +280,8 @@ mlfi_data(SMFICTX *ctx)
 	struct memcached_server *selected;
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
-	struct timeval tm;
-	u_char p;
+	struct timeval tm, tm1;
+	int r;
 	size_t s;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -330,15 +330,15 @@ mlfi_data(SMFICTX *ctx)
 				return SMFIS_TEMPFAIL;
 			}
 			memcpy (cur_param.key, final, MD5_SIZE);
-			p = '1';
 			s = 1;
-			cur_param.buf = &p;
-			cur_param.bufsize = sizeof (p);
+			cur_param.buf = (u_char *)&tm1;
+			cur_param.bufsize = sizeof (tm1);
 			/* Try to get record from memcached */
-			if (memc_get (&mctx, &cur_param, &s) == NOT_EXISTS) {
+			r = memc_get (&mctx, &cur_param, &s);
+			if (r == NOT_EXISTS) {
 				s = 1;
 				/* Write record to memcached */
-				if (memc_set (&mctx, &cur_param, &s, cfg->greylisting_timeout) == OK) {
+				if (memc_set (&mctx, &cur_param, &s, cfg->greylisting_expire) == OK) {
 					upstream_ok (&selected->up, tm.tv_sec);
 					if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
 						msg_err("mlfi_data: smfi_setreply failed");
@@ -347,6 +347,21 @@ mlfi_data(SMFICTX *ctx)
 	    			(void)mlfi_cleanup (ctx, false);
 					return SMFIS_TEMPFAIL;
 				}
+			}
+			else if (r == OK) {
+				if (tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
+					/* Client comes too early */
+					upstream_ok (&selected->up, tm.tv_sec);
+					if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
+						msg_err("mlfi_data: smfi_setreply failed");
+					}
+					CFG_UNLOCK();
+	    			(void)mlfi_cleanup (ctx, false);
+					return SMFIS_TEMPFAIL;
+				}
+			}
+			else {
+					upstream_fail (&selected->up, tm.tv_sec);
 			}
 			memc_close_ctx (&mctx);
 		}

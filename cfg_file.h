@@ -181,6 +181,7 @@ struct config_file {
 	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
 	
 	unsigned int greylisting_timeout;
+	unsigned int greylisting_expire;
 	radix_tree_t *grey_whitelist_tree;
 };
 
