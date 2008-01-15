@@ -290,7 +290,8 @@ mlfi_data(SMFICTX *ctx)
 	}
 
 	CFG_RLOCK();
-	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL) {
+	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_num > 0 &&
+		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0) {
 		/* Check whitelist */
 		if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
 			MD5Init(&mdctx);
