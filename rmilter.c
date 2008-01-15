@@ -277,6 +277,7 @@ mlfi_data(SMFICTX *ctx)
     struct mlfi_priv *priv;
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE];
+	char md5_out[MD5_SIZE * 2 + 1];
 	struct memcached_server *selected;
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
@@ -294,6 +295,7 @@ mlfi_data(SMFICTX *ctx)
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0) {
 		/* Check whitelist */
 		if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+			bzero (&cur_param, sizeof (cur_param));
 			MD5Init(&mdctx);
 			/* Make hash from components: envfrom, ip address, envrcpt */
 			MD5Update(&mdctx, (const u_char *)priv->priv_from, strlen(priv->priv_from));
@@ -330,7 +332,13 @@ mlfi_data(SMFICTX *ctx)
 	    		(void)mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
 			}
-			memcpy (cur_param.key, final, MD5_SIZE);
+			/* Format md5 output */
+			s = sizeof (md5_out);
+			for (r = 0; r < MD5_SIZE; r ++){
+				s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
+			}
+			memcpy (cur_param.key, md5_out, sizeof (md5_out));
+
 			s = 1;
 			cur_param.buf = (u_char *)&tm1;
 			cur_param.bufsize = sizeof (tm1);
@@ -339,7 +347,9 @@ mlfi_data(SMFICTX *ctx)
 			if (r == NOT_EXISTS) {
 				s = 1;
 				/* Write record to memcached */
-				if (memc_set (&mctx, &cur_param, &s, cfg->greylisting_expire) == OK) {
+				cur_param.buf = (u_char *)&tm;
+                cur_param.bufsize = sizeof (tm);
+				if ((r = memc_set (&mctx, &cur_param, &s, cfg->greylisting_expire)) == OK) {
 					upstream_ok (&selected->up, tm.tv_sec);
 					if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
 						msg_err("mlfi_data: smfi_setreply failed");
@@ -347,6 +357,9 @@ mlfi_data(SMFICTX *ctx)
 					CFG_UNLOCK();
 	    			(void)mlfi_cleanup (ctx, false);
 					return SMFIS_TEMPFAIL;
+				}
+				else {
+					msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
 				}
 			}
 			else if (r == OK) {

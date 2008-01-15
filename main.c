@@ -95,6 +95,9 @@ reload_thread (void *unused)
 
 		bzero (new_cfg, sizeof (struct config_file));
 		init_defaults (new_cfg);
+		new_cfg->cfg_name = cfg->cfg_name;
+		tmp = cfg;
+		cfg = new_cfg;
 
 		yyin = f;
 		yyrestart (yyin);
@@ -103,6 +106,7 @@ reload_thread (void *unused)
 			CFG_UNLOCK();
 			fclose (f);
 			msg_warn ("reload_thread: cannot parse config file %s", cfg->cfg_name);
+			cfg = tmp;
 			continue;
 		}
 
@@ -113,9 +117,7 @@ reload_thread (void *unused)
 		qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
 
    		srandomdev();
-		/* Replace old config with new one */
-		tmp = cfg;
-		cfg = new_cfg;
+		/* Free old config */
 		free_config (tmp);
 		free (tmp);
 

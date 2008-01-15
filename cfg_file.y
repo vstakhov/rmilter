@@ -400,13 +400,15 @@ greylistingcmd:
 
 greylisting_timeout:
 	TIMEOUT EQSIGN SECONDS {
-		cfg->greylisting_timeout = $3;
+		/* This value is in seconds, not in milliseconds */
+		cfg->greylisting_timeout = $3 / 1000;
 	}
 	;
 
 greylisting_expire:
 	EXPIRE EQSIGN SECONDS {
-		cfg->greylisting_expire = $3;
+		/* This value is in seconds, not in milliseconds */
+		cfg->greylisting_expire = $3 / 1000;
 	}
 	;
 
