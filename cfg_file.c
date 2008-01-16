@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <netdb.h>
+#include <math.h>
 
 #include "pcre.h"
 #include "cfg_file.h"
@@ -249,6 +250,7 @@ add_ip_radix (struct config_file *cfg, char *ipnet)
 	uint32_t ip;
 	char *token;
 	struct in_addr ina;
+	int k;
 
 	token = strsep (&ipnet, "/");
 
@@ -257,24 +259,13 @@ add_ip_radix (struct config_file *cfg, char *ipnet)
 		mask = 0xFFFFFFFF;
 	}
 	else {
-		mask = atoi (ipnet);
-		if (mask != 24 && mask != 16 && mask != 8 && mask != 32) {
-			yywarn ("add_ip_radix: invalid netmask value, can only operate with /8 /16 /24 and /32 masks");
+		k = atoi (ipnet);
+		if (k > 32 || k < 0) {
+			yywarn ("add_ip_radix: invalid netmask value: %d", k);
+			k = 32;
 		}
-		switch (mask) {
-			case 8:
-				mask = 0xFF000000;
-				break;
-			case 16:
-				mask = 0xFFFF0000;
-				break;
-			case 24:
-				mask = 0xFFFFFF00;
-				break;
-			case 32:
-			default:
-				mask = 0xFFFFFFFF;
-		}
+		mask = pow (2, k) - 1;
+		mask <<= 32 - k;
 	}
 
 	if (inet_aton (token, &ina) == 0) {

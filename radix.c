@@ -56,7 +56,7 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
             break;
         }
 
-        bit >>= 8;
+        bit >>= 1;
         node = next;
     }
 
@@ -87,7 +87,7 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
             node->left = next;
         }
 
-        bit >>= 8;
+        bit >>= 1;
         node = next;
     }
 
@@ -115,10 +115,10 @@ radix32tree_delete(radix_tree_t *tree, uint32_t key, uint32_t mask)
             node = node->left;
         }
 
-        bit >>= 8;
+        bit >>= 1;
     }
 
-    if (node == NULL) {
+    if (node == NULL || node->parent == NULL) {
         return -1;
     }
 
@@ -183,7 +183,7 @@ radix32tree_find(radix_tree_t *tree, uint32_t key)
             node = node->left;
         }
 
-        bit >>= 8;
+        bit >>= 1;
     }
 
     return value;
