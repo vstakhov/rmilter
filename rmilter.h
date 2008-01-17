@@ -11,6 +11,7 @@
 #include <sys/param.h>
 #include <stdio.h>
 #include <netinet/in.h>
+#include <time.h>
 #include "cfg_file.h"
 
 #ifndef ADDRLEN
@@ -59,6 +60,7 @@ struct mlfi_priv {
     char file[PATH_MAX];
     FILE *fileh;
 	int filed;
+	struct timeval conn_tm;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

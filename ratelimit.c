@@ -216,10 +216,9 @@ rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
 		msg_info ("rate_check: address is whitelisted, skipping checks");
 		return 1;
 	}
-
-	if (gettimeofday (&tm, NULL) == -1) {
-		return -1;
-	}
+	
+	tm.tv_sec = priv->conn_tm.tv_sec;
+	tm.tv_usec = priv->conn_tm.tv_usec;
 
 	t = tm.tv_sec + tm.tv_usec / 1000000.;
 

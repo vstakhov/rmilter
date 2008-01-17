@@ -161,6 +161,10 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 			msg_warn ("bad client address");
 		}
 	}
+	if (gettimeofday (&priv->conn_tm, NULL) == -1) {
+		msg_err ("Internal error: gettimeofday failed %m");
+		return SMFIS_TEMPFAIL;
+	}
 
     smfi_setpriv(ctx, priv);
 	/* Cannot set reply here, so delay processing of connect stage */
@@ -302,13 +306,9 @@ mlfi_data(SMFICTX *ctx)
 			MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
 			MD5Update(&mdctx, (const u_char *)priv->priv_cur_rcpt, strlen(priv->priv_cur_rcpt));
 			MD5Final(final, &mdctx);
-
-			if (gettimeofday (&tm, NULL) == -1) {
-				msg_err ("mlfi_data: gettimeofday failed");
-				CFG_UNLOCK();
-	    		(void)mlfi_cleanup (ctx, false);
-				return SMFIS_TEMPFAIL;
-			}
+			
+			tm.tv_sec = priv->conn_tm.tv_sec;
+			tm.tv_usec = priv->conn_tm.tv_usec;
 
 			selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers,
 											cfg->memcached_servers_num, sizeof (struct memcached_server),
