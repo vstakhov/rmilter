@@ -115,6 +115,14 @@ reload_thread (void *unused)
 
 		/* Sort spf domains array */
 		qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
+		/* Init awl */
+		if (cfg->awl_enable) {
+			cfg->awl_hash = awl_init (cfg->awl_pool_size, cfg->awl_max_hits, cfg->awl_ttl);
+			if (cfg->awl_hash == NULL) {
+				msg_warn ("cannot init awl");
+				cfg->awl_enable = 0;
+			}
+		}
 
    		srandomdev();
 		/* Free old config */
@@ -202,6 +210,15 @@ main(int argc, char *argv[])
 
 	/* Sort spf domains array */
 	qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
+
+	/* Init awl */
+	if (cfg->awl_enable) {
+		cfg->awl_hash = awl_init (cfg->awl_pool_size, cfg->awl_max_hits, cfg->awl_ttl);
+		if (cfg->awl_hash == NULL) {
+			msg_warn ("cannot init awl");
+			cfg->awl_enable = 0;
+		}
+	}
 
     srandomdev();
 

@@ -45,7 +45,7 @@ uint8_t cur_flags = 0;
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE
-%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL
+%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 
 %type	<string>	STRING
@@ -396,6 +396,10 @@ greylistingcmd:
 	greylisting_whitelist
 	| greylisting_timeout
 	| greylisting_expire
+	| awl_enable
+	| awl_hits
+	| awl_pool
+	| awl_ttl
 	;
 
 greylisting_timeout:
@@ -426,6 +430,34 @@ greylisting_ip:
 		if (add_ip_radix (cfg, $1) == 0) {
 			YYERROR;
 		}
+	}
+	;
+
+awl_enable:
+	AWL_ENABLE EQSIGN FLAG {
+		if ($3 == -1) {
+			yyerror ("yyparse: cannot parse flag");
+			YYERROR;
+		}
+		cfg->awl_enable = $3;
+	}
+	;
+awl_hits:
+	AWL_HITS EQSIGN NUMBER {
+		cfg->awl_max_hits = $3;
+	}
+	;
+
+awl_pool:
+	AWL_POOL EQSIGN SIZELIMIT {
+		cfg->awl_pool_size = $3;
+	}
+	;
+
+awl_ttl:
+	AWL_TTL EQSIGN SECONDS {
+		/* Time is in seconds */
+		cfg->awl_ttl = $3 / 1000;
 	}
 	;
 

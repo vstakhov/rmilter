@@ -188,6 +188,10 @@ greylisting						return GREYLISTING;
 whitelist						return WHITELIST;
 timeout							return TIMEOUT;
 expire							return EXPIRE;
+awl_enable						return AWL_ENABLE;
+awl_hits						return AWL_HITS;
+awl_ttl							return AWL_TTL;
+awl_pool						return AWL_POOL;
 
 limits							return LIMITS;
 limit_to						return LIMIT_TO;

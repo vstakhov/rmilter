@@ -299,6 +299,11 @@ mlfi_data(SMFICTX *ctx)
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0) {
 		/* Check whitelist */
 		if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+			if (cfg->awl_enable && awl_check ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec) == 1) {
+				/* Auto whitelisted */
+				CFG_UNLOCK();
+				return SMFIS_CONTINUE;
+			}
 			bzero (&cur_param, sizeof (cur_param));
 			MD5Init(&mdctx);
 			/* Make hash from components: envfrom, ip address, envrcpt */

@@ -15,6 +15,7 @@
 #include "upstream.h"
 #include "memcached.h"
 #include "radix.h"
+#include "awl.h"
 
 #define COND_CONNECT_FLAG 0x1
 #define COND_HELO_FLAG 0x2
@@ -183,6 +184,12 @@ struct config_file {
 	unsigned int greylisting_timeout;
 	unsigned int greylisting_expire;
 	radix_tree_t *grey_whitelist_tree;
+	/* Autowhitelist section */
+	u_char awl_enable;
+	awl_hash_t *awl_hash;
+	uint16_t awl_max_hits;
+	unsigned int awl_ttl;
+	size_t awl_pool_size;
 };
 
 int add_memcached_server (struct config_file *cf, char *str);

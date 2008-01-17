@@ -307,6 +307,7 @@ init_defaults (struct config_file *cfg)
 	cfg->grey_whitelist_tree = radix_tree_create ();
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
+	cfg->awl_enable = 0;
 }
 
 void
@@ -389,6 +390,11 @@ free_config (struct config_file *cfg)
 
 	radix32tree_delete (cfg->grey_whitelist_tree, 0, 0);
 	free (cfg->grey_whitelist_tree);
+
+	if (cfg->awl_enable && cfg->awl_hash != NULL) {
+		free (cfg->awl_hash->pool);
+		free (cfg->awl_hash);
+	}
 }
 
 /*
