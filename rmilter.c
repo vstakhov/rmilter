@@ -511,9 +511,14 @@ mlfi_eom(SMFICTX * ctx)
 				msg_warn ("(mlfi_eom, %s) SPF check failed. Host %s[%s] is not allowed to send mail as %s ", 
 							priv->mlfi_id, (*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved", 
 							priv->priv_ip, priv->priv_from);
-	    		smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
-				(void)mlfi_cleanup (ctx, false);
-				return SMFIS_REJECT;
+
+				if (priv->priv_cur_rcpt != NULL && 
+					strncasecmp (priv->priv_cur_rcpt, "postmaster@", sizeof ("postmaster@") - 1) != 0) {
+
+	    			smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
+					(void)mlfi_cleanup (ctx, false);
+					return SMFIS_REJECT;
+				}
 				break;
 		}
 	}
