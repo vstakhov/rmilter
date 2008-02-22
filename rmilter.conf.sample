@@ -47,7 +47,7 @@ clamav {
 memcached {
 	# servers - memcached servers list in format:
 	# host[:port][, host[:port]]
-	servers = localhost, mcgi18.rambler.ru:11211;
+	servers = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
 
 	# connect_timeout - timeout in miliseconds for waiting for memcached
 	# Default: 1s
