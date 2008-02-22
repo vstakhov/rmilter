@@ -259,11 +259,11 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	priv->priv_cur_rcpt = tmprcpt;
 	if (rate_check (priv, cfg, 0) == 0) {
 		/* Rate is more than limit */
-		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
+		if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Rate limit exceeded") != MI_SUCCESS) {
 			msg_err("smfi_setreply");
 		}
 	    (void)mlfi_cleanup (ctx, false);
-		return SMFIS_REJECT;
+		return SMFIS_TEMPFAIL;
 	}
 	/* Check recipient */
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);

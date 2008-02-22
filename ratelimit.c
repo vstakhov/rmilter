@@ -199,6 +199,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 
 	if (b.count > bucket->burst) {
 		/* Rate limit exceeded */
+		msg_info ("rate_check: ratelimit exceeded for key: %s, count: %f, burst: %u", cur_param.key, b.count, bucket->burst);
 		return 0;
 	}
 	/* Rate limit not exceeded */
