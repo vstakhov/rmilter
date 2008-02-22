@@ -42,13 +42,6 @@ check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t re
 			up->weight = 0;
 			U_UNLOCK ();
 		}
-		else {
-			if (up->weight <= 0) {
-				U_LOCK ();
-				up->weight = up->priority;
-				U_UNLOCK ();
-			}
-		}
 	}
 }
 
@@ -78,9 +71,10 @@ upstream_ok (struct upstream *up, time_t now)
 		U_LOCK ();
 		up->errors = 0;
 		up->time = 0;
-		up->weight --;
 		U_UNLOCK ();
 	}
+
+	up->weight --;
 }
 /* 
  * Mark all upstreams as active. This function is used when all upstreams are marked as inactive
@@ -249,8 +243,53 @@ get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, t
 		p += msize;
 	}
 
+	if (max_weight == 0) {
+		p = ups;
+		for (i = 0; i < members; i++) {
+			cur =  (struct upstream *)p;
+			cur->weight = cur->priority;
+			if (!cur->dead) {
+				if (max_weight < cur->priority) {
+					max_weight = cur->priority;
+					selected = cur;
+				}
+			}
+			p += msize;
+		}
+	}
+
 	return selected;
 }
+
+/*
+ * Recheck all upstreams and return upstream in round-robin order according to only priority (master-slaves)
+ */
+struct upstream *
+get_upstream_master_slave (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
+{
+	int alive, max_weight, i;
+	struct upstream *cur, *selected = NULL;
+	u_char *p;
+	
+	/* Recheck all upstreams */
+	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
+
+	p = ups;
+	max_weight = 0;
+	for (i = 0; i < members; i++) {
+		cur = (struct upstream *)p;
+		if (!cur->dead) {
+			if (max_weight < cur->priority) {
+				max_weight = cur->priority;
+				selected = cur;
+			}
+		}
+		p += msize;
+	}
+
+	return selected;
+}
+
 
 #undef U_LOCK
 #undef U_UNLOCK

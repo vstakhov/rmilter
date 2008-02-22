@@ -44,7 +44,7 @@ copy_regexp (char **dst, const char *src)
 }
 
 int
-add_memcached_server (struct config_file *cf, char *str)
+add_memcached_server (struct config_file *cf, char *str, char *str2)
 {
 	char *cur_tok, *err_str;
 	struct memcached_server *mc;
@@ -53,16 +53,17 @@ add_memcached_server (struct config_file *cf, char *str)
 
 	if (str == NULL) return 0;
 
-	cur_tok = strsep (&str, ":");
-
-	if (cur_tok == NULL || *cur_tok == '\0') return 0;
-
 	if(cf->memcached_servers_num == MAX_MEMCACHED_SERVERS) {
 		yywarn ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 	}
 	
 	mc = &cf->memcached_servers[cf->memcached_servers_num];
 	if (mc == NULL) return 0;
+
+	cur_tok = strsep (&str, ":");
+
+	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+
 	/* cur_tok - server name, str - server port */
 	if (str == NULL) {
 		port = htons(DEFAULT_MEMCACHED_PORT);
@@ -74,17 +75,51 @@ add_memcached_server (struct config_file *cf, char *str)
 		}
 	}
 
-	if (!inet_aton (cur_tok, &mc->addr)) {
+	if (!inet_aton (cur_tok, &mc->addr[0])) {
 		/* Try to call gethostbyname */
 		he = gethostbyname (cur_tok);
 		if (he == NULL) {
 			return 0;
 		}
 		else {
-			memcpy((char *)&mc->addr, he->h_addr, sizeof(struct in_addr));
+			memcpy((char *)&mc->addr[0], he->h_addr, sizeof(struct in_addr));
 		}
 	}
-	mc->port = port;
+	mc->port[0] = port;
+
+	if (str2 == NULL) {
+		mc->num = 1;
+	}
+	else {
+		mc->num = 2;
+		cur_tok = strsep (&str2, ":");
+
+		if (cur_tok == NULL || *cur_tok == '\0') return 0;
+
+		/* cur_tok - server name, str - server port */
+		if (str2 == NULL) {
+			port = htons(DEFAULT_MEMCACHED_PORT);
+		}
+		else {
+			port = htons ((uint16_t)strtoul (str2, &err_str, 10));
+			if (*err_str != '\0') {
+				return 0;
+			}
+		}
+
+		if (!inet_aton (cur_tok, &mc->addr[1])) {
+			/* Try to call gethostbyname */
+			he = gethostbyname (cur_tok);
+			if (he == NULL) {
+				return 0;
+			}
+			else {
+				memcpy((char *)&mc->addr[1], he->h_addr, sizeof(struct in_addr));
+			}
+		}
+		mc->port[1] = port;
+	}
+	
 	cf->memcached_servers_num++;
 	return 1;
 }

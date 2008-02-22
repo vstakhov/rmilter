@@ -121,8 +121,9 @@ struct clamav_server {
 
 struct memcached_server {
 	struct upstream up;
-	struct in_addr addr;
-	uint16_t port;
+	struct in_addr addr[2];
+	uint16_t port[2];
+	short int num;
 };
 
 struct ip_list_entry {
@@ -192,7 +193,7 @@ struct config_file {
 	size_t awl_pool_size;
 };
 
-int add_memcached_server (struct config_file *cf, char *str);
+int add_memcached_server (struct config_file *cf, char *str, char *str2);
 int add_clamav_server (struct config_file *cf, char *str);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);

@@ -494,13 +494,22 @@ memcached_server:
 	;
 
 memcached_params:
-	memcached_hosts {
-		if (!add_memcached_server (cfg, $1)) {
+	OBRACE memcached_hosts COMMA memcached_hosts EBRACE {
+		if (!add_memcached_server (cfg, $2, $4)) {
+			yyerror ("yyparse: add_memcached_server");
+			YYERROR;
+		}
+		free ($2);
+		free ($4);
+	}
+	| memcached_hosts {
+		if (!add_memcached_server (cfg, $1, NULL)) {
 			yyerror ("yyparse: add_memcached_server");
 			YYERROR;
 		}
 		free ($1);
 	}
+
 	;
 memcached_hosts:
 	STRING

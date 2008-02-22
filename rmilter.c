@@ -333,8 +333,8 @@ mlfi_data(SMFICTX *ctx)
 				return SMFIS_TEMPFAIL;
 			}
 			mctx.protocol = cfg->memcached_protocol;
-			memcpy(&mctx.addr, &selected->addr, sizeof (struct in_addr));
-			mctx.port = selected->port;
+			memcpy(&mctx.addr, &selected->addr[0], sizeof (struct in_addr));
+			mctx.port = selected->port[0];
 			mctx.timeout = cfg->memcached_connect_timeout;
 
 			if (memc_init_ctx (&mctx) == -1) {
