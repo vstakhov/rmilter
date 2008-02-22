@@ -132,6 +132,13 @@ set_reply (SMFICTX *ctx, const struct action *act)
 	return result;
 }
 
+static inline int
+is_whitelisted_rcpt (const char *str)
+{
+	return (strncasecmp (str, "postmaster@", sizeof ("postmaster@") - 1) == 0 ||
+			strncasecmp (str, "abuse@", sizeof ("abuse@") - 1) == 0);
+}
+
 /* Milter callbacks */
 
 static sfsistat 
@@ -512,9 +519,7 @@ mlfi_eom(SMFICTX * ctx)
 							priv->mlfi_id, (*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved", 
 							priv->priv_ip, priv->priv_from);
 
-				if (priv->priv_cur_rcpt != NULL && 
-					strncasecmp (priv->priv_cur_rcpt, "postmaster@", sizeof ("postmaster@") - 1) != 0) {
-
+				if (priv->priv_cur_rcpt != NULL && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
 	    			smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
 					(void)mlfi_cleanup (ctx, false);
 					return SMFIS_REJECT;
@@ -535,7 +540,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
  	/* Check dcc */
-	if (cfg->use_dcc == 1) {
+	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
 		r = check_dcc (priv);
 		switch (r) {
 			case 'A':
