@@ -28,6 +28,9 @@ load_rc_config $name
 stop_postcmd="rm -f $rmilter_pidfile $rmilter_socket"
 start_precmd="rm -f $rmilter_socket"
 
+extra_commands="reload"
+sig_reload="USR1"
+
 command="/usr/sbin/daemon"
 command_args="-p $rmilter_pidfile $procname -c /usr/local/etc/rmilter.conf"
 
