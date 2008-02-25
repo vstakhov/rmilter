@@ -15,8 +15,12 @@ PTHREAD_FLAGS = -D_THREAD_SAFE -pthread
 CC ?= gcc
 LEX ?= lex
 YACC ?= yacc
+INSTALL?=	install -C -S -v
+MKDIR?=		install -d -v
 EXEC=rmilter
 PREFIX?=/usr/local
+RMILTER_USER?=	postfix
+RMILTER_GROUP?=	postfix
 
 YACC_SRC=cfg_file.y
 LEX_SRC=cfg_file.l
@@ -54,8 +58,11 @@ memctest: upstream.c memcached.c memcached-test.c
 	${CC} ${PTHREAD_FLAGS} ${LD_PATH} upstream.o memcached.o memcached-test.o ${LIBS} -o memcached-test
 
 install:
-	install -b ${EXEC} ${PREFIX}/sbin/${EXEC}
-	install -v ${EXEC}.sh ${PREFIX}/etc/rc.d
+	${INSTALL} -b ${EXEC} ${PREFIX}/sbin/${EXEC}
+	${INSTALL} -v ${EXEC}.sh ${PREFIX}/etc/rc.d
+	${INSTALL} -m0644 rmilter-grey.conf ${PREFIX}/etc/rmilter-grey.conf.sample
+	${INSTALL} -m0644 rmilter.conf.sample ${PREFIX}/etc
+	${MKDIR} -o ${RMILTER_USER} -g ${RMILTER_GROUP} /var/run/rmilter
 
 clean:
 	rm -f *.o ${EXEC} *.core
