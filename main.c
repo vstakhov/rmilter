@@ -62,6 +62,7 @@ reload_thread (void *unused)
 	struct sigaction signals;
 
 	/* Initialize signals and start reload thread */
+	bzero (&signals, sizeof (struct sigaction));
 	sigemptyset(&signals.sa_mask);
     sigaddset(&signals.sa_mask, SIGUSR1);
 	signals.sa_handler = sig_usr1_handler;

@@ -520,7 +520,10 @@ mlfi_eom(SMFICTX * ctx)
 							priv->priv_ip, priv->priv_from);
 
 				if (priv->priv_cur_rcpt != NULL && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
-	    			smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT, "SPF policy violation");
+	    			snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
+							(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
+							priv->priv_ip, priv->priv_from);
+	    			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 					(void)mlfi_cleanup (ctx, false);
 					return SMFIS_REJECT;
 				}
