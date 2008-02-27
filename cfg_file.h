@@ -40,6 +40,9 @@
 #define DEFAULT_UPSTREAM_DEAD_TIME 300
 #define DEFAULT_UPSTREAM_MAXERRORS 10
 
+#define MEMCACHED_SERVER_NORMAL 0
+#define MEMCACHED_SERVER_WHITE 1
+
 #define yyerror(fmt, ...) \
 		fprintf (stderr, "Config file parse error!\non line: %d\n", yylineno); \
 		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
@@ -157,6 +160,8 @@ struct config_file {
 
 	struct memcached_server memcached_servers[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_num;
+	struct memcached_server memcached_servers_white[MAX_MEMCACHED_SERVERS];
+	size_t memcached_servers_white_num;
 	memc_proto_t memcached_protocol;
 	unsigned int memcached_error_time;
 	unsigned int memcached_dead_time;
@@ -184,6 +189,7 @@ struct config_file {
 	
 	unsigned int greylisting_timeout;
 	unsigned int greylisting_expire;
+	unsigned int whitelisting_expire;
 	radix_tree_t *grey_whitelist_tree;
 	/* Autowhitelist section */
 	u_char awl_enable;
@@ -193,7 +199,7 @@ struct config_file {
 	size_t awl_pool_size;
 };
 
-int add_memcached_server (struct config_file *cf, char *str, char *str2);
+int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);

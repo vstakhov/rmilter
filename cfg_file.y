@@ -44,8 +44,8 @@ uint8_t cur_flags = 0;
 %token	AND OR NOT
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
-%token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE
-%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS
+%token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
+%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 
 %type	<string>	STRING
@@ -396,6 +396,7 @@ greylistingcmd:
 	greylisting_whitelist
 	| greylisting_timeout
 	| greylisting_expire
+	| greylisting_whitelist_expire
 	| awl_enable
 	| awl_hits
 	| awl_pool
@@ -413,6 +414,13 @@ greylisting_expire:
 	EXPIRE EQSIGN SECONDS {
 		/* This value is in seconds, not in milliseconds */
 		cfg->greylisting_expire = $3 / 1000;
+	}
+	;
+
+greylisting_whitelist_expire:
+	EXPIRE_WHITE EQSIGN SECONDS {
+		/* This value is in seconds, not in milliseconds */
+		cfg->whitelisting_expire = $3 / 1000;
 	}
 	;
 
@@ -477,6 +485,7 @@ memcachedbody:
 
 memcachedcmd:
 	memcached_servers
+	| memcached_white_servers
 	| memcached_connect_timeout
 	| memcached_error_time
 	| memcached_dead_time
@@ -495,7 +504,7 @@ memcached_server:
 
 memcached_params:
 	OBRACE memcached_hosts COMMA memcached_hosts EBRACE {
-		if (!add_memcached_server (cfg, $2, $4)) {
+		if (!add_memcached_server (cfg, $2, $4, MEMCACHED_SERVER_NORMAL)) {
 			yyerror ("yyparse: add_memcached_server");
 			YYERROR;
 		}
@@ -503,14 +512,41 @@ memcached_params:
 		free ($4);
 	}
 	| memcached_hosts {
-		if (!add_memcached_server (cfg, $1, NULL)) {
+		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_NORMAL)) {
+			yyerror ("yyparse: add_memcached_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+
+memcached_white_servers:
+	SERVERS_WHITE EQSIGN memcached_white_server
+	;
+
+memcached_white_server:
+	memcached_white_params
+	| memcached_white_server COMMA memcached_white_params
+	;
+
+memcached_white_params:
+	OBRACE memcached_hosts COMMA memcached_hosts EBRACE {
+		if (!add_memcached_server (cfg, $2, $4, MEMCACHED_SERVER_WHITE)) {
+			yyerror ("yyparse: add_memcached_server");
+			YYERROR;
+		}
+		free ($2);
+		free ($4);
+	}
+	| memcached_hosts {
+		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_WHITE)) {
 			yyerror ("yyparse: add_memcached_server");
 			YYERROR;
 		}
 		free ($1);
 	}
 
-	;
+
 memcached_hosts:
 	STRING
 	| IPADDR
