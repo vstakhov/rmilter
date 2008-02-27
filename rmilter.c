@@ -192,11 +192,13 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	/* Check connect */
 	act = regexp_check (cfg, priv, STAGE_CONNECT);
 	if (act != NULL) {
+		CFG_UNLOCK();
 		return set_reply (ctx, act);
 	}
 	/* Check helo */
 	act = regexp_check (cfg, priv, STAGE_HELO);
 	if (act != NULL) {
+		CFG_UNLOCK();
 		return set_reply (ctx, act);
 	}
 
@@ -232,6 +234,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	/* Check envfrom */
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
 	if (act != NULL) {
+		CFG_UNLOCK();
 		return set_reply (ctx, act);
 	}
 
@@ -269,12 +272,14 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Rate limit exceeded") != MI_SUCCESS) {
 			msg_err("smfi_setreply");
 		}
+		CFG_UNLOCK();
 	    (void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 	/* Check recipient */
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
 	if (act != NULL) {
+		CFG_UNLOCK();
 		return set_reply (ctx, act);
 	}
 
@@ -493,6 +498,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 
 		if (fd == -1) {
 	    	msg_warn ("(mlfi_header) mkstemp failed, %d: %m", errno);
+			CFG_UNLOCK();
 	    	(void)mlfi_cleanup (ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
@@ -500,6 +506,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 
 		if (!priv->fileh) {
 	    	msg_warn ("(mlfi_header) can't open tempfile, %d: %m", errno);
+			CFG_UNLOCK();
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
@@ -516,6 +523,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	priv->priv_cur_header.header_value = headerv;
 	act = regexp_check (cfg, priv, STAGE_HEADER);
 	if (act != NULL) {
+		CFG_UNLOCK();
 		return set_reply (ctx, act);
 	}
 
@@ -566,6 +574,7 @@ mlfi_eom(SMFICTX * ctx)
 		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
 			msg_err("smfi_setreply");
 		}
+		CFG_UNLOCK();
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_REJECT;
 	}
@@ -590,6 +599,7 @@ mlfi_eom(SMFICTX * ctx)
 							(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
 							priv->priv_ip, priv->priv_from);
 	    			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
+					CFG_UNLOCK();
 					(void)mlfi_cleanup (ctx, false);
 					return SMFIS_REJECT;
 				}
@@ -605,6 +615,7 @@ mlfi_eom(SMFICTX * ctx)
     stat(priv->file, &sb);
     if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
 		msg_warn ("message size exceeds limit, not scanned, %s", priv->file);
+		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
 
@@ -617,11 +628,13 @@ mlfi_eom(SMFICTX * ctx)
 			case 'G':
 				msg_warn ("(mlfi_eom, %s) greylisting by dcc", priv->mlfi_id);
 				smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, "Try again later");
+				CFG_UNLOCK();
 				mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
 			case 'R':
 				msg_warn ("(mlfi_eom, %s) rejected by dcc", priv->mlfi_id);
 				smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
+				CFG_UNLOCK();
 				mlfi_cleanup (ctx, false);
 				return SMFIS_REJECT;
 			case 'S': /* XXX - dcc selective reject - not implemented yet */
@@ -636,6 +649,7 @@ mlfi_eom(SMFICTX * ctx)
 	    r = check_clamscan (priv->file, strres, PATH_MAX);
     	if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+			CFG_UNLOCK();
 			(void)mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
     	}
@@ -643,6 +657,7 @@ mlfi_eom(SMFICTX * ctx)
 			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
 			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
+			CFG_UNLOCK();
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
     	}
@@ -722,6 +737,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 
 	act = regexp_check (cfg, priv, STAGE_BODY);
 	if (act != NULL) {
+		CFG_UNLOCK();
 		return set_reply (ctx, act);
 	}
     /* continue processing */
