@@ -43,7 +43,32 @@ struct memc_udp_header
 	uint16_t unused;
 };
 
-int poll_d (int fd, u_char want_read, u_char want_write, int timeout);
+/*
+ * Poll file descriptor for read or write during specified timeout
+ */
+static int
+poll_d (int fd, u_char want_read, u_char want_write, int timeout)
+{
+	int r;
+    struct pollfd fds[1];
+	
+	fds->fd = fd;
+    fds->revents = 0;
+	fds->events = 0;
+
+	if (want_read != 0) {
+		fds->events |= POLLIN;
+	}
+	if (want_write != 0) {
+		fds->events |= POLLOUT;
+	}
+	while ((r = poll(fds, 1, timeout)) < 0) {
+		if (errno != EINTR)
+	    	break;
+    }
+
+	return r;
+}
 
 /*
  * Make socket for udp connection
