@@ -43,32 +43,7 @@ struct memc_udp_header
 	uint16_t unused;
 };
 
-/*
- * Poll file descriptor for read or write during specified timeout
- */
-static int
-poll_d (int fd, u_char want_read, u_char want_write, int timeout)
-{
-	int r;
-    struct pollfd fds[1];
-	
-	fds->fd = fd;
-    fds->revents = 0;
-	fds->events = 0;
-
-	if (want_read != 0) {
-		fds->events |= POLLIN;
-	}
-	if (want_write != 0) {
-		fds->events |= POLLOUT;
-	}
-	while ((r = poll(fds, 1, timeout)) < 0) {
-		if (errno != EINTR)
-	    	break;
-    }
-
-	return r;
-}
+int poll_d (int fd, u_char want_read, u_char want_write, int timeout);
 
 /*
  * Make socket for udp connection
@@ -265,7 +240,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			}
 			else {
 				/* Store this part of data in param's buffer */
-				memcpy (p, params[i].buf, sum);
+				memcpy (params[i].buf, p, sum);
 				written += sum;
 			}
 		}
@@ -300,19 +275,20 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				}
 				r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
 			}
-
+			
+			p = udp_buf;
 			sum += r;
 			if (r <= 0) {
 				break;
 			}
 			/* Copy received buffer to result buffer */
 			while (r--) {
-				/* Break on reading CRLF */
-				if (*p == '\r' && *p == '\n') {
+				/* Break on reading END\r\n */
+				if (strncmp (p, END_TRAILER, sizeof (END_TRAILER) - 1) == 0) {
 					break;
 				}
 				if (written < datalen) {
-					params[i].buf[written] = *p;
+					params[i].buf[written++] = *p++;
 				}
 			}
 		}
