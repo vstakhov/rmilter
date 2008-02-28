@@ -45,9 +45,17 @@ clamav {
 };
 
 memcached {
-	# servers - memcached servers list in format:
+	# servers_grey - memcached servers for greylisting in format:
 	# host[:port][, host[:port]]
-	servers = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
+	# It is possible to make memcached mirroring, its syntax is {server1, server2}
+	servers_grey = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
+
+	# servers_white - memcached servers for whitelisting in format similar to that is used
+	# in servers_grey
+	# servers_white = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
+	
+	# servers_limits - memcached servers used for limits storing, can not be mirrored
+	servers_limits = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
 
 	# connect_timeout - timeout in miliseconds for waiting for memcached
 	# Default: 1s
