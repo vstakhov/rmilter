@@ -40,8 +40,9 @@
 #define DEFAULT_UPSTREAM_DEAD_TIME 300
 #define DEFAULT_UPSTREAM_MAXERRORS 10
 
-#define MEMCACHED_SERVER_NORMAL 0
-#define MEMCACHED_SERVER_WHITE 1
+#define MEMCACHED_SERVER_LIMITS 0
+#define MEMCACHED_SERVER_GREY 1
+#define MEMCACHED_SERVER_WHITE 2
 
 #define yyerror(fmt, ...) \
 		fprintf (stderr, "Config file parse error!\non line: %d\n", yylineno); \
@@ -126,6 +127,7 @@ struct memcached_server {
 	struct upstream up;
 	struct in_addr addr[2];
 	uint16_t port[2];
+	short alive[2];
 	short int num;
 };
 
@@ -158,8 +160,10 @@ struct config_file {
 	unsigned int clamav_port_timeout;
 	unsigned int clamav_results_timeout;
 
-	struct memcached_server memcached_servers[MAX_MEMCACHED_SERVERS];
-	size_t memcached_servers_num;
+	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
+	size_t memcached_servers_limits_num;
+	struct memcached_server memcached_servers_grey[MAX_MEMCACHED_SERVERS];
+	size_t memcached_servers_grey_num;
 	struct memcached_server memcached_servers_white[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_white_num;
 	memc_proto_t memcached_protocol;

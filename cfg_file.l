@@ -172,6 +172,8 @@ pidfile							return PIDFILE;
 rule							return RULE;
 clamav							return CLAMAV;
 servers							return SERVERS;
+servers_limits					return SERVERS_LIMITS;
+servers_grey					return SERVERS_GREY;
 servers_white					return SERVERS_WHITE;
 error_time						return ERROR_TIME;
 dead_time						return DEAD_TIME;

@@ -45,7 +45,7 @@ uint8_t cur_flags = 0;
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
-%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE
+%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 
 %type	<string>	STRING
@@ -484,8 +484,9 @@ memcachedbody:
 	;
 
 memcachedcmd:
-	memcached_servers
+	memcached_grey_servers
 	| memcached_white_servers
+	| memcached_limits_servers
 	| memcached_connect_timeout
 	| memcached_error_time
 	| memcached_dead_time
@@ -493,18 +494,18 @@ memcachedcmd:
 	| memcached_protocol
 	;
 
-memcached_servers:
-	SERVERS EQSIGN memcached_server
+memcached_grey_servers:
+	SERVERS EQSIGN memcached_grey_server
 	;
 
-memcached_server:
-	memcached_params
-	| memcached_server COMMA memcached_params
+memcached_grey_server:
+	memcached_grey_params
+	| memcached_grey_server COMMA memcached_grey_params
 	;
 
-memcached_params:
+memcached_grey_params:
 	OBRACE memcached_hosts COMMA memcached_hosts EBRACE {
-		if (!add_memcached_server (cfg, $2, $4, MEMCACHED_SERVER_NORMAL)) {
+		if (!add_memcached_server (cfg, $2, $4, MEMCACHED_SERVER_GREY)) {
 			yyerror ("yyparse: add_memcached_server");
 			YYERROR;
 		}
@@ -512,7 +513,7 @@ memcached_params:
 		free ($4);
 	}
 	| memcached_hosts {
-		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_NORMAL)) {
+		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_GREY)) {
 			yyerror ("yyparse: add_memcached_server");
 			YYERROR;
 		}
@@ -545,7 +546,26 @@ memcached_white_params:
 		}
 		free ($1);
 	}
+	;
 
+memcached_limits_servers:
+	SERVERS_WHITE EQSIGN memcached_limits_server
+	;
+
+memcached_limits_server:
+	memcached_limits_params
+	| memcached_limits_server COMMA memcached_limits_params
+	;
+
+memcached_limits_params:
+	memcached_hosts {
+		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_LIMITS)) {
+			yyerror ("yyparse: add_memcached_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
 
 memcached_hosts:
 	STRING

@@ -55,6 +55,10 @@ typedef int bool;
 
 #define MD5_SIZE 16
 
+#define GREY_GREYLISTED 1
+#define GREY_WHITELISTED 2
+#define GREY_ERROR -1
+
 static sfsistat mlfi_connect(SMFICTX *, char *, _SOCK_ADDR *);
 static sfsistat mlfi_helo(SMFICTX *, char *);
 static sfsistat mlfi_envfrom(SMFICTX *, char **);
@@ -137,6 +141,211 @@ is_whitelisted_rcpt (const char *str)
 {
 	return (strncasecmp (str, "postmaster@", sizeof ("postmaster@") - 1) == 0 ||
 			strncasecmp (str, "abuse@", sizeof ("abuse@") - 1) == 0);
+}
+
+static inline void
+copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2]) 
+{
+	srv->alive[0] = mctx[0].alive;
+	srv->alive[1] = mctx[1].alive;
+}
+
+static int
+check_greylisting (struct mlfi_priv *priv) 
+{
+	MD5_CTX mdctx;
+	u_char final[MD5_SIZE];
+	char md5_out[MD5_SIZE * 2 + 1];
+	struct memcached_server *selected;
+	memcached_ctx_t mctx[2], mctx2[2];
+	memcached_param_t cur_param;
+	struct timeval tm, tm1;
+	int r;
+	size_t s;
+
+	/* Check whitelist */
+	if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+		if (cfg->awl_enable && awl_check ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec) == 1) {
+			/* Auto whitelisted */
+			return GREY_WHITELISTED;
+		}
+
+		bzero (&cur_param, sizeof (cur_param));
+		MD5Init(&mdctx);
+		/* Make hash from components: envfrom, ip address, envrcpt */
+		MD5Update(&mdctx, (const u_char *)priv->priv_from, strlen(priv->priv_from));
+		MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
+		MD5Update(&mdctx, (const u_char *)priv->priv_cur_rcpt, strlen(priv->priv_cur_rcpt));
+		MD5Final(final, &mdctx);
+		
+		tm.tv_sec = priv->conn_tm.tv_sec;
+		tm.tv_usec = priv->conn_tm.tv_usec;
+		/* Format md5 output */
+		s = sizeof (md5_out);
+		for (r = 0; r < MD5_SIZE; r ++){
+			s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
+		}
+		memcpy (cur_param.key, md5_out, sizeof (md5_out));
+		s = 1;
+		cur_param.buf = (u_char *)&tm1;
+		cur_param.bufsize = sizeof (tm1);
+
+		/* Check whitelist memcached */
+		selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
+										cfg->memcached_servers_white_num, sizeof (struct memcached_server),
+										(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+										(char *)final, MD5_SIZE);
+		if (selected == NULL) {
+			msg_err ("mlfi_data: cannot get memcached upstream");
+		}
+		else {
+			mctx2[0].protocol = cfg->memcached_protocol;
+			memcpy(&mctx2[0].addr, &selected->addr[0], sizeof (struct in_addr));
+			mctx2[0].port = selected->port[0];
+			mctx2[0].timeout = cfg->memcached_connect_timeout;
+			mctx2[0].alive = selected->alive[0];
+			if (selected->num == 2) {
+				mctx2[1].protocol = cfg->memcached_protocol;
+				memcpy(&mctx2[1].addr, &selected->addr[1], sizeof (struct in_addr));
+				mctx2[1].port = selected->port[1];
+				mctx2[1].timeout = cfg->memcached_connect_timeout;
+				mctx2[1].alive = selected->alive[0];
+			}
+			else {
+				mctx2[1].alive = 0;
+			}
+			
+			r = memc_init_ctx_mirror (mctx2, 2);
+			copy_alive (selected, mctx2);
+			if (r == -1) {
+				msg_warn ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
+				upstream_fail (&selected->up, tm.tv_sec);
+			}
+			else {
+				r = memc_get_mirror (mctx2, 2, &cur_param, &s);
+				copy_alive (selected, mctx2);
+				if (r == OK) {
+					/* Do not check anything if whitelist is found */
+					memc_close_ctx_mirror (mctx2, 2);
+					upstream_ok (&selected->up, tm.tv_sec);
+					return GREY_WHITELISTED;
+				}
+				memc_close_ctx_mirror (mctx2, 2);
+			}
+		}
+			/* Try to get record from memcached */
+		selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_grey,
+										cfg->memcached_servers_grey_num, sizeof (struct memcached_server),
+										(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+										(char *)final, MD5_SIZE);
+		if (selected == NULL) {
+			msg_err ("mlfi_data: cannot get memcached upstream");
+			return GREY_ERROR;
+		}
+		mctx[0].protocol = cfg->memcached_protocol;
+		memcpy(&mctx[0].addr, &selected->addr[0], sizeof (struct in_addr));
+		mctx[0].port = selected->port[0];
+		mctx[0].timeout = cfg->memcached_connect_timeout;
+		mctx[0].alive = selected->alive[0];
+		if (selected->num == 2) {
+			mctx[0].protocol = cfg->memcached_protocol;
+			memcpy(&mctx[0].addr, &selected->addr[0], sizeof (struct in_addr));
+			mctx[0].port = selected->port[0];
+			mctx[0].timeout = cfg->memcached_connect_timeout;
+			mctx[0].alive = selected->alive[0];
+		}
+		else {
+			mctx[1].alive = 0;
+		}
+		r = memc_init_ctx_mirror (mctx, 2);
+		copy_alive (selected, mctx);
+		if (r == -1) {
+			msg_err ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
+			upstream_fail (&selected->up, tm.tv_sec);
+			return GREY_ERROR;
+		}
+		r = memc_get_mirror (mctx, 2, &cur_param, &s);
+		copy_alive (selected, mctx);
+		/* Greylisting record does not exist, writing new one */
+		if (r == NOT_EXISTS) {
+			s = 1;
+			/* Write record to memcached */
+			cur_param.buf = (u_char *)&tm;
+			cur_param.bufsize = sizeof (tm);
+			r = memc_set_mirror (mctx, 2, &cur_param, &s, cfg->greylisting_expire);
+			copy_alive (selected, mctx);
+			if (r == OK) {
+				upstream_ok (&selected->up, tm.tv_sec);
+				return GREY_GREYLISTED;
+			}
+			else {
+				msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
+			}
+		}	
+		/* Greylisting record exists, checking time */
+		else if (r == OK) {
+			if (tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
+				/* Client comes too early */
+				upstream_ok (&selected->up, tm.tv_sec);
+				return GREY_GREYLISTED;
+			}
+			else {
+				/* Write to whitelist memcached server */
+				selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
+									cfg->memcached_servers_white_num, sizeof (struct memcached_server),
+									(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+									(char *)final, MD5_SIZE);
+				if (selected == NULL) {
+					msg_warn ("mlfi_data: cannot get memcached upstream for whitelisting");
+				}
+				else {
+					mctx2[0].protocol = cfg->memcached_protocol;
+					memcpy(&mctx2[0].addr, &selected->addr[0], sizeof (struct in_addr));
+					mctx2[0].port = selected->port[0];
+					mctx2[0].timeout = cfg->memcached_connect_timeout;
+					mctx2[0].alive = selected->alive[0];
+					if (selected->num == 2) {
+						mctx2[1].protocol = cfg->memcached_protocol;
+						memcpy(&mctx2[1].addr, &selected->addr[1], sizeof (struct in_addr));
+						mctx2[1].port = selected->port[1];
+						mctx2[1].timeout = cfg->memcached_connect_timeout;
+						mctx2[1].alive = selected->alive[0];
+					}
+					else {
+						mctx2[1].alive = 0;
+					}
+					r = memc_init_ctx_mirror (mctx, 2);
+					copy_alive (selected, mctx);
+					if (r == -1) {
+						msg_warn ("mlfi_data: cannot connect to memcached whitelist upstream: %s", inet_ntoa (selected->addr[0]));
+						upstream_fail (&selected->up, tm.tv_sec);
+					}
+					else {
+						s = 1;
+						cur_param.buf = (u_char *)&tm;
+           				cur_param.bufsize = sizeof (tm);
+						r = memc_set_mirror (mctx2, 2, &cur_param, &s, cfg->whitelisting_expire);
+						copy_alive (selected, mctx);
+						if (r == OK) {
+							upstream_ok (&selected->up, tm.tv_sec);
+						}
+						else {
+							msg_info ("mlfi_data: cannot write to memcached(%s): %s", inet_ntoa (selected->addr[0]), memc_strerror (r));
+							upstream_fail (&selected->up, tm.tv_sec);
+						}
+						memc_close_ctx_mirror (mctx2, 2);
+					}
+				}
+			}
+		}
+		/* Error getting greylisting record */
+		else {
+				upstream_fail (&selected->up, tm.tv_sec);
+		}
+		memc_close_ctx_mirror (mctx, 2);
+	}
+
+	return GREY_WHITELISTED;
 }
 
 /* Milter callbacks */
@@ -291,15 +500,7 @@ static sfsistat
 mlfi_data(SMFICTX *ctx)
 {
     struct mlfi_priv *priv;
-	MD5_CTX mdctx;
-	u_char final[MD5_SIZE];
-	char md5_out[MD5_SIZE * 2 + 1];
-	struct memcached_server *selected;
-	memcached_ctx_t mctx, mctx2;
-	memcached_param_t cur_param;
-	struct timeval tm, tm1;
 	int r;
-	size_t s;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -307,162 +508,32 @@ mlfi_data(SMFICTX *ctx)
 	}
 
 	CFG_RLOCK();
-	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_num > 0 &&
+	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_grey_num > 0 &&
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0) {
-		/* Check whitelist */
-		if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
-			if (cfg->awl_enable && awl_check ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec) == 1) {
-				/* Auto whitelisted */
-				CFG_UNLOCK();
-				return SMFIS_CONTINUE;
-			}
-			bzero (&cur_param, sizeof (cur_param));
-			MD5Init(&mdctx);
-			/* Make hash from components: envfrom, ip address, envrcpt */
-			MD5Update(&mdctx, (const u_char *)priv->priv_from, strlen(priv->priv_from));
-			MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
-			MD5Update(&mdctx, (const u_char *)priv->priv_cur_rcpt, strlen(priv->priv_cur_rcpt));
-			MD5Final(final, &mdctx);
-			
-			tm.tv_sec = priv->conn_tm.tv_sec;
-			tm.tv_usec = priv->conn_tm.tv_usec;
-			/* Format md5 output */
-			s = sizeof (md5_out);
-			for (r = 0; r < MD5_SIZE; r ++){
-				s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
-			}
-			memcpy (cur_param.key, md5_out, sizeof (md5_out));
 
-			s = 1;
-			cur_param.buf = (u_char *)&tm1;
-			cur_param.bufsize = sizeof (tm1);
-
-			/* Check whitelist memcached */
-			selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
-											cfg->memcached_servers_white_num, sizeof (struct memcached_server),
-											(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-											(char *)final, MD5_SIZE);
-			if (selected == NULL) {
-				msg_err ("mlfi_data: cannot get memcached upstream");
-			}
-			else {
-				mctx2.protocol = cfg->memcached_protocol;
-				memcpy(&mctx2.addr, &selected->addr[0], sizeof (struct in_addr));
-				mctx2.port = selected->port[0];
-				mctx2.timeout = cfg->memcached_connect_timeout;
-
-				if (memc_init_ctx (&mctx2) == -1) {
-					msg_warn ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
-					upstream_fail (&selected->up, tm.tv_sec);
+		r = check_greylisting (priv);
+		switch (r) {
+			case GREY_GREYLISTED:
+				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
+					msg_err("mlfi_data: smfi_setreply failed");
 				}
-				else {
-					r = memc_get (&mctx2, &cur_param, &s);
-					if (r == OK) {
-						/* Do not check anything if whitelist is found */
-						memc_close_ctx (&mctx2);
-						upstream_ok (&selected->up, tm.tv_sec);
-						CFG_UNLOCK();
-						return SMFIS_CONTINUE;
-					}
-
-					memc_close_ctx (&mctx2);
-				}
-			}
-
-			/* Try to get record from memcached */
-			selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers,
-											cfg->memcached_servers_num, sizeof (struct memcached_server),
-											(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-											(char *)final, MD5_SIZE);
-			if (selected == NULL) {
-				msg_err ("mlfi_data: cannot get memcached upstream");
 				CFG_UNLOCK();
-	    		(void)mlfi_cleanup (ctx, false);
+				(void)mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
-			}
-			mctx.protocol = cfg->memcached_protocol;
-			memcpy(&mctx.addr, &selected->addr[0], sizeof (struct in_addr));
-			mctx.port = selected->port[0];
-			mctx.timeout = cfg->memcached_connect_timeout;
-
-			if (memc_init_ctx (&mctx) == -1) {
-				msg_err ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
-				upstream_fail (&selected->up, tm.tv_sec);
+				break;
+			case GREY_ERROR:
+				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Service unavailable") != MI_SUCCESS) {
+					msg_err("mlfi_data: smfi_setreply failed");
+				}
 				CFG_UNLOCK();
-	    		(void)mlfi_cleanup (ctx, false);
-				return SMFIS_TEMPFAIL;
-			}
-
-			r = memc_get (&mctx, &cur_param, &s);
-			if (r == NOT_EXISTS) {
-				s = 1;
-				/* Write record to memcached */
-				cur_param.buf = (u_char *)&tm;
-                cur_param.bufsize = sizeof (tm);
-				if ((r = memc_set (&mctx, &cur_param, &s, cfg->greylisting_expire)) == OK) {
-					upstream_ok (&selected->up, tm.tv_sec);
-					if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
-						msg_err("mlfi_data: smfi_setreply failed");
-					}
-					CFG_UNLOCK();
-	    			(void)mlfi_cleanup (ctx, false);
-					return SMFIS_TEMPFAIL;
-				}
-				else {
-					msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
-				}
-			}
-			else if (r == OK) {
-				if (tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
-					/* Client comes too early */
-					upstream_ok (&selected->up, tm.tv_sec);
-					if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
-						msg_err("mlfi_data: smfi_setreply failed");
-					}
-					CFG_UNLOCK();
-	    			(void)mlfi_cleanup (ctx, false);
-					return SMFIS_TEMPFAIL;
-				}
-				else {
-					/* Write to whitelist memcached server */
-					selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
-											cfg->memcached_servers_white_num, sizeof (struct memcached_server),
-											(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-											(char *)final, MD5_SIZE);
-					if (selected == NULL) {
-						msg_warn ("mlfi_data: cannot get memcached upstream for whitelisting");
-					}
-					else {
-						mctx2.protocol = cfg->memcached_protocol;
-						memcpy(&mctx2.addr, &selected->addr[0], sizeof (struct in_addr));
-						mctx2.port = selected->port[0];
-						mctx2.timeout = cfg->memcached_connect_timeout;
-						if (memc_init_ctx (&mctx) == -1) {
-							msg_warn ("mlfi_data: cannot connect to memcached whitelist upstream: %s", inet_ntoa (selected->addr[0]));
-							upstream_fail (&selected->up, tm.tv_sec);
-						}
-						else {
-							s = 1;
-							cur_param.buf = (u_char *)&tm;
-                			cur_param.bufsize = sizeof (tm);
-							if ((r = memc_set (&mctx2, &cur_param, &s, cfg->whitelisting_expire)) == OK) {
-								upstream_ok (&selected->up, tm.tv_sec);
-							}
-							else {
-								msg_info ("mlfi_data: cannot write to memcached(%s): %s", inet_ntoa (selected->addr[0]), memc_strerror (r));
-								upstream_fail (&selected->up, tm.tv_sec);
-							}
-							memc_close_ctx (&mctx2);
-						}
-					}
-				}
-			}
-			else {
-					upstream_fail (&selected->up, tm.tv_sec);
-			}
-			memc_close_ctx (&mctx);
+				(void)mlfi_cleanup (ctx, false);
+				break;
+			case GREY_WHITELISTED:
+			default:
+				break;
 		}
 	}
+
 	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
 }

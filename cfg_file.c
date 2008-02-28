@@ -53,13 +53,13 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 
 	if (str == NULL) return 0;
 
-	if (type == MEMCACHED_SERVER_NORMAL) {
-		if(cf->memcached_servers_num == MAX_MEMCACHED_SERVERS) {
+	if (type == MEMCACHED_SERVER_GREY) {
+		if(cf->memcached_servers_grey_num == MAX_MEMCACHED_SERVERS) {
 			yywarn ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 	
-		mc = &cf->memcached_servers[cf->memcached_servers_num];
+		mc = &cf->memcached_servers_grey[cf->memcached_servers_grey_num];
 	}
 	else if (type == MEMCACHED_SERVER_WHITE) {
 		if(cf->memcached_servers_white_num == MAX_MEMCACHED_SERVERS) {
@@ -68,6 +68,14 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 		}
 	
 		mc = &cf->memcached_servers_white[cf->memcached_servers_white_num];
+	}
+	else if (type == MEMCACHED_SERVER_LIMITS) {
+		if(cf->memcached_servers_limits_num == MAX_MEMCACHED_SERVERS) {
+			yywarn ("yyparse: maximum number of whitelist memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			return 0;
+		}
+	
+		mc = &cf->memcached_servers_limits[cf->memcached_servers_limits_num];
 	}
 	if (mc == NULL) return 0;
 
@@ -131,11 +139,17 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 		mc->port[1] = port;
 	}
 	
-	if (type == MEMCACHED_SERVER_NORMAL) {
-		cf->memcached_servers_num++;
+	mc->alive[0] = 1;
+	mc->alive[1] = 1;
+
+	if (type == MEMCACHED_SERVER_GREY) {
+		cf->memcached_servers_grey_num++;
 	}
 	else if (type == MEMCACHED_SERVER_WHITE) {
 		cf->memcached_servers_white_num++;
+	}
+	else if (type == MEMCACHED_SERVER_LIMITS) {
+		cf->memcached_servers_limits_num++;
 	}
 
 	return 1;

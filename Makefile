@@ -3,7 +3,7 @@
 DCC_VER=1.2.74
 LOCALBASE?=/usr/local
 
-VERSION = 1.4
+VERSION = 1.5
 
 CFLAGS += -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \

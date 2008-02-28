@@ -131,7 +131,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 {
 	struct memcached_server *selected;
 	struct ratelimit_bucket_s b;
-	memcached_ctx_t mctx, mctx2;
+	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
 	size_t s;
 
@@ -141,8 +141,8 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	
 	make_key (cur_param.key, sizeof (cur_param.key), type, priv);
 
-	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers,
-											cfg->memcached_servers_num, sizeof (struct memcached_server),
+	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_limits,
+											cfg->memcached_servers_limits_num, sizeof (struct memcached_server),
 											floor(tm), cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
 											cur_param.key, strlen(cur_param.key));
 	
@@ -155,19 +155,8 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	mctx.port = selected->port[0];
 	mctx.timeout = cfg->memcached_connect_timeout;
 	mctx.sock = -1;
-	mctx2.sock = -1;
 	
-	if (selected->num == 2) {
-		mctx2.protocol = cfg->memcached_protocol;
-		memcpy(&mctx2.addr, &selected->addr[1], sizeof (struct in_addr));
-		mctx2.port = selected->port[1];
-		mctx2.timeout = cfg->memcached_connect_timeout;
-		if (memc_init_ctx (&mctx2) == -1) {
-			mctx2.sock = -1;
-		}
-	}
-
-	if (memc_init_ctx (&mctx) == -1 && mctx2.sock == -1) {
+	if (memc_init_ctx (&mctx) == -1) {
 		upstream_fail (&selected->up, floor (tm));
 		return -1;
 	}
@@ -175,19 +164,10 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	cur_param.buf = (void *)&b;
 	cur_param.bufsize = sizeof (struct ratelimit_bucket_s);
 	s = 1;
-	if (mctx.sock == -1) {
-		if (memc_get (&mctx2, &cur_param, &s) == -1) {
-			memc_close_ctx (&mctx2);
-			upstream_fail (&selected->up, floor (tm));
-			return -1;
-		}
-	}
-	else {
-		if (memc_get (&mctx, &cur_param, &s) == -1) {
-			memc_close_ctx (&mctx);
-			upstream_fail (&selected->up, floor (tm));
-			return -1;
-		}
+	if (memc_get (&mctx, &cur_param, &s) == -1) {
+		memc_close_ctx (&mctx);
+		upstream_fail (&selected->up, floor (tm));
+		return -1;
 	}
 
 	/* Leak from bucket at specified rate */
@@ -200,13 +180,6 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 
 	if (is_update && b.count == 0) {
 		/* Delete key if bucket is empty */
-		if (mctx.sock == -1 || mctx2.sock != -1) {
-			if (memc_delete (&mctx2, &cur_param, &s) == -1) {
-				memc_close_ctx (&mctx2);
-				upstream_fail (&selected->up, floor (tm));
-				return -1;
-			}
-		}
 		if (mctx.sock != -1) {
 			if (memc_delete (&mctx, &cur_param, &s) == -1) {
 				memc_close_ctx (&mctx);
@@ -217,13 +190,6 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	}
 	else {
 		/* Update rate limit */
-		if (mctx.sock == -1 || mctx2.sock != -1) {
-			if (memc_set (&mctx2, &cur_param, &s, EXPIRE_TIME) == -1) {
-				memc_close_ctx (&mctx2);
-				upstream_fail (&selected->up, floor (tm));
-				return -1;
-			}
-		}
 		if (mctx.sock != -1) {
 			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) == -1) {
 				memc_close_ctx (&mctx);
@@ -233,13 +199,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		}
 	}
 	
-	if (mctx.sock != -1) {
-		memc_close_ctx (&mctx);
-	}
-	if (mctx2.sock != -1) {
-		memc_close_ctx (&mctx2);
-	}
-
+	memc_close_ctx (&mctx);
 	upstream_ok (&selected->up, floor (tm));
 
 	if (b.count > bucket->burst) {

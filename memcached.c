@@ -331,7 +331,7 @@ memc_error_t
 memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem, int expire)
 {
 	char udp_buf[UDP_BUFSIZ];
-	int i, retries;
+	int i, retries, ofl;
 	ssize_t r;
 	struct memc_udp_header header;
 	struct iovec iov[4];
@@ -345,6 +345,10 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		}
 
 		r = snprintf (udp_buf, UDP_BUFSIZ, "%s %s 0 %d %zu" CRLF, cmd, params[i].key, expire, params[i].bufsize);
+		/* Set socket blocking */
+		ofl = fcntl(ctx->sock, F_GETFL, 0);
+		fcntl(ctx->sock, F_SETFL, ofl & (~O_NONBLOCK));
+
 		if (ctx->protocol == UDP_TEXT) {
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
@@ -365,7 +369,9 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			iov[2].iov_len = sizeof (CRLF) - 1;
 			writev (ctx->sock, iov, 3);	
 		}
-
+		
+		/* Restore socket mode */
+		fcntl(ctx->sock, F_SETFL, ofl);
 		/* Read reply from server */
 		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
 			return SERVER_ERROR;
@@ -490,6 +496,73 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 	return OK;
 }
 
+/*
+ * Write handler for memcached mirroring
+ */
+memc_error_t
+memc_write_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, memcached_param_t *params, size_t *nelem, int expire)
+{
+	memc_error_t r, result = OK;
+
+	while (memcached_num --) {
+		if (ctx[memcached_num - 1].alive == 1) {
+			r = memc_write (&ctx[memcached_num - 1], cmd, params, nelem, expire);
+			if (r != OK) {
+				result = r;
+				ctx[memcached_num - 1].alive = 0;
+			}
+		}
+	}
+
+	return result;
+}
+
+/*
+ * Read handler for memcached mirroring
+ */
+memc_error_t
+memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, memcached_param_t *params, size_t *nelem)
+{
+	memc_error_t r, result = OK;
+
+	while (memcached_num --) {
+		if (ctx[memcached_num - 1].alive == 1) {
+			r = memc_read (&ctx[memcached_num - 1], cmd, params, nelem);
+			if (r != OK) {
+				result = r;
+				ctx[memcached_num - 1].alive = 0;
+			}
+			else {
+				break;
+			}
+		}
+	}
+
+	return result;
+}
+
+/*
+ * Delete handler for memcached mirroring
+ */
+memc_error_t
+memc_delete_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, memcached_param_t *params, size_t *nelem)
+{
+	memc_error_t r, result = OK;
+
+	while (memcached_num --) {
+		if (ctx[memcached_num - 1].alive == 1) {
+			r = memc_delete (&ctx[memcached_num - 1], params, nelem);
+			if (r != OK) {
+				result = r;
+				ctx[memcached_num - 1].alive = 0;
+			}
+		}
+	}
+
+	return result;
+}
+
+
 /* 
  * Initialize memcached context for specified protocol
  */
@@ -501,6 +574,7 @@ memc_init_ctx (memcached_ctx_t *ctx)
 	}
 
 	ctx->count = 0;
+	ctx->alive = 1;
 
 	switch (ctx->protocol) {
 		case UDP_TEXT:
@@ -516,6 +590,27 @@ memc_init_ctx (memcached_ctx_t *ctx)
 			return -1;
 	}
 }
+/*
+ * Mirror init
+ */
+int 
+memc_init_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
+{
+	int r, result = -1;
+	while (memcached_num--) {
+		if (ctx[memcached_num - 1].alive == 1) {
+			r = memc_init_ctx (&ctx[memcached_num - 1]);
+			if (r == -1) {
+				ctx[memcached_num - 1].alive = 0;
+			}
+			else {
+				result = 1;
+			}
+		}
+	}
+
+	return result;
+}
 
 /*
  * Close context connection
@@ -524,11 +619,30 @@ int
 memc_close_ctx (memcached_ctx_t *ctx)
 {
 	if (ctx != NULL && ctx->sock != -1) {
-		close (ctx->sock);
+		return close (ctx->sock);
 	}
 
-	return 0;
+	return -1;
 }
+/* 
+ * Mirror close
+ */
+int 
+memc_close_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
+{
+	int r = 0;
+	while (memcached_num--) {
+		if (ctx[memcached_num - 1].alive == 1) {
+			r = memc_close_ctx (&ctx[memcached_num - 1]);
+			if (r == -1) {
+				ctx[memcached_num - 1].alive = 0;
+			}
+		}
+	}
+
+	return r;
+}
+
 
 const char * memc_strerror (memc_error_t err)
 {
