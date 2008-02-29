@@ -214,6 +214,12 @@ check_greylisting (struct mlfi_priv *priv)
 			else {
 				mctx2[1].alive = 0;
 			}
+			/* Reviving upstreams if all are dead */
+			if (mctx2[0].alive == 0 && mctx2[1].alive == 0) {
+				mctx2[0].alive = 1;
+				mctx2[1].alive = 1;
+				copy_alive (selected, mctx2);
+			}
 			
 			r = memc_init_ctx_mirror (mctx2, 2);
 			copy_alive (selected, mctx2);
@@ -257,6 +263,13 @@ check_greylisting (struct mlfi_priv *priv)
 		else {
 			mctx[1].alive = 0;
 		}
+		/* Reviving upstreams if all are dead */
+		if (mctx[0].alive == 0 && mctx[1].alive == 0) {
+			mctx[0].alive = 1;
+			mctx[1].alive = 1;
+			copy_alive (selected, mctx);
+		}
+
 		r = memc_init_ctx_mirror (mctx, 2);
 		copy_alive (selected, mctx);
 		if (r == -1) {
@@ -313,6 +326,12 @@ check_greylisting (struct mlfi_priv *priv)
 					}
 					else {
 						mctx2[1].alive = 0;
+					}
+					/* Reviving upstreams if all are dead */
+					if (mctx2[0].alive == 0 && mctx2[1].alive == 0) {
+						mctx2[0].alive = 1;
+						mctx2[1].alive = 1;
+						copy_alive (selected, mctx2);
 					}
 					r = memc_init_ctx_mirror (mctx, 2);
 					copy_alive (selected, mctx);

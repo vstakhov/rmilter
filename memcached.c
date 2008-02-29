@@ -31,7 +31,7 @@
 #define CLIENT_ERROR_TRAILER "CLIENT_ERROR"
 #define SERVER_ERROR_TRAILER "SERVER_ERROR"
 
-#define UDP_BUFSIZ 1500
+#define READ_BUFSIZ 1500
 #define MAX_RETRIES 3
 
 /* Header for udp protocol */
@@ -183,7 +183,7 @@ memc_parse_header (char *buf, size_t *len, char **end)
 memc_error_t
 memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem)
 {
-	char udp_buf[UDP_BUFSIZ];
+	char read_buf[READ_BUFSIZ];
 	char *p;
 	int i, retries;
 	ssize_t r, sum = 0, written = 0;
@@ -199,16 +199,16 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			header.req_id = ctx->count;
 		}
 
-		r = snprintf (udp_buf, UDP_BUFSIZ, "%s %s" CRLF, cmd, params[i].key);
+		r = snprintf (read_buf, READ_BUFSIZ, "%s %s" CRLF, cmd, params[i].key);
 		if (ctx->protocol == UDP_TEXT) {
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
-			iov[1].iov_base = udp_buf;
+			iov[1].iov_base = read_buf;
 			iov[1].iov_len = r;
 			writev (ctx->sock, iov, 2);
 		}
 		else {
-			write (ctx->sock, udp_buf, r);
+			write (ctx->sock, read_buf, r);
 		}
 
 		/* Read reply from server */
@@ -219,8 +219,8 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			}
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
-			iov[1].iov_base = udp_buf;
-			iov[1].iov_len = UDP_BUFSIZ;
+			iov[1].iov_base = read_buf;
+			iov[1].iov_len = READ_BUFSIZ;
 			if ((r = readv (ctx->sock, iov, 2)) == -1) {
 				return SERVER_ERROR;
 			}
@@ -235,13 +235,13 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
 				return SERVER_TIMEOUT;
 			}
-			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+			r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
 		}
 
 		if (r > 0) {
 			sum += r;
-			udp_buf[r] = 0;
-			r = memc_parse_header (udp_buf, &datalen, &p);
+			read_buf[r] = 0;
+			r = memc_parse_header (read_buf, &datalen, &p);
 			if (r < 0) {
 				return SERVER_ERROR;
 			}
@@ -254,7 +254,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			}
 
 			/* Subtract from sum parsed header's length */
-			sum -= p - udp_buf;
+			sum -= p - read_buf;
 			/* Check if we already have all data in buffer */
 			if (sum >= datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
 				/* Store all data in param's buffer */
@@ -273,7 +273,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			return SERVER_ERROR;
 		}
 		/* Read data from multiply datagrams */
-		p = udp_buf;
+		p = read_buf;
 
 		while (sum < datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
 			retries = 0;
@@ -283,8 +283,8 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				}
 				iov[0].iov_base = &header;
 				iov[0].iov_len = sizeof (struct memc_udp_header);
-				iov[1].iov_base = udp_buf;
-				iov[1].iov_len = UDP_BUFSIZ;
+				iov[1].iov_base = read_buf;
+				iov[1].iov_len = READ_BUFSIZ;
 				if ((r = readv (ctx->sock, iov, 2)) == -1) {
 					return SERVER_ERROR;
 				}
@@ -298,10 +298,10 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
 					return SERVER_TIMEOUT;
 				}
-				r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+				r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
 			}
 			
-			p = udp_buf;
+			p = read_buf;
 			sum += r;
 			if (r <= 0) {
 				break;
@@ -330,7 +330,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 memc_error_t
 memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem, int expire)
 {
-	char udp_buf[UDP_BUFSIZ];
+	char read_buf[READ_BUFSIZ];
 	int i, retries, ofl;
 	ssize_t r;
 	struct memc_udp_header header;
@@ -344,7 +344,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			header.req_id = ctx->count;
 		}
 
-		r = snprintf (udp_buf, UDP_BUFSIZ, "%s %s 0 %d %zu" CRLF, cmd, params[i].key, expire, params[i].bufsize);
+		r = snprintf (read_buf, READ_BUFSIZ, "%s %s 0 %d %zu" CRLF, cmd, params[i].key, expire, params[i].bufsize);
 		/* Set socket blocking */
 		ofl = fcntl(ctx->sock, F_GETFL, 0);
 		fcntl(ctx->sock, F_SETFL, ofl & (~O_NONBLOCK));
@@ -352,7 +352,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		if (ctx->protocol == UDP_TEXT) {
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
-			iov[1].iov_base = udp_buf;
+			iov[1].iov_base = read_buf;
 			iov[1].iov_len = r;
 			iov[2].iov_base = params[i].buf;
 			iov[2].iov_len = params[i].bufsize;
@@ -361,7 +361,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			writev (ctx->sock, iov, 4);
 		}
 		else {
-			iov[0].iov_base = udp_buf;
+			iov[0].iov_base = read_buf;
 			iov[0].iov_len = r;
 			iov[1].iov_base = params[i].buf;
 			iov[1].iov_len = params[i].bufsize;
@@ -384,8 +384,8 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			}
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
-			iov[1].iov_base = udp_buf;
-			iov[1].iov_len = UDP_BUFSIZ;
+			iov[1].iov_base = read_buf;
+			iov[1].iov_len = READ_BUFSIZ;
 			if ((r = readv (ctx->sock, iov, 2)) == -1) {
 				return SERVER_ERROR;
 			}
@@ -400,18 +400,18 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
 				return SERVER_TIMEOUT;
 			}
-			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+			r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
 		}
 		/* Increment count */
 		ctx->count++;
 		
-		if (strncmp (udp_buf, STORED_TRAILER, sizeof (STORED_TRAILER) - 1) == 0) {
+		if (strncmp (read_buf, STORED_TRAILER, sizeof (STORED_TRAILER) - 1) == 0) {
 			continue;
 		}
-		else if (strncmp (udp_buf, NOT_STORED_TRAILER, sizeof (NOT_STORED_TRAILER) - 1) == 0) {
+		else if (strncmp (read_buf, NOT_STORED_TRAILER, sizeof (NOT_STORED_TRAILER) - 1) == 0) {
 			return CLIENT_ERROR;
 		}
-		else if (strncmp (udp_buf, EXISTS_TRAILER, sizeof (EXISTS_TRAILER) - 1) == 0) {
+		else if (strncmp (read_buf, EXISTS_TRAILER, sizeof (EXISTS_TRAILER) - 1) == 0) {
 			return EXISTS;
 		}
 		else {
@@ -427,7 +427,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 memc_error_t
 memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 {
-	char udp_buf[UDP_BUFSIZ];
+	char read_buf[READ_BUFSIZ];
 	int i, retries;
 	ssize_t r;
 	struct memc_udp_header header;
@@ -441,16 +441,16 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 			header.req_id = ctx->count;
 		}
 
-		r = snprintf (udp_buf, UDP_BUFSIZ, "delete %s" CRLF, params[i].key);
+		r = snprintf (read_buf, READ_BUFSIZ, "delete %s" CRLF, params[i].key);
 		if (ctx->protocol == UDP_TEXT) {
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
-			iov[1].iov_base = udp_buf;
+			iov[1].iov_base = read_buf;
 			iov[1].iov_len = r;
 			writev (ctx->sock, iov, 2);
 		}
 		else {
-			write (ctx->sock, udp_buf, r);
+			write (ctx->sock, read_buf, r);
 		}
 
 		/* Read reply from server */
@@ -461,8 +461,8 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 			}
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
-			iov[1].iov_base = udp_buf;
-			iov[1].iov_len = UDP_BUFSIZ;
+			iov[1].iov_base = read_buf;
+			iov[1].iov_len = READ_BUFSIZ;
 			if ((r = readv (ctx->sock, iov, 2)) == -1) {
 				return SERVER_ERROR;
 			}
@@ -477,15 +477,15 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
 				return SERVER_TIMEOUT;
 			}
-			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
+			r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
 		}
 		
 		/* Increment count */
 		ctx->count++;
-		if (strncmp (udp_buf, DELETED_TRAILER, sizeof (DELETED_TRAILER) - 1) == 0) {
+		if (strncmp (read_buf, DELETED_TRAILER, sizeof (DELETED_TRAILER) - 1) == 0) {
 			continue;
 		}
-		else if (strncmp (udp_buf, NOT_FOUND_TRAILER, sizeof (NOT_FOUND_TRAILER) - 1) == 0) {
+		else if (strncmp (read_buf, NOT_FOUND_TRAILER, sizeof (NOT_FOUND_TRAILER) - 1) == 0) {
 			return NOT_EXISTS;
 		}
 		else {
@@ -498,6 +498,7 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 
 /*
  * Write handler for memcached mirroring
+ * writing is done to each memcached server
  */
 memc_error_t
 memc_write_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, memcached_param_t *params, size_t *nelem, int expire)
@@ -519,6 +520,7 @@ memc_write_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, 
 
 /*
  * Read handler for memcached mirroring
+ * reading is done from first active memcached server
  */
 memc_error_t
 memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, memcached_param_t *params, size_t *nelem)
@@ -543,6 +545,7 @@ memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, m
 
 /*
  * Delete handler for memcached mirroring
+ * deleting is done for each active memcached server
  */
 memc_error_t
 memc_delete_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, memcached_param_t *params, size_t *nelem)
