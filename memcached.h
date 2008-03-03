@@ -6,6 +6,8 @@
 
 #define MAXKEYLEN 250
 
+#define MEMC_OPT_DEBUG 0x1
+
 typedef enum memc_error {
 	OK,
 	BAD_COMMAND,
@@ -36,6 +38,8 @@ typedef struct memcached_ctx_s {
 	uint16_t count;
 	/* Flag that signalize that this memcached is alive */
 	short alive;
+	/* Options that can be specified for memcached connection */
+	short options;
 } memcached_ctx_t;
 
 typedef struct memcached_param_s {

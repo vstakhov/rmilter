@@ -2,6 +2,9 @@
 #include <pthread.h>
 #endif
 
+#define _BSD_SOURCE
+#include <stdarg.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
@@ -13,6 +16,7 @@
 #include <syslog.h>
 
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
 #include <errno.h>
@@ -71,6 +75,21 @@ poll_d (int fd, u_char want_read, u_char want_write, int timeout)
 }
 
 /*
+ * Write to syslog if OPT_DEBUG is specified
+ */
+static void
+memc_log (const memcached_ctx_t *ctx, int line, const char *fmt, ...) 
+{
+	va_list args;
+	if (ctx->options & MEMC_OPT_DEBUG) {
+		va_start (args, fmt);
+		syslog (LOG_DEBUG, "memc_debug(%d): host: %s, port: %d", line, inet_ntoa (ctx->addr), ntohs (ctx->port));
+		vsyslog (LOG_DEBUG, fmt, args);
+		va_end (args);
+	}
+}
+
+/*
  * Make socket for udp connection
  */
 static int
@@ -87,6 +106,7 @@ memc_make_udp_sock (memcached_ctx_t *ctx)
 	ctx->sock = socket (PF_INET, SOCK_DGRAM, 0);
 
 	if (ctx->sock == -1) {
+		memc_log (ctx, __LINE__, "memc_make_udp_sock: socket() failed: %m");
 		return -1;
 	}
 
@@ -118,6 +138,7 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 	ctx->sock = socket (PF_INET, SOCK_STREAM, 0);
 
 	if (ctx->sock == -1) {
+		memc_log (ctx, __LINE__, "memc_make_tcp_sock: socket() failed: %m");
 		return -1;
 	}
 
@@ -127,6 +148,7 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 	
 	if ((r = connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in))) == -1) {
 		if (errno != EINPROGRESS) {
+			memc_log (ctx, __LINE__, "memc_make_tcp_sock: connect() failed: %m");
 			return -1;
 		}
 	}
@@ -135,6 +157,7 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 		return 0;
 	} 
 	else {
+		memc_log (ctx, __LINE__, "memc_make_tcp_sock: poll() timeout");
 		close (ctx->sock);
 		return -1;
 	}
@@ -200,6 +223,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 		}
 
 		r = snprintf (read_buf, READ_BUFSIZ, "%s %s" CRLF, cmd, params[i].key);
+		memc_log (ctx, __LINE__, "memc_read: send read request to memcached: %s", read_buf);
 		if (ctx->protocol == UDP_TEXT) {
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
@@ -345,6 +369,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		}
 
 		r = snprintf (read_buf, READ_BUFSIZ, "%s %s 0 %d %zu" CRLF, cmd, params[i].key, expire, params[i].bufsize);
+		memc_log (ctx, __LINE__, "memc_write: send write request to memcached: %s", read_buf);
 		/* Set socket blocking */
 		ofl = fcntl(ctx->sock, F_GETFL, 0);
 		fcntl(ctx->sock, F_SETFL, ofl & (~O_NONBLOCK));
@@ -374,6 +399,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		fcntl(ctx->sock, F_SETFL, ofl);
 		/* Read reply from server */
 		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+			memc_log (ctx, __LINE__, "memc_write: server timeout while reading reply");
 			return SERVER_ERROR;
 		}
 		/* Read header */
@@ -442,6 +468,7 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 		}
 
 		r = snprintf (read_buf, READ_BUFSIZ, "delete %s" CRLF, params[i].key);
+		memc_log (ctx, __LINE__, "memc_delete: send delete request to memcached: %s", read_buf);
 		if (ctx->protocol == UDP_TEXT) {
 			iov[0].iov_base = &header;
 			iov[0].iov_len = sizeof (struct memc_udp_header);
@@ -509,6 +536,7 @@ memc_write_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, 
 		if (ctx[memcached_num].alive == 1) {
 			r = memc_write (&ctx[memcached_num], cmd, params, nelem, expire);
 			if (r != OK) {
+				memc_log (&ctx[memcached_num], __LINE__, "memc_write_mirror: cannot write to mirror server: %s", memc_strerror (r));
 				result = r;
 				ctx[memcached_num].alive = 0;
 			}
@@ -534,6 +562,7 @@ memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, m
 				result = r;
 				if (r != NOT_EXISTS) {
 					ctx[memcached_num].alive = 0;
+					memc_log (&ctx[memcached_num], __LINE__, "memc_read_mirror: cannot write read from mirror server: %s", memc_strerror (r));
 				}
 				else {
 					break;
@@ -564,6 +593,7 @@ memc_delete_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd,
 				result = r;
 				if (r != NOT_EXISTS) {
 					ctx[memcached_num].alive = 0;
+					memc_log (&ctx[memcached_num], __LINE__, "memc_delete_mirror: cannot delete from mirror server: %s", memc_strerror (r));
 				}
 			}
 		}
@@ -612,6 +642,7 @@ memc_init_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 			r = memc_init_ctx (&ctx[memcached_num]);
 			if (r == -1) {
 				ctx[memcached_num].alive = 0;
+				memc_log (&ctx[memcached_num], __LINE__, "memc_init_ctx_mirror: cannot connect to server");
 			}
 			else {
 				result = 1;
@@ -645,6 +676,7 @@ memc_close_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 		if (ctx[memcached_num].alive == 1) {
 			r = memc_close_ctx (&ctx[memcached_num]);
 			if (r == -1) {
+				memc_log (&ctx[memcached_num], __LINE__, "memc_close_ctx_mirror: cannot close connection to server properly");
 				ctx[memcached_num].alive = 0;
 			}
 		}
