@@ -565,7 +565,7 @@ memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, m
 					memc_log (&ctx[memcached_num], __LINE__, "memc_read_mirror: cannot write read from mirror server: %s", memc_strerror (r));
 				}
 				else {
-					break;
+					memc_log (&ctx[memcached_num], __LINE__, "memc_read_mirror: record not exists", memc_strerror (r));
 				}
 			}
 			else {

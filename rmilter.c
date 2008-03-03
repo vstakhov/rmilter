@@ -254,11 +254,11 @@ check_greylisting (struct mlfi_priv *priv)
 		mctx[0].timeout = cfg->memcached_connect_timeout;
 		mctx[0].alive = selected->alive[0];
 		if (selected->num == 2) {
-			mctx[0].protocol = cfg->memcached_protocol;
-			memcpy(&mctx[0].addr, &selected->addr[0], sizeof (struct in_addr));
-			mctx[0].port = selected->port[0];
-			mctx[0].timeout = cfg->memcached_connect_timeout;
-			mctx[0].alive = selected->alive[0];
+			mctx[1].protocol = cfg->memcached_protocol;
+			memcpy(&mctx[1].addr, &selected->addr[1], sizeof (struct in_addr));
+			mctx[1].port = selected->port[1];
+			mctx[1].timeout = cfg->memcached_connect_timeout;
+			mctx[1].alive = selected->alive[1];
 		}
 		else {
 			mctx[1].alive = 0;
@@ -333,8 +333,8 @@ check_greylisting (struct mlfi_priv *priv)
 						mctx_white[1].alive = 1;
 						copy_alive (selected, mctx_white);
 					}
-					r = memc_init_ctx_mirror (mctx, 2);
-					copy_alive (selected, mctx);
+					r = memc_init_ctx_mirror (mctx_white, 2);
+					copy_alive (selected, mctx_white);
 					if (r == -1) {
 						msg_warn ("mlfi_data: cannot connect to memcached whitelist upstream: %s", inet_ntoa (selected->addr[0]));
 						upstream_fail (&selected->up, tm.tv_sec);
