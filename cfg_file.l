@@ -97,6 +97,18 @@ parse_seconds (const char *t)
 		if (*err_str == 's' || *err_str == 'S') {
 			result *= 1000;
 		}
+		/* Minutes */
+		if (*err_str == 'm' || *err_str == 'M') {
+			result *= 60 * 1000;
+		}
+		/* Hours */
+		if (*err_str == 'h' || *err_str == 'H') {
+			result *= 60 * 60 * 1000;
+		}
+		/* Days */
+		if (*err_str == 'd' || *err_str == 'D') {
+			result *= 24 * 60 * 60 * 1000;
+		}
 	}
 
 	return result;
@@ -190,8 +202,8 @@ use_dcc							return USEDCC;
 greylisting						return GREYLISTING;
 whitelist						return WHITELIST;
 timeout							return TIMEOUT;
-expire							return EXPIRE;
 expire_white					return EXPIRE_WHITE;
+expire							return EXPIRE;
 awl_enable						return AWL_ENABLE;
 awl_hits						return AWL_HITS;
 awl_ttl							return AWL_TTL;
