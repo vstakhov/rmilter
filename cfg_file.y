@@ -495,7 +495,7 @@ memcachedcmd:
 	;
 
 memcached_grey_servers:
-	SERVERS EQSIGN memcached_grey_server
+	SERVERS_GREY EQSIGN memcached_grey_server
 	;
 
 memcached_grey_server:
@@ -549,7 +549,7 @@ memcached_white_params:
 	;
 
 memcached_limits_servers:
-	SERVERS_WHITE EQSIGN memcached_limits_server
+	SERVERS_LIMITS EQSIGN memcached_limits_server
 	;
 
 memcached_limits_server:
