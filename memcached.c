@@ -506,11 +506,11 @@ memc_write_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, 
 	memc_error_t r, result = OK;
 
 	while (memcached_num --) {
-		if (ctx[memcached_num - 1].alive == 1) {
-			r = memc_write (&ctx[memcached_num - 1], cmd, params, nelem, expire);
+		if (ctx[memcached_num].alive == 1) {
+			r = memc_write (&ctx[memcached_num], cmd, params, nelem, expire);
 			if (r != OK) {
 				result = r;
-				ctx[memcached_num - 1].alive = 0;
+				ctx[memcached_num].alive = 0;
 			}
 		}
 	}
@@ -528,11 +528,11 @@ memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, m
 	memc_error_t r, result = OK;
 
 	while (memcached_num --) {
-		if (ctx[memcached_num - 1].alive == 1) {
-			r = memc_read (&ctx[memcached_num - 1], cmd, params, nelem);
+		if (ctx[memcached_num].alive == 1) {
+			r = memc_read (&ctx[memcached_num], cmd, params, nelem);
 			if (r != OK) {
 				result = r;
-				ctx[memcached_num - 1].alive = 0;
+				ctx[memcached_num].alive = 0;
 			}
 			else {
 				break;
@@ -553,11 +553,11 @@ memc_delete_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd,
 	memc_error_t r, result = OK;
 
 	while (memcached_num --) {
-		if (ctx[memcached_num - 1].alive == 1) {
-			r = memc_delete (&ctx[memcached_num - 1], params, nelem);
+		if (ctx[memcached_num].alive == 1) {
+			r = memc_delete (&ctx[memcached_num], params, nelem);
 			if (r != OK) {
 				result = r;
-				ctx[memcached_num - 1].alive = 0;
+				ctx[memcached_num].alive = 0;
 			}
 		}
 	}
@@ -601,10 +601,10 @@ memc_init_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 {
 	int r, result = -1;
 	while (memcached_num--) {
-		if (ctx[memcached_num - 1].alive == 1) {
-			r = memc_init_ctx (&ctx[memcached_num - 1]);
+		if (ctx[memcached_num].alive == 1) {
+			r = memc_init_ctx (&ctx[memcached_num]);
 			if (r == -1) {
-				ctx[memcached_num - 1].alive = 0;
+				ctx[memcached_num].alive = 0;
 			}
 			else {
 				result = 1;
@@ -635,10 +635,10 @@ memc_close_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 {
 	int r = 0;
 	while (memcached_num--) {
-		if (ctx[memcached_num - 1].alive == 1) {
-			r = memc_close_ctx (&ctx[memcached_num - 1]);
+		if (ctx[memcached_num].alive == 1) {
+			r = memc_close_ctx (&ctx[memcached_num]);
 			if (r == -1) {
-				ctx[memcached_num - 1].alive = 0;
+				ctx[memcached_num].alive = 0;
 			}
 		}
 	}
