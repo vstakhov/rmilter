@@ -532,7 +532,12 @@ memc_read_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd, m
 			r = memc_read (&ctx[memcached_num], cmd, params, nelem);
 			if (r != OK) {
 				result = r;
-				ctx[memcached_num].alive = 0;
+				if (r != NOT_EXISTS) {
+					ctx[memcached_num].alive = 0;
+				}
+				else {
+					break;
+				}
 			}
 			else {
 				break;
@@ -557,7 +562,9 @@ memc_delete_mirror (memcached_ctx_t *ctx, size_t memcached_num, const char *cmd,
 			r = memc_delete (&ctx[memcached_num], params, nelem);
 			if (r != OK) {
 				result = r;
-				ctx[memcached_num].alive = 0;
+				if (r != NOT_EXISTS) {
+					ctx[memcached_num].alive = 0;
+				}
 			}
 		}
 	}

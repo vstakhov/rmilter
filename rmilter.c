@@ -157,7 +157,7 @@ check_greylisting (struct mlfi_priv *priv)
 	u_char final[MD5_SIZE];
 	char md5_out[MD5_SIZE * 2 + 1];
 	struct memcached_server *selected;
-	memcached_ctx_t mctx[2], mctx2[2];
+	memcached_ctx_t mctx[2], mctx_white[2];
 	memcached_param_t cur_param;
 	struct timeval tm, tm1;
 	int r;
@@ -199,44 +199,44 @@ check_greylisting (struct mlfi_priv *priv)
 			msg_err ("mlfi_data: cannot get memcached upstream");
 		}
 		else {
-			mctx2[0].protocol = cfg->memcached_protocol;
-			memcpy(&mctx2[0].addr, &selected->addr[0], sizeof (struct in_addr));
-			mctx2[0].port = selected->port[0];
-			mctx2[0].timeout = cfg->memcached_connect_timeout;
-			mctx2[0].alive = selected->alive[0];
+			mctx_white[0].protocol = cfg->memcached_protocol;
+			memcpy(&mctx_white[0].addr, &selected->addr[0], sizeof (struct in_addr));
+			mctx_white[0].port = selected->port[0];
+			mctx_white[0].timeout = cfg->memcached_connect_timeout;
+			mctx_white[0].alive = selected->alive[0];
 			if (selected->num == 2) {
-				mctx2[1].protocol = cfg->memcached_protocol;
-				memcpy(&mctx2[1].addr, &selected->addr[1], sizeof (struct in_addr));
-				mctx2[1].port = selected->port[1];
-				mctx2[1].timeout = cfg->memcached_connect_timeout;
-				mctx2[1].alive = selected->alive[0];
+				mctx_white[1].protocol = cfg->memcached_protocol;
+				memcpy(&mctx_white[1].addr, &selected->addr[1], sizeof (struct in_addr));
+				mctx_white[1].port = selected->port[1];
+				mctx_white[1].timeout = cfg->memcached_connect_timeout;
+				mctx_white[1].alive = selected->alive[0];
 			}
 			else {
-				mctx2[1].alive = 0;
+				mctx_white[1].alive = 0;
 			}
 			/* Reviving upstreams if all are dead */
-			if (mctx2[0].alive == 0 && mctx2[1].alive == 0) {
-				mctx2[0].alive = 1;
-				mctx2[1].alive = 1;
-				copy_alive (selected, mctx2);
+			if (mctx_white[0].alive == 0 && mctx_white[1].alive == 0) {
+				mctx_white[0].alive = 1;
+				mctx_white[1].alive = 1;
+				copy_alive (selected, mctx_white);
 			}
 			
-			r = memc_init_ctx_mirror (mctx2, 2);
-			copy_alive (selected, mctx2);
+			r = memc_init_ctx_mirror (mctx_white, 2);
+			copy_alive (selected, mctx_white);
 			if (r == -1) {
 				msg_warn ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
 				upstream_fail (&selected->up, tm.tv_sec);
 			}
 			else {
-				r = memc_get_mirror (mctx2, 2, &cur_param, &s);
-				copy_alive (selected, mctx2);
+				r = memc_get_mirror (mctx_white, 2, &cur_param, &s);
+				copy_alive (selected, mctx_white);
 				if (r == OK) {
 					/* Do not check anything if whitelist is found */
-					memc_close_ctx_mirror (mctx2, 2);
+					memc_close_ctx_mirror (mctx_white, 2);
 					upstream_ok (&selected->up, tm.tv_sec);
 					return GREY_WHITELISTED;
 				}
-				memc_close_ctx_mirror (mctx2, 2);
+				memc_close_ctx_mirror (mctx_white, 2);
 			}
 		}
 			/* Try to get record from memcached */
@@ -312,26 +312,26 @@ check_greylisting (struct mlfi_priv *priv)
 					msg_warn ("mlfi_data: cannot get memcached upstream for whitelisting");
 				}
 				else {
-					mctx2[0].protocol = cfg->memcached_protocol;
-					memcpy(&mctx2[0].addr, &selected->addr[0], sizeof (struct in_addr));
-					mctx2[0].port = selected->port[0];
-					mctx2[0].timeout = cfg->memcached_connect_timeout;
-					mctx2[0].alive = selected->alive[0];
+					mctx_white[0].protocol = cfg->memcached_protocol;
+					memcpy(&mctx_white[0].addr, &selected->addr[0], sizeof (struct in_addr));
+					mctx_white[0].port = selected->port[0];
+					mctx_white[0].timeout = cfg->memcached_connect_timeout;
+					mctx_white[0].alive = selected->alive[0];
 					if (selected->num == 2) {
-						mctx2[1].protocol = cfg->memcached_protocol;
-						memcpy(&mctx2[1].addr, &selected->addr[1], sizeof (struct in_addr));
-						mctx2[1].port = selected->port[1];
-						mctx2[1].timeout = cfg->memcached_connect_timeout;
-						mctx2[1].alive = selected->alive[0];
+						mctx_white[1].protocol = cfg->memcached_protocol;
+						memcpy(&mctx_white[1].addr, &selected->addr[1], sizeof (struct in_addr));
+						mctx_white[1].port = selected->port[1];
+						mctx_white[1].timeout = cfg->memcached_connect_timeout;
+						mctx_white[1].alive = selected->alive[0];
 					}
 					else {
-						mctx2[1].alive = 0;
+						mctx_white[1].alive = 0;
 					}
 					/* Reviving upstreams if all are dead */
-					if (mctx2[0].alive == 0 && mctx2[1].alive == 0) {
-						mctx2[0].alive = 1;
-						mctx2[1].alive = 1;
-						copy_alive (selected, mctx2);
+					if (mctx_white[0].alive == 0 && mctx_white[1].alive == 0) {
+						mctx_white[0].alive = 1;
+						mctx_white[1].alive = 1;
+						copy_alive (selected, mctx_white);
 					}
 					r = memc_init_ctx_mirror (mctx, 2);
 					copy_alive (selected, mctx);
@@ -343,8 +343,8 @@ check_greylisting (struct mlfi_priv *priv)
 						s = 1;
 						cur_param.buf = (u_char *)&tm;
            				cur_param.bufsize = sizeof (tm);
-						r = memc_set_mirror (mctx2, 2, &cur_param, &s, cfg->whitelisting_expire);
-						copy_alive (selected, mctx);
+						r = memc_set_mirror (mctx_white, 2, &cur_param, &s, cfg->whitelisting_expire);
+						copy_alive (selected, mctx_white);
 						if (r == OK) {
 							upstream_ok (&selected->up, tm.tv_sec);
 						}
@@ -352,7 +352,7 @@ check_greylisting (struct mlfi_priv *priv)
 							msg_info ("mlfi_data: cannot write to memcached(%s): %s", inet_ntoa (selected->addr[0]), memc_strerror (r));
 							upstream_fail (&selected->up, tm.tv_sec);
 						}
-						memc_close_ctx_mirror (mctx2, 2);
+						memc_close_ctx_mirror (mctx_white, 2);
 					}
 				}
 			}
