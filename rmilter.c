@@ -196,7 +196,9 @@ check_greylisting (struct mlfi_priv *priv)
 										(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
 										(char *)final, MD5_SIZE);
 		if (selected == NULL) {
-			msg_err ("mlfi_data: cannot get memcached upstream");
+			if (cfg->memcached_servers_white_num != 0) {
+				msg_err ("mlfi_data: cannot get memcached upstream");
+			}
 		}
 		else {
 			mctx_white[0].protocol = cfg->memcached_protocol;
@@ -309,7 +311,9 @@ check_greylisting (struct mlfi_priv *priv)
 									(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
 									(char *)final, MD5_SIZE);
 				if (selected == NULL) {
-					msg_warn ("mlfi_data: cannot get memcached upstream for whitelisting");
+					if (cfg->memcached_servers_white_num != 0) {
+						msg_warn ("mlfi_data: cannot get memcached upstream for whitelisting");
+					}
 				}
 				else {
 					mctx_white[0].protocol = cfg->memcached_protocol;

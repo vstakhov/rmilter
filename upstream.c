@@ -194,6 +194,10 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 	
 	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
 
+	if (alive == 0) {
+		return NULL;
+	}
+
 	i = keylen;      /* Work back through the key length */
 	p = key;         /* Character pointer */
 	h = 0;           /* The hash value */
