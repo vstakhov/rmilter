@@ -134,6 +134,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
 	size_t s;
+	int r;
 
 	if (bucket->burst == 0 || bucket->rate == 0) {
 		return 1;
@@ -161,17 +162,21 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		return -1;
 	}
 	
+	bzero (&b, sizeof (b));
 	cur_param.buf = (void *)&b;
 	cur_param.bufsize = sizeof (struct ratelimit_bucket_s);
 	s = 1;
-	if (memc_get (&mctx, &cur_param, &s) == -1) {
+	r = memc_get (&mctx, &cur_param, &s);
+	if (r != OK && r != NOT_EXISTS) {
 		memc_close_ctx (&mctx);
 		upstream_fail (&selected->up, floor (tm));
 		return -1;
 	}
 
 	/* Leak from bucket at specified rate */
-	b.count -= (tm - b.tm) * bucket->rate;
+	if (b.count > 0) {
+		b.count -= (tm - b.tm) * bucket->rate;
+	}
 	b.count += is_update;
 	b.tm = tm;
 	if (b.count < 0) {
@@ -181,7 +186,8 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	if (is_update && b.count == 0) {
 		/* Delete key if bucket is empty */
 		if (mctx.sock != -1) {
-			if (memc_delete (&mctx, &cur_param, &s) == -1) {
+			s = 1;
+			if (memc_delete (&mctx, &cur_param, &s) != OK) {
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
@@ -191,7 +197,8 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	else {
 		/* Update rate limit */
 		if (mctx.sock != -1) {
-			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) == -1) {
+			s = 1;
+			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) != OK) {
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
