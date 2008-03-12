@@ -722,7 +722,7 @@ mlfi_eom(SMFICTX * ctx)
     /* check file size */
     stat(priv->file, &sb);
     if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
-		msg_warn ("message size exceeds limit, not scanned, %s", priv->file);
+		msg_warn ("message size(%zd) exceeds limit(%zd), not scanned, %s", sb.st_size, cfg->sizelimit, priv->file);
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
