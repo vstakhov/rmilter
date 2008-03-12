@@ -389,6 +389,12 @@ get_upstream_master_slave (void *ups, size_t members, size_t msize, time_t now, 
  * Ketama manipulation functions
  */
 
+static int
+ketama_sort_cmp (const void *a1, const void *a2)
+{
+	return *((uint32_t *)a1) - *((uint32_t *)a2);
+}
+
 /*
  * Add ketama points for specified upstream
  */
@@ -419,6 +425,8 @@ upstream_ketama_add (struct upstream *up, char *up_key, size_t keylen, size_t ke
 		h = get_hash_for_key (h, tmp, sizeof (tmp) * sizeof (char));
 		up->ketama_points[i] = h;
 	}
+	/* Keep points sorted */
+	qsort (up->ketama_points, keypoints, sizeof (uint32_t), ketama_sort_cmp);
 
 	return 0;
 }
@@ -431,8 +439,8 @@ get_upstream_by_hash_ketama (void *ups, size_t members, size_t msize, time_t now
 						time_t error_timeout, time_t revive_timeout, size_t max_errors,
 						char *key, size_t keylen)
 {
-	int alive, i, j;
-	uint32_t h = 0, min_diff = UINT_MAX;
+	int alive, i;
+	uint32_t h = 0, step, middle, d, min_diff = UINT_MAX;
 	char *p;
 	struct upstream *cur = NULL, *nearest = NULL;
 	
@@ -451,10 +459,20 @@ get_upstream_by_hash_ketama (void *ups, size_t members, size_t msize, time_t now
 		cur = (struct upstream *)p;
 		if (!cur->dead && cur->ketama_points != NULL) {
 			/* Find nearest ketama point for this key */
-			for (j = 0; j < cur->ketama_points_size; j++) {
-				if (cur->ketama_points[j] - h > 0 && cur->ketama_points[j] - h < min_diff) {
-					min_diff = cur->ketama_points[j] - h;
+			step = cur->ketama_points_size / 2;
+			middle = step;
+			while (step != 1) {
+				d = cur->ketama_points[middle] - h;
+				if (abs (d) < min_diff) {
+					min_diff = abs (d);
 					nearest = cur;
+				}
+				step /= 2;
+				if (d > 0) {
+					middle -= step;
+				}
+				else {
+					middle += step;
 				}
 			}
 		}
