@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sysexits.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -291,9 +292,11 @@ check_greylisting (struct mlfi_priv *priv)
 			copy_alive (selected, mctx);
 			if (r == OK) {
 				upstream_ok (&selected->up, tm.tv_sec);
+				memc_close_ctx_mirror (mctx, 2);
 				return GREY_GREYLISTED;
 			}
 			else {
+				memc_close_ctx_mirror (mctx, 2);
 				msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
 			}
 		}	
@@ -301,6 +304,7 @@ check_greylisting (struct mlfi_priv *priv)
 		else if (r == OK) {
 			if (tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
 				/* Client comes too early */
+				memc_close_ctx_mirror (mctx, 2);
 				upstream_ok (&selected->up, tm.tv_sec);
 				return GREY_GREYLISTED;
 			}
@@ -350,10 +354,12 @@ check_greylisting (struct mlfi_priv *priv)
 						r = memc_set_mirror (mctx_white, 2, &cur_param, &s, cfg->whitelisting_expire);
 						copy_alive (selected, mctx_white);
 						if (r == OK) {
+							memc_close_ctx_mirror (mctx_white, 2);
 							upstream_ok (&selected->up, tm.tv_sec);
 						}
 						else {
 							msg_info ("mlfi_data: cannot write to memcached(%s): %s", inet_ntoa (selected->addr[0]), memc_strerror (r));
+							memc_close_ctx_mirror (mctx_white, 2);
 							upstream_fail (&selected->up, tm.tv_sec);
 						}
 						memc_close_ctx_mirror (mctx_white, 2);
@@ -447,6 +453,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char *tmpfrom;
 	struct mlfi_priv *priv;
 	struct action *act;
+	int i;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -460,7 +467,14 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
     if (tmpfrom == NULL || *tmpfrom == '\0') {
 		tmpfrom = "<>";
 	}
-    strlcpy (priv->priv_from, tmpfrom, sizeof(priv->priv_from));
+	for (i = 0; i < sizeof(priv->priv_from) - 1; i++) {
+		priv->priv_from[i] = tolower (*tmpfrom++);
+		if (*tmpfrom == '\0') {
+			i++;
+			break;
+		}
+	}
+	priv->priv_from[i] = '\0';
 
 	CFG_RLOCK();
 	/* Check envfrom */
