@@ -735,7 +735,7 @@ mlfi_eom(SMFICTX * ctx)
 				break;
 			case 'G':
 				msg_warn ("(mlfi_eom, %s) greylisting by dcc", priv->mlfi_id);
-				smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, "Try again later");
+				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Try again later");
 				CFG_UNLOCK();
 				mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
