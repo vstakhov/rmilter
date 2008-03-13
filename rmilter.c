@@ -551,7 +551,7 @@ mlfi_data(SMFICTX *ctx)
 		r = check_greylisting (priv);
 		switch (r) {
 			case GREY_GREYLISTED:
-				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
+				if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
 					msg_err("mlfi_data: smfi_setreply failed");
 				}
 				CFG_UNLOCK();

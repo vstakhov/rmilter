@@ -30,6 +30,7 @@
 
 #define RCODE_REJECT    "554"
 #define RCODE_TEMPFAIL  "451"
+#define RCODE_LATER  	"452"
 #define XCODE_REJECT    "5.7.1"
 #define XCODE_TEMPFAIL  "4.7.1"
 
