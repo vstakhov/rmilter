@@ -22,7 +22,7 @@ load_rc_config $name
 
 : ${rmilter_enable="NO"}
 : ${rmilter_pidfile="/var/run/rmilter/rmilter.pid"}
-: ${rmilter_socket="/var/run/rmilter/sock"}
+: ${rmilter_socket="/var/run/rmilter/rmilter.sock"}
 : ${rmilter_user="postfix"}
 
 stop_postcmd="rm -f $rmilter_pidfile $rmilter_socket"
