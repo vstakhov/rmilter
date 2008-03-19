@@ -720,9 +720,13 @@ mlfi_eom(SMFICTX * ctx)
     fflush (priv->fileh);
 
     /* check file size */
-    stat(priv->file, &sb);
-    if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
-		msg_warn ("message size(%zd) exceeds limit(%zd), not scanned, %s", sb.st_size, cfg->sizelimit, priv->file);
+    if (stat (priv->file, &sb) == -1) {
+		msg_warn ("(mlfi_eom, %s) stat failed: %m", priv->mlfi_id);
+		CFG_UNLOCK();
+		return mlfi_cleanup (ctx, true);
+	}
+    else if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
+		msg_warn ("message size(%zd) exceeds limit(%zd), not scanned, %s", (size_t)sb.st_size, cfg->sizelimit, priv->file);
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
