@@ -217,6 +217,69 @@ add_clamav_server (struct config_file *cf, char *str)
 	return 0;
 }
 
+int
+add_spamd_server (struct config_file *cf, char *str)
+{
+	char *cur_tok, *err_str;
+	struct spamd_server *srv;
+	struct hostent *he;
+	size_t s;
+
+	if (str == NULL) return 0;
+	
+	cur_tok = strsep (&str, ":");
+	
+	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+
+	if (cf->spamd_servers_num == MAX_SPAMD_SERVERS) {
+		yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+	}
+
+	srv = &cf->spamd_servers[cf->spamd_servers_num];
+
+	if (srv == NULL) return 0;
+
+	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
+		srv->sock.unix_path = strdup (cur_tok);
+		srv->sock_type = AF_UNIX;
+		srv->name = srv->sock.unix_path;
+
+		cf->spamd_servers_num++;
+		return 1;
+
+	} else {
+		if (str == '\0') {
+			srv->sock.inet.port = htons (DEFAULT_SPAMD_PORT);
+		}
+		else {
+			srv->sock.inet.port = htons ((uint16_t)strtoul (str, &err_str, 10));
+			if (*err_str != '\0') {
+				return 0;
+			}
+		}
+
+		if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
+			/* Try to call gethostbyname */
+			he = gethostbyname (cur_tok);
+			if (he == NULL) {
+				return 0;
+			}
+			else {
+				srv->name = strdup (cur_tok);
+				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
+				s = strlen (cur_tok) + 1;
+			}
+		}
+
+		srv->sock_type = AF_INET;
+		cf->spamd_servers_num++;
+		return 1;
+	}
+
+	return 0;
+}
+
+
 struct action *
 create_action (enum action_type type, const char *message)
 {
@@ -360,10 +423,17 @@ init_defaults (struct config_file *cfg)
 	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
 	cfg->clamav_results_timeout = DEFAULT_CLAMAV_RESULTS_TIMEOUT;
 	cfg->memcached_connect_timeout = DEFAULT_MEMCACHED_CONNECT_TIMEOUT;
+	cfg->spamd_connect_timeout = DEFAULT_SPAMD_CONNECT_TIMEOUT;
+	cfg->spamd_results_timeout = DEFAULT_SPAMD_RESULTS_TIMEOUT;
 
 	cfg->clamav_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->clamav_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->clamav_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
+
+	cfg->spamd_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
+	cfg->spamd_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
+	cfg->spamd_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
+
 
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
@@ -404,6 +474,9 @@ free_config (struct config_file *cfg)
 	
 	for (i = 0; i < cfg->clamav_servers_num; i++) {
 		free (cfg->clamav_servers[i].name);
+	}
+	for (i = 0; i < cfg->spamd_servers_num; i++) {
+		free (cfg->spamd_servers[i].name);
 	}
 	/* Free rules list */
 	LIST_FOREACH_SAFE (cur, &cfg->rules, next, tmp_rule) {

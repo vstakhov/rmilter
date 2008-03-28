@@ -47,6 +47,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
+%token  SPAMD
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -55,7 +56,7 @@ uint8_t cur_flags = 0;
 %type   <string>  	SOCKCRED
 %type	<string>	IPADDR IPNETWORK
 %type	<string>	HOSTPORT
-%type 	<string>	ip_net memcached_hosts clamav_addr
+%type 	<string>	ip_net memcached_hosts clamav_addr spamd_addr
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN
@@ -75,6 +76,7 @@ command	:
 	| pidfile
 	| rule
 	| clamav
+	| spamd
 	| spf
 	| bindsock
 	| maxsize
@@ -173,7 +175,7 @@ expr_l	:
 		}
 		LIST_INSERT_HEAD (cur_conditions, $$, next);
 	}
-	| expr_l expr	{
+	| expr_l expr SEMICOLON	{
 		$$ = $2;
 		if ($$ == NULL) {
 			yyerror ("yyparse: malloc: %s", strerror(errno));
@@ -339,6 +341,85 @@ clamav_port_timeout:
 clamav_results_timeout:
 	RESULTS_TIMEOUT EQSIGN SECONDS {
 		cfg->clamav_results_timeout = $3;
+	}
+	;
+
+spamd:
+	SPAMD OBRACE spamdbody EBRACE
+	;
+
+spamdbody:
+	spamdcmd SEMICOLON
+	| spamdbody spamdcmd SEMICOLON
+	;
+
+spamdcmd:
+	spamd_servers
+	| spamd_connect_timeout
+	| spamd_results_timeout
+	| spamd_error_time
+	| spamd_dead_time
+	| spamd_maxerrors
+	;
+
+spamd_servers:
+	SERVERS EQSIGN spamd_server
+	;
+
+spamd_server:
+	spamd_params
+	| spamd_server COMMA spamd_params
+	;
+
+spamd_params:
+	spamd_addr	{
+		if (!add_spamd_server (cfg, $1)) {
+			yyerror ("yyparse: add_spamd_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+spamd_addr:
+	STRING {
+		$$ = $1;
+	}
+	| IPADDR{
+		$$ = $1;
+	}
+	| DOMAIN {
+		$$ = $1;
+	}
+	| HOSTPORT {
+		$$ = $1;
+	}
+	| FILENAME {
+		$$ = $1;
+	}
+	;
+spamd_error_time:
+	ERROR_TIME EQSIGN NUMBER {
+		cfg->spamd_error_time = $3;
+	}
+	;
+spamd_dead_time:
+	DEAD_TIME EQSIGN NUMBER {
+		cfg->spamd_dead_time = $3;
+	}
+	;
+spamd_maxerrors:
+	MAXERRORS EQSIGN NUMBER {
+		cfg->spamd_maxerrors = $3;
+	}
+	;
+spamd_connect_timeout:
+	CONNECT_TIMEOUT EQSIGN SECONDS {
+		cfg->spamd_connect_timeout = $3;
+	}
+	;
+spamd_results_timeout:
+	RESULTS_TIMEOUT EQSIGN SECONDS {
+		cfg->spamd_results_timeout = $3;
 	}
 	;
 

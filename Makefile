@@ -3,7 +3,7 @@
 DCC_VER=1.2.74
 LOCALBASE?=/usr/local
 
-VERSION = 1.5
+VERSION = 1.5.2
 
 CFLAGS += -W -Wall -Wpointer-arith -Wno-unused-parameter \
 		 -Wno-unused-function -Wunused-variable -Wno-sign-compare \
@@ -28,7 +28,7 @@ YACC_OUTPUT=cfg_yacc.c
 LEX_OUTPUT=cfg_lex.c
 
 SOURCES=upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ratelimit.c \
-	memcached.c main.c radix.c awl.c ${LEX_OUTPUT} ${YACC_OUTPUT}
+	memcached.c main.c radix.c awl.c libspamd.c ${LEX_OUTPUT} ${YACC_OUTPUT}
 OBJECTS=${SOURCES:C/\.c/.o/g}
 
 all: dcc lex build link

@@ -26,13 +26,18 @@
 
 #define MAX_SPF_DOMAINS 1024
 #define MAX_CLAMAV_SERVERS 48
+#define MAX_SPAMD_SERVERS 48
 #define MAX_MEMCACHED_SERVERS 48
 #define DEFAULT_MEMCACHED_PORT 11211
 #define DEFAULT_CLAMAV_PORT 3310
+#define DEFAULT_SPAMD_PORT 783
 /* Clamav timeouts */
 #define DEFAULT_CLAMAV_CONNECT_TIMEOUT 1000
 #define DEFAULT_CLAMAV_PORT_TIMEOUT 3000
 #define DEFAULT_CLAMAV_RESULTS_TIMEOUT 20000
+/* Spamd timeouts */
+#define DEFAULT_SPAMD_CONNECT_TIMEOUT 1000
+#define DEFAULT_SPAMD_RESULTS_TIMEOUT 20000
 /* Memcached timeouts */
 #define DEFAULT_MEMCACHED_CONNECT_TIMEOUT 1000
 /* Upstream timeouts */
@@ -123,6 +128,21 @@ struct clamav_server {
 	char *name;
 };
 
+struct spamd_server {
+	struct upstream up;
+	int sock_type;
+
+	union {
+		char *unix_path;
+		struct {
+			struct in_addr addr;
+			uint16_t port;
+		} inet;
+	} sock;
+
+	char *name;
+};
+
 struct memcached_server {
 	struct upstream up;
 	struct in_addr addr[2];
@@ -159,6 +179,14 @@ struct config_file {
 	unsigned int clamav_connect_timeout;
 	unsigned int clamav_port_timeout;
 	unsigned int clamav_results_timeout;
+
+	struct spamd_server spamd_servers[MAX_SPAMD_SERVERS];
+	size_t spamd_servers_num;
+	unsigned int spamd_error_time;
+	unsigned int spamd_dead_time;
+	unsigned int spamd_maxerrors;
+	unsigned int spamd_connect_timeout;
+	unsigned int spamd_results_timeout;
 
 	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;
@@ -205,6 +233,7 @@ struct config_file {
 
 int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
+int add_spamd_server (struct config_file *cf, char *str);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 int add_spf_domain (struct config_file *cfg, char *domain);

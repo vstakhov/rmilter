@@ -13,47 +13,6 @@
 YY_BUFFER_STATE include_stack[MAX_INCLUDE_DEPTH];
 int include_stack_ptr = 0;
 
-struct keywords {
-	const char  *k_name;
-	int      k_val;
-};
-
-static int
-kw_cmp(const void *k, const void *e)
-{
-	return (strcasecmp(k, ((struct keywords *)e)->k_name));
-}
-
-
-static int
-lookup(char *s)
-{
-	/* keep sorted */
-	static const struct keywords keywords[] = {
-		{ "accept", ACCEPT },
-		{ "body",   BODY },
-		{ "connect",    CONNECT },
-		{ "discard",    DISCARD },
-		{ "envfrom",    ENVFROM },
-		{ "envrcpt",    ENVRCPT },
-		{ "header", HEADER },
-		{ "helo",   HELO },
-		{ "not",    NOT },
-		{ "quarantine", QUARANTINE },
-		{ "reject", REJECTL },
-		{ "tempfail",   TEMPFAIL },
-	};
-	const struct keywords *p;
-
-	p = bsearch(s, keywords, sizeof(keywords) / sizeof(keywords[0]),
-		sizeof(keywords[0]), &kw_cmp);
-
-	if (p)
-		return (p->k_val);
-	else
-		return (STRING);
-}
-
 static size_t
 parse_limit (const char *limit)
 {
@@ -183,6 +142,7 @@ tempdir							return TEMPDIR;
 pidfile							return PIDFILE;
 rule							return RULE;
 clamav							return CLAMAV;
+spamd							return SPAMD;
 servers							return SERVERS;
 servers_limits					return SERVERS_LIMITS;
 servers_grey					return SERVERS_GREY;
@@ -219,6 +179,20 @@ limit_bounce_addrs				return LIMIT_BOUNCE_ADDRS;
 limit_bounce_to					return LIMIT_BOUNCE_TO;
 limit_bounce_to_ip				return LIMIT_BOUNCE_TO_IP; 
 
+accept							return ACCEPT;
+body							return BODY;
+connect							return CONNECT;
+discard							return DISCARD;
+envfrom							return ENVFROM;
+envrcpt							return ENVRCPT;
+header							return HEADER;
+helo							return HELO;
+not								return NOT;
+quarantine						return QUARANTINE;
+reject							return REJECTL;
+tempfail						return TEMPFAIL;
+
+
 \"								return QUOTE;
 \{								return OBRACE;
 \}								return EBRACE;
@@ -238,8 +212,8 @@ local:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
 [0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}	yylval.string=strdup(yytext); return IPADDR;
 [0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\/[0-9]{1,2}	yylval.string=strdup(yytext); return IPNETWORK;
-[a-zA-Z<][a-zA-Z@+>_-]*			yylval.string=strdup(yytext); return lookup (yytext);
 \/[^/\n]+\/						yylval.string=strdup(yytext); return REGEXP;
+[a-zA-Z<][a-zA-Z@+>_-]*			yylval.string=strdup(yytext); return STRING;
 [a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
 [a-zA-Z0-9.-]+:[0-9]{1,5}		yylval.string=strdup(yytext); return HOSTPORT;
 [a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;

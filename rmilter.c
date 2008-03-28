@@ -41,6 +41,7 @@
 #include "spf2/spf.h"
 
 #include "libclamc.h"
+#include "libspamd.h"
 #include "cfg_file.h"
 #include "spf.h"
 #include "rmilter.h"
@@ -657,7 +658,7 @@ static sfsistat
 mlfi_eom(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
-    int r;
+    int r, spamd_marks[2];
     char strres[PATH_MAX], buf[PATH_MAX];
     char *id;
     struct stat sb;
@@ -773,6 +774,23 @@ mlfi_eom(SMFICTX * ctx)
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
     	}
+	}
+	/* Check spamd */
+	if (cfg->spamd_servers_num != 0) {
+		r = spamdscan (priv->file, cfg, spamd_marks);
+		if (r < 0) {
+			msg_warn ("(mlfi_eom, %s) spamdscan() failed, %d", priv->mlfi_id, r);
+			CFG_UNLOCK();
+			(void)mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+		}
+		else if (r == 1) {
+			msg_warn ("(mlfi_eom, %s) rejecting spam [%d/%d]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
+			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, "Message content rejected");
+			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
+			return SMFIS_REJECT;
+		}
 	}
 
 	CFG_UNLOCK();
