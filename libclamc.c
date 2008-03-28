@@ -38,6 +38,10 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#ifdef LINUX
+#include <sys/sendfile.h>
+#endif
+
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "libclamc.h"
@@ -140,6 +144,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
     struct sockaddr_un server_un;
     struct sockaddr_in server_in, server_w;
     int s, sw, r, fd, port = 0, path_len;
+	struct stat sb;
 
     *strres = '\0';
 
@@ -245,13 +250,29 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	 	 */
 
 		fd = open(file, O_RDONLY);
-		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
-	    	msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
-	    	close(fd);
-	    	close(sw);
+		if (fstat (fd, &sb) == -1) {
+			msg_warn ("spamd: stat failed: %m");
 	    	close(s);
-	    	return -1;
+			return -1;
 		}
+		#if defined(FREEBSD) || defined(HAVE_SENDFILE)
+		if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
+			msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+			close(fd);
+			close(s);
+			return -1;
+		}
+		#elif defined(LINUX)
+		off_t off = 0;
+		if (sendfile(s, fd, &off, sb.st_size) == -1) {
+			msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+			close(fd);
+			close(s);
+			return -1;		
+		}
+		#else 
+		#error "sendfile required"
+		#endif
 		close(fd);
 		shutdown(sw, SHUT_RDWR);
 		close(sw);

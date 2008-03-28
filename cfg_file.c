@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libmilter/mfapi.h>
-#include <sys/queue.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>

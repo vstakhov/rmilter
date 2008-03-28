@@ -124,8 +124,11 @@ reload_thread (void *unused)
 				cfg->awl_enable = 0;
 			}
 		}
-
+#ifdef HAVE_SRANDOMDEV
    		srandomdev();
+#else
+		srand (time (NULL));
+#endif
 		/* Free old config */
 		free_config (tmp);
 		free (tmp);
@@ -221,7 +224,11 @@ main(int argc, char *argv[])
 		}
 	}
 
-    srandomdev();
+#ifdef HAVE_SRANDOMDEV
+   	srandomdev();
+#else
+	srand (time (NULL));
+#endif
 
     /*
      * Hack to set milter unix socket permissions, but it also affect

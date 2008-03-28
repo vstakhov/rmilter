@@ -6,12 +6,31 @@
 #define RMILTER_H
 
 #include <sys/types.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+#ifndef OWN_QUEUE_H
 #include <sys/queue.h>
+#else
+#include "queue.h"
+#endif
 #include <sys/socket.h>
 #include <sys/param.h>
 #include <stdio.h>
 #include <netinet/in.h>
+#ifdef HAVE_TIME_H
 #include <time.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#ifdef HAVE_STRLCPY_H
+#include "strlcpy.h"
+#endif
+
 #include "cfg_file.h"
 
 #ifndef ADDRLEN

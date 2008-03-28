@@ -1,0 +1,331 @@
+#!/bin/sh
+
+GCC="gcc"
+MAKE=""
+LEX=""
+YACC=""
+OS=""
+
+LOCALBASE=/usr/local
+PREFIX=$LOCALBASE
+
+VERSION=1.5.2
+DCC_VER=1.2.74
+COMPAT_DIR="./compat"
+
+YACC_SRC="cfg_file.y"
+LEX_SRC="cfg_file.l"
+YACC_OUTPUT="cfg_yacc.c"
+LEX_OUTPUT="cfg_lex.c"
+
+SOURCES="upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ratelimit.c memcached.c main.c radix.c awl.c libspamd.c ${LEX_OUTPUT} ${YACC_OUTPUT}"
+
+CFLAGS="$CFLAGS -W -Wall -Wpointer-arith -Wno-unused-parameter"
+CFLAGS="$CFLAGS -Wno-unused-function -Wunused-variable -Wno-sign-compare"
+CFLAGS="$CFLAGS -Wunused-value -ggdb -I${LOCALBASE}/include"
+CFLAGS="$CFLAGS -DMVERSION=\\\"${VERSION}\\\""
+LDFLAGS="$LDFLAGS -L/usr/lib -L${LOCALBASE}/lib"
+PTHREAD_CFLAGS="-D_THREAD_SAFE"
+
+MAKEFILE="Makefile"
+MAKEFILE_IN="Makefile.in"
+
+check_compiler()
+{	
+	GCC=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which gcc`
+	echo -n "Testing for gcc: "
+	if [ -x $GCC ] ; then
+		echo "found -> $GCC"
+		return 0
+	else
+		echo "not found"
+		exit 1
+	fi
+}
+
+check_make()
+{
+	MAKE=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which make`
+	echo -n "Testing for make: "
+	if [ -x $MAKE ] ; then
+		echo "found -> $MAKE"
+		return 0
+	else
+		echo "not found"
+		exit 1
+	fi
+
+}
+
+check_lex()
+{
+	LEX=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which lex`
+	echo -n "Testing for lex: "
+	if [ -x $LEX ] ; then
+		echo "found -> $LEX"
+		return 0
+	else
+		echo "not found"
+		exit 1
+	fi
+
+}
+
+check_yacc()
+{
+	YACC=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which yacc`
+	echo -n "Testing for yacc: "
+	if [ -x $YACC ] ; then
+		echo "found -> $YACC"
+		return 0
+	else
+		echo "not found"
+		exit 1
+	fi
+
+}
+
+
+check_function()
+{
+	FUNCTION=$1
+	INCLUDE=$2
+	echo -n "Testing for $FUNCTION: "
+	echo "#include <sys/types.h>" > autotest.c
+	if [ "F$INCLUDE" != "F" ] ; then
+		echo "#include <$INCLUDE>" >> autotest.c
+	fi
+	echo "#include <stdlib.h>" >> autotest.c
+	echo "int main (int argc, char **argv) { $FUNCTION; return 0; }" >> autotest.c
+	echo "$GCC $PTHREAD_CFLAGS $CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS  autotest.c" >>config.log
+	$GCC $PTHREAD_CFLAGS $CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS  autotest.c >>config.log 2>&1
+	if [ $? -eq 0 ] ; then 
+		echo "found"
+		rm -f autotest.c
+		echo "-> OK" >> config.log
+		return 0
+	else
+		echo "not found"
+		rm -f autotest.c
+		echo "-> FAILED" >> config.log
+		return 1
+	fi
+}
+
+check_include()
+{
+	INCLUDE=$1
+	echo -n "Testing for $INCLUDE: "
+	echo "#include <sys/types.h>" > autotest.c
+	echo "#include <$INCLUDE>" >> autotest.c
+	echo "#include <stdlib.h>" >> autotest.c
+	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
+	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c" >>config.log
+	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
+	if [ $? -eq 0 ] ; then 
+		echo "found"
+		rm -f autotest.c
+		echo "-> OK" >> config.log
+		_CFLAG=`echo "-DHAVE_$INCLUDE" | sed -e 's/[./]/_/g' | tr '[:lower:]' '[:upper:]'`
+		CFLAGS="$CFLAGS $_CFLAG"
+		return 0
+	else
+		echo "not found"
+		rm -f autotest.c
+		echo "-> FAILED" >> config.log
+		return 1
+	fi
+}
+
+check_macro()
+{
+	MACRO=$1
+	INCLUDE=$2
+	echo -n "Testing for $MACRO: "
+	echo "#include <sys/types.h>" > autotest.c
+	echo "#include \"${INCLUDE}\"" >> autotest.c
+	echo "#include <stdlib.h>" >> autotest.c
+	echo "int main (int argc, char **argv) {" >>autotest.c
+	echo "#ifndef $MACRO" >>autotest.c
+	echo "#error \"$MACRO not defined\"" >>autotest.c 
+	echo "#endif" >> autotest.c
+	echo "}" >>autotest.c
+	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c" >>config.log
+	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
+	if [ $? -eq 0 ] ; then 
+		echo "found"
+		rm -f autotest.c
+		echo "-> OK" >> config.log
+		return 0
+	else
+		echo "not found"
+		rm -f autotest.c
+		echo "-> FAILED" >> config.log
+		return 1
+	fi
+}
+
+
+check_lib()
+{
+	LIB=$1
+	echo -n "Testing for lib$LIB: "
+	echo "#include <sys/types.h>" > autotest.c
+	if [ "F$INCLUDE" != "F" ] ; then
+		echo "#include <$INCLUDE>" >> autotest.c
+	fi
+	echo "#include <stdlib.h>" >> autotest.c
+	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
+	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c" >>config.log
+	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
+	if [ $? -eq 0 ] ; then 
+		echo "found"
+		LIBS="$LIBS -l$LIB"
+		rm -f autotest.c
+		echo "-> OK" >> config.log
+		return 0
+	else
+		echo "not found"
+		rm -f autotest.c
+		echo "-> FAILED" >> config.log
+		return 1
+	fi
+}
+
+check_os()
+{
+	_OS=`uname -s`
+	case "$_OS" in
+		FreeBSD*) OS="freebsd" CFLAGS="${CFLAGS} -DFREEBSD" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="" ;;
+		Linux*)	OS="linux" CFLAGS="${CFLAGS} -DLINUX -D_GNU_SOURCE" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="" ;;
+		*)		OS="unknown" PTHREAD_LDFLAGS="" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" ;;
+	esac
+}
+
+write_result()
+{
+	echo "Compiler: $GCC" >> config.log 
+	echo "Make: $MAKE" >> config.log 
+	echo "Sources: $SOURCES" >> config.log
+	echo "Cflags: $CFLAGS" >> config.log
+	echo "Ldflags: $LDFLAGS" >> config.log
+	echo "Libs: $LIBS" >> config.log
+
+	echo "CC=$GCC" > $MAKEFILE
+	echo "CFLAGS=$CFLAGS" >> $MAKEFILE
+	echo "LDFLAGS=$LDFLAGS" >> $MAKEFILE
+	echo "LIBS=$LIBS" >> $MAKEFILE
+	echo "SOURCES=$SOURCES" >> $MAKEFILE
+	echo "OBJECTS=`echo $SOURCES | sed -e 's/\.c/\.o/g'`" >> $MAKEFILE
+	echo "VERION=$VERSION" >> $MAKEFILE
+	echo "OS=$OS" >> $MAKEFILE
+	echo "DCC_VER=$DCC_VER" >> $MAKEFILE
+	echo "LEX_SRC=$LEX_SRC" >> $MAKEFILE
+	echo "YACC_SRC=$YACC_SRC" >> $MAKEFILE
+	echo "LEX=$LEX" >> $MAKEFILE
+	echo "YACC=$YACC" >> $MAKEFILE
+	echo "PTHREAD_CFLAGS=$PTHREAD_CFLAGS" >> $MAKEFILE
+	echo "PTHREAD_LDFLAGS=$PTHREAD_LDFLAGS" >> $MAKEFILE
+	cat $MAKEFILE_IN >> $MAKEFILE
+}
+
+
+for option
+do
+    case "$option" in
+        -*=*) value=`echo "$option" | sed -e 's/[-_a-zA-Z0-9]*=//'` ;;
+           *) value="" ;;
+    esac
+
+    case "$option" in
+        --help)                          help=yes                   ;;
+		--prefix)						 PREFIX=$value				;;
+		--enable-dcc)                    dcc=yes                    ;;
+		*)
+            echo "$0: error: invalid option \"$option\""
+            exit 1
+        ;;
+    esac
+done
+
+if [ "F$help" = "Fyes" ] ; then
+	cat << END
+
+  --help                             this message
+
+  --prefix=PATH                      set the installation prefix
+  --enable-dcc                       enable dcc support
+END
+	exit 1
+fi
+
+CFLAGS="$CFLAGS -I$PREFIX/include"
+LDFLAGS="$LDFLAGS -L$PREFIX/lib"
+
+echo "Starting configure for rmilter" >config.log
+
+check_compiler
+check_make
+check_lex
+check_yacc
+check_os
+
+check_lib "milter" "libmilter/mfapi.h"
+if [ $? -eq 1 ] ; then
+	echo "Libmilter not found, check config.log for details"
+	exit 1
+fi
+check_lib "spf2" "spf2/spf.h"
+if [ $? -eq 1 ] ; then
+	echo "Libspf2 not found, check config.log for details"
+	exit 1
+fi
+
+check_lib "m"
+check_lib "pcre"
+check_lib "md"
+if [ $? -eq 1 ] ; then
+	cp $COMPAT_DIR/md5.c .
+	cp $COMPAT_DIR/md5.h .
+	SOURCES="$SOURCES md5.c"
+	CFLAGS="$CFLAGS -DHAVE_OWN_MD5"
+fi
+
+check_function "strlcpy" "string.h"
+if [ $? -eq 1 ] ; then
+	cp $COMPAT_DIR/strlcpy.c .
+	cp $COMPAT_DIR/strlcpy.h .
+	SOURCES="$SOURCES strlcpy.c"
+	CFLAGS="$CFLAGS -DHAVE_STRLCPY_H"
+fi
+check_function "srandomdev"
+if [ $? -eq 0 ] ; then
+	CFLAGS="$CFLAGS -DHAVE_SRANDOMDEV"
+fi
+
+check_include "endian.h"
+check_include "machine/endian.h"
+check_include "sys/time.h"
+check_include "time.h"
+check_include "stdint.h"
+if [ $? -eq 1 ] ; then
+	check_include "inttypes.h"
+fi
+check_include "strlcpy.h"
+check_include "md5.h"
+check_include "sys/queue.h"
+if [ $? -eq 1 ] ; then 
+	cp $COMPAT_DIR/queue.h .
+fi
+check_macro "SLIST_FOREACH_SAFE" "sys/queue.h"
+if [ $? -eq 1 ] ; then 
+	cp $COMPAT_DIR/queue.h .
+	CFLAGS="$CFLAGS -DOWN_QUEUE_H"
+fi
+
+if [ "F$dcc" = "Fyes" ] ; then
+	CFLAGS="$CFLAGS -I./dcc-dccd-${DCC_VER}/include -DHAVE_DCC"
+	LDFLAGS="$LDFLAGS -Ldcc-dccd-${DCC_VER}/dcclib"
+fi
+
+write_result

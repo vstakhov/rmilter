@@ -7,7 +7,20 @@
 #define CFG_FILE_H
 
 #include <sys/types.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
+#ifndef OWN_QUEUE_H
 #include <sys/queue.h>
+#else
+#include "queue.h"
+#endif
+#ifdef HAVE_STRLCPY_H
+#include "strlcpy.h"
+#endif
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <pthread.h>

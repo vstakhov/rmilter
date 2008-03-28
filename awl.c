@@ -74,7 +74,7 @@ awl_init (size_t poolsize, int hits, int ttl)
 	for (i = 0; i < NEST_NUMBER; i++) {
 		result->free[i] = poolsize / NEST_NUMBER;
 #ifdef _THREAD_SAFE
-		result->locks[i] = PTHREAD_MUTEX_INITIALIZER;
+		/* result->locks[i] = PTHREAD_MUTEX_INITIALIZER; */
 #endif
 	}
 	result->white_hits = hits;

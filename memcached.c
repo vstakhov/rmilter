@@ -2,7 +2,6 @@
 #include <pthread.h>
 #endif
 
-#define _BSD_SOURCE
 #include <stdarg.h>
 
 #include <sys/types.h>

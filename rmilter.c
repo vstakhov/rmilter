@@ -23,10 +23,9 @@
 #include <db.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <md5.h>
+#include "md5.h"
 
 /* XXX hack to work on FreeBSD < 7 */
-#define SMFI_VERSION 4
 #include <libmilter/mfapi.h>
 #include "spf2/spf.h"
 
@@ -36,7 +35,9 @@
 #include "spf.h"
 #include "rmilter.h"
 #include "regexp.h"
+#ifdef HAVE_DCC
 #include "dccif.h"
+#endif
 #include "ratelimit.h"
 
 #ifndef true
@@ -64,7 +65,9 @@ static sfsistat mlfi_close(SMFICTX *);
 static sfsistat mlfi_abort(SMFICTX *);
 static sfsistat mlfi_cleanup(SMFICTX *, bool);
 static int check_clamscan(const char *, char *, size_t);
+#ifdef HAVE_DCC
 static int check_dcc(const struct mlfi_priv *);
+#endif
 
 struct smfiDesc smfilter =
 {
@@ -81,9 +84,11 @@ struct smfiDesc smfilter =
     	mlfi_eom,		/* end of message */
     	mlfi_abort,		/* message aborted */
     	mlfi_close,		/* connection cleanup */
+#if (SMFI_PROT_VERSION > 4)
 		NULL,			/* unknown situation */
 		mlfi_data,		/* SMTP DATA callback */
 		NULL			/* Negotiation callback */
+#endif
 };
 
 extern struct config_file *cfg;
@@ -721,7 +726,7 @@ mlfi_eom(SMFICTX * ctx)
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
-
+#ifdef HAVE_DCC
  	/* Check dcc */
 	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
 		r = check_dcc (priv);
@@ -746,6 +751,7 @@ mlfi_eom(SMFICTX * ctx)
 				break;
 		}
 	}
+#endif
 	
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0) {
@@ -895,6 +901,7 @@ check_clamscan(const char *file, char *strres, size_t strres_len)
     return r;
 }
 
+#ifdef HAVE_DCC
 static int
 check_dcc (const struct mlfi_priv *priv)
 {
@@ -932,6 +939,7 @@ check_dcc (const struct mlfi_priv *priv)
 
 	return dccres;
 }
+#endif
 
 /* 
  * vi:ts=4 

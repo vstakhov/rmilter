@@ -20,6 +20,10 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#ifdef LINUX
+#include <sys/sendfile.h>
+#endif
+
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "libclamc.h"
@@ -180,12 +184,25 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 	r = snprintf (buf, sizeof (buf), "SYMBOLS SPAMC/1.2\r\nContent-length: %ld\r\n\r\n", (long int)sb.st_size);
 	write (s, buf, r);
 
+#if defined(FREEBSD) || defined(HAVE_SENDFILE)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
 		close(fd);
 		close(s);
 		return -1;
 	}
+#elif defined(LINUX)
+	off_t off = 0;
+	if (sendfile(s, fd, &off, sb.st_size) == -1) {
+		msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+		close(fd);
+		close(s);
+		return -1;		
+	}
+#else 
+#error "sendfile required"
+#endif
+
     fcntl(s, F_SETFL, ofl);
 	close(fd);
 
