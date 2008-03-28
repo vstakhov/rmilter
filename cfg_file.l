@@ -143,6 +143,7 @@ pidfile							return PIDFILE;
 rule							return RULE;
 clamav							return CLAMAV;
 spamd							return SPAMD;
+reject_message					return REJECT_MESSAGE;
 servers							return SERVERS;
 servers_limits					return SERVERS_LIMITS;
 servers_grey					return SERVERS_GREY;

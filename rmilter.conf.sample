@@ -71,6 +71,14 @@ spamd {
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
+
+	# reject_message - reject message for spam
+	# Default: "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
+	reject_message = "Spam message rejected; If this is not spam contact abuse at rambler-co.ru";
+
+	# whitelist - list of ips or nets that should be not checked with spamd
+	# Default: empty
+	whitelist = 127.0.0.1/32, 192.168.0.0/16;
 };
 
 memcached {

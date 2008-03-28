@@ -373,7 +373,7 @@ add_spf_domain (struct config_file *cfg, char *domain)
 }
 
 int
-add_ip_radix (struct config_file *cfg, char *ipnet)
+add_ip_radix (radix_tree_t *tree, char *ipnet)
 {
 	uint32_t mask;
 	uint32_t ip;
@@ -403,7 +403,7 @@ add_ip_radix (struct config_file *cfg, char *ipnet)
 	}
 
 	ip = (uint32_t)ina.s_addr;
-	if (radix32tree_insert (cfg->grey_whitelist_tree, ip, mask, 1) == -1) {
+	if (radix32tree_insert (tree, ip, mask, 1) == -1) {
 		yyerror ("add_ip_radix: cannot insert ip to tree");
 		return 0;
 	}
@@ -433,7 +433,7 @@ init_defaults (struct config_file *cfg)
 	cfg->spamd_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->spamd_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->spamd_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
-
+	cfg->spamd_reject_message = strdup (DEFAUL_SPAMD_REJECT);
 
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
@@ -441,6 +441,7 @@ init_defaults (struct config_file *cfg)
 	cfg->memcached_protocol = UDP_TEXT;
 	
 	cfg->grey_whitelist_tree = radix_tree_create ();
+	cfg->spamd_whitelist = radix_tree_create ();
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	cfg->awl_enable = 0;
@@ -529,6 +530,11 @@ free_config (struct config_file *cfg)
 
 	radix32tree_delete (cfg->grey_whitelist_tree, 0, 0);
 	free (cfg->grey_whitelist_tree);
+	
+	radix32tree_delete (cfg->spamd_whitelist, 0, 0);
+	free (cfg->spamd_whitelist);
+	
+	free (cfg->spamd_reject_message);
 
 	if (cfg->awl_enable && cfg->awl_hash != NULL) {
 		free (cfg->awl_hash->pool);

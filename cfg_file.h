@@ -49,6 +49,8 @@
 #define MEMCACHED_SERVER_GREY 1
 #define MEMCACHED_SERVER_WHITE 2
 
+#define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
+
 #define yyerror(fmt, ...) \
 		fprintf (stderr, "Config file parse error!\non line: %d\n", yylineno); \
 		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
@@ -187,6 +189,8 @@ struct config_file {
 	unsigned int spamd_maxerrors;
 	unsigned int spamd_connect_timeout;
 	unsigned int spamd_results_timeout;
+	radix_tree_t *spamd_whitelist;
+	char *spamd_reject_message;
 
 	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;
@@ -239,7 +243,7 @@ struct condition * create_cond (enum condition_type type, const char *arg1, cons
 int add_spf_domain (struct config_file *cfg, char *domain);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
-int add_ip_radix (struct config_file *cfg, char *ipnet);
+int add_ip_radix (radix_tree_t *tree, char *ipnet);
 
 int yylex (void);
 int yyparse (void);

@@ -2,16 +2,6 @@
 
 	Rambler Milter
 
-	Differs from clamav-milter in two major ways:
-
-		- store message to disk, then scan (saves expansive
-		connections to clamd)
-		- do not shutdown clamd control socket until scanning is
-		done (required by internal rambler.ru scalability patches
-		to clamd)
-
-	Rmilter-clam was originally written by Maxim Dounin, mdounin@rambler-co.ru
-
 	$Id$
 
 ******************************************************************************/
@@ -776,7 +766,8 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 	/* Check spamd */
-	if (cfg->spamd_servers_num != 0) {
+	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) 
+		&& radix32tree_find (cfg->spamd_whitelist, (uint32_t)priv->priv_addr.sin_addr.s_addr) != RADIX_NO_VALUE) {
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) spamdscan() failed, %d", priv->mlfi_id, r);
@@ -786,7 +777,7 @@ mlfi_eom(SMFICTX * ctx)
 		}
 		else if (r == 1) {
 			msg_warn ("(mlfi_eom, %s) rejecting spam [%d/%d]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
-			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, "Message content rejected");
+			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, cfg->spamd_reject_message);
 			CFG_UNLOCK();
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;

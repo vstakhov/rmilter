@@ -47,7 +47,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
-%token  SPAMD
+%token  SPAMD REJECT_MESSAGE
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -360,6 +360,8 @@ spamdcmd:
 	| spamd_error_time
 	| spamd_dead_time
 	| spamd_maxerrors
+	| spamd_reject_message
+	| spamd_whitelist
 	;
 
 spamd_servers:
@@ -420,6 +422,49 @@ spamd_connect_timeout:
 spamd_results_timeout:
 	RESULTS_TIMEOUT EQSIGN SECONDS {
 		cfg->spamd_results_timeout = $3;
+	}
+	;
+spamd_reject_message:
+	REJECT_MESSAGE EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (c[len - 1] == '"') {
+			len--;
+		}
+		
+		if (cfg->spamd_reject_message) {
+			free (cfg->spamd_reject_message);
+		}
+		cfg->spamd_reject_message = (char *)malloc (len + 1);
+		if (!cfg->spamd_reject_message) {
+			yyerror ("yyparse: malloc failed");
+			YYERROR;
+		}
+		strlcpy (cfg->spamd_reject_message, c, len + 1);
+
+		free ($3);
+	}
+	;
+spamd_whitelist:
+	WHITELIST EQSIGN spamd_ip_list
+	;
+
+spamd_ip_list:
+	spamd_ip
+	| spamd_ip_list COMMA spamd_ip
+	;
+
+spamd_ip:
+	ip_net {
+		if (add_ip_radix (cfg->spamd_whitelist, $1) == 0) {
+			YYERROR;
+		}
 	}
 	;
 
@@ -516,7 +561,7 @@ greylisting_ip_list:
 
 greylisting_ip:
 	ip_net {
-		if (add_ip_radix (cfg, $1) == 0) {
+		if (add_ip_radix (cfg->grey_whitelist_tree, $1) == 0) {
 			YYERROR;
 		}
 	}

@@ -115,12 +115,12 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
  */
 
 static int 
-spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark[2], struct config_file *cfg)
+spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark[2], struct config_file *cfg, char **symbols)
 {
     char buf[MAXPATHLEN + 10], *c, *err;
     struct sockaddr_un server_un;
     struct sockaddr_in server_in;
-    int s, r, fd;
+    int s, r, fd, ofl;
 	struct stat sb;
 
     /* somebody doesn't need reply... */
@@ -167,8 +167,17 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 	    close(s);
 		return -1;
 	}
+	
+	if (poll_fd(s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
+		msg_warn ("spamd: timeout waiting writing, %s", srv->name);
+		close (s);
+		return -1;
+	}
+	/* Set blocking again */
+	ofl = fcntl(s, F_GETFL, 0);
+    fcntl(s, F_SETFL, ofl & (~O_NONBLOCK));
 
-	r = snprintf (buf, sizeof (buf), "CHECK SPAMC/1.2\r\nContent-length: %ld\r\n\r\n", (long int)sb.st_size);
+	r = snprintf (buf, sizeof (buf), "SYMBOLS SPAMC/1.2\r\nContent-length: %ld\r\n\r\n", (long int)sb.st_size);
 	write (s, buf, r);
 
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
@@ -177,6 +186,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 		close(s);
 		return -1;
 	}
+    fcntl(s, F_SETFL, ofl);
 	close(fd);
 
     /* wait for reply */
@@ -235,6 +245,17 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 		}
 	}
 
+	/* Skip empty lines */
+	while (*c && *c++ != '\n');
+	while (*c && (*c == '\r' || *c++ == '\n'));
+	/* Write symbols */
+	if (*c == '\0') {
+		*symbols = NULL;
+	}
+	else {
+		*symbols = strdup (c);
+	}
+
 	return 0;
 }
 
@@ -255,6 +276,7 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
     struct timeval t;
     double ts, tf;
     struct spamd_server *selected = NULL;
+	char *symbols = NULL;
 
     gettimeofday(&t, NULL);
     ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -269,7 +291,7 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
 			return -1;
 		}
 
-		r = spamdscan_socket (file, selected, spam_mark, cfg);
+		r = spamdscan_socket (file, selected, spam_mark, cfg, &symbols);
 		if (r == 0 || r == 1) {
 			upstream_ok (&selected->up, t.tv_sec);
 	    	break;
@@ -294,12 +316,16 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
     tf = t.tv_sec + t.tv_usec / 1000000.0;
 
     if (r == 1) {
-		msg_info("spamdscan: scan %f, %s, spam found [%d/%d]", tf - ts,
+		msg_info("spamdscan: scan %f, %s, spam found [%d/%d], %s", tf - ts,
 					selected->name, 
-					spam_mark[0], spam_mark[1]);
+					spam_mark[0], spam_mark[1],
+					(symbols != NULL) ? symbols : "no symbols");
+		if (symbols != NULL) {
+			free (symbols);
+		}
 	}
     else {
-		msg_info("(clamscan) scan %f, %s, [%d/%d]", tf -ts, 
+		msg_info("spamdscan: scan %f, %s, [%d/%d]", tf -ts, 
 					selected->name,
 					spam_mark[0], spam_mark[1]);
 	}
