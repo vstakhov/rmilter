@@ -767,7 +767,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) 
-		&& radix32tree_find (cfg->spamd_whitelist, (uint32_t)priv->priv_addr.sin_addr.s_addr) != RADIX_NO_VALUE) {
+		&& radix32tree_find (cfg->spamd_whitelist, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) spamdscan() failed, %d", priv->mlfi_id, r);

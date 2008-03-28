@@ -24,7 +24,7 @@
 #include "rmilter.h"
 #include "libclamc.h"
 
-/* Maximum time in seconds during which clamav server is marked inactive after scan error */
+/* Maximum time in seconds during which spamd server is marked inactive after scan error */
 #define INACTIVE_INTERVAL 60.0
 /* Maximum number of failed attempts before marking server as inactive */
 #define MAX_FAILED 5
@@ -137,7 +137,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 	    	msg_warn("spamd: socket %s, %d: %m", srv->sock.unix_path, errno);
 	    	return -1;
 		}
-		if (connect_t(s, (struct sockaddr *) & server_un, sizeof(server_un), cfg->clamav_connect_timeout) < 0) {
+		if (connect_t(s, (struct sockaddr *) & server_un, sizeof(server_un), cfg->spamd_connect_timeout) < 0) {
 	    	msg_warn("spamd: connect %s, %d: %m", srv->sock.unix_path, errno);
 	    	close(s);
 	    	return -1;
@@ -154,7 +154,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 	    	msg_warn("spamd: socket %d: %m",  errno);
 	    	return -1;
 		}
-		if (connect_t(s, (struct sockaddr *) & server_in, sizeof(server_in), cfg->clamav_connect_timeout) < 0) {
+		if (connect_t(s, (struct sockaddr *) & server_in, sizeof(server_in), cfg->spamd_connect_timeout) < 0) {
 	    	msg_warn("spamd: connect %s, %d: %m", srv->name, errno);
 	    	close(s);
 	    	return -1;
