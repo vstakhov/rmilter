@@ -221,6 +221,9 @@ rules_check (struct rule **rules)
 		if (r == 1 && cur->act->type != ACTION_ACCEPT) {
 			return cur->act;
 		}
+		else if (r == 0) {
+			cur = NULL;
+		}
 	}
 	
 	/* Return accept action if found */

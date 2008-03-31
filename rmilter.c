@@ -390,21 +390,6 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	priv->priv_cur_rcpt = NULL;
 	priv->priv_rcptcount = 0;
 
-	if (addr != NULL) {
-		switch (addr->sa_family) {
-		case AF_INET:
-			memcpy(&priv->priv_addr, addr, sizeof (struct sockaddr_in));
-			inet_ntop (AF_INET, &priv->priv_addr.sin_addr, priv->priv_ip, INET_ADDRSTRLEN);
-			if (hostname != NULL)
-				strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
-			else {
-				strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
-			}
-			break;
-		default:
-			msg_warn ("bad client address");
-		}
-	}
 	if (gettimeofday (&priv->conn_tm, NULL) == -1) {
 		msg_err ("Internal error: gettimeofday failed %m");
 		return SMFIS_TEMPFAIL;
@@ -419,32 +404,13 @@ static sfsistat
 mlfi_helo(SMFICTX *ctx, char *helostr)
 {
 	struct mlfi_priv *priv;
-	struct rule *act;
 
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
 	
-	CFG_RLOCK();
-	/* Check connect */
-	act = regexp_check (cfg, priv, STAGE_CONNECT);
-	if (act != NULL) {
-		CFG_UNLOCK();
-		priv->matched_rules[STAGE_CONNECT] = act;
-	}
-	/* Check helo */
-	act = regexp_check (cfg, priv, STAGE_HELO);
-	if (act != NULL) {
-		CFG_UNLOCK();
-		priv->matched_rules[STAGE_HELO] = act;
-	}
-
-	CFG_UNLOCK();
-
 	return SMFIS_CONTINUE;
 }
-
-
 
 static sfsistat
 mlfi_envfrom(SMFICTX *ctx, char **envfrom)
@@ -475,11 +441,34 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
 	priv->priv_from[i] = '\0';
 
+	/* Extract IP and hostname */
+	tmpfrom = smfi_getsymval(ctx, "{client_addr}");
+	if (tmpfrom != NULL) {
+		strlcpy (priv->priv_ip, tmpfrom, sizeof (priv->priv_ip));
+	}
+	tmpfrom = smfi_getsymval(ctx, "{client_name}");
+	if (tmpfrom != NULL) {
+		strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
+	}
+	else {
+		strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+	}
+
 	CFG_RLOCK();
+	/* Check connect */
+	act = regexp_check (cfg, priv, STAGE_CONNECT);
+	if (act != NULL) {
+		priv->matched_rules[STAGE_CONNECT] = act;
+	}
+	/* Check helo */
+	act = regexp_check (cfg, priv, STAGE_HELO);
+	if (act != NULL) {
+		priv->matched_rules[STAGE_HELO] = act;
+	}
+	
 	/* Check envfrom */
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
 	if (act != NULL) {
-		CFG_UNLOCK();
 		priv->matched_rules[STAGE_ENVFROM] = act;
 	}
 
@@ -524,7 +513,6 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	/* Check recipient */
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
 	if (act != NULL) {
-		CFG_UNLOCK();
 		priv->matched_rules[STAGE_ENVRCPT] = act;
 	}
 
@@ -631,7 +619,6 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	priv->priv_cur_header.header_value = headerv;
 	act = regexp_check (cfg, priv, STAGE_HEADER);
 	if (act != NULL) {
-		CFG_UNLOCK();
 		priv->matched_rules[STAGE_HEADER] = act;
 	}
 
@@ -874,7 +861,6 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 
 	act = regexp_check (cfg, priv, STAGE_BODY);
 	if (act != NULL) {
-		CFG_UNLOCK();
 		priv->matched_rules[STAGE_BODY] = act;
 	}
     /* continue processing */
