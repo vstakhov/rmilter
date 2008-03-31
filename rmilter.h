@@ -41,6 +41,8 @@
 #define NS_MAXDNAME 1025
 #endif
 
+#define STAGE_MAX 7
+
 /* Logging in postfix style */
 #define msg_err(args...) syslog(LOG_ERR, ##args)
 #define msg_warn(args...)	syslog(LOG_WARNING, ##args)
@@ -81,6 +83,7 @@ struct mlfi_priv {
     FILE *fileh;
 	int filed;
 	struct timeval conn_tm;
+	struct rule* matched_rules[STAGE_MAX];
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

@@ -419,7 +419,7 @@ static sfsistat
 mlfi_helo(SMFICTX *ctx, char *helostr)
 {
 	struct mlfi_priv *priv;
-	struct action *act;
+	struct rule *act;
 
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
@@ -430,13 +430,13 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	act = regexp_check (cfg, priv, STAGE_CONNECT);
 	if (act != NULL) {
 		CFG_UNLOCK();
-		return set_reply (ctx, act);
+		priv->matched_rules[STAGE_CONNECT] = act;
 	}
 	/* Check helo */
 	act = regexp_check (cfg, priv, STAGE_HELO);
 	if (act != NULL) {
 		CFG_UNLOCK();
-		return set_reply (ctx, act);
+		priv->matched_rules[STAGE_HELO] = act;
 	}
 
 	CFG_UNLOCK();
@@ -451,7 +451,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 {
 	char *tmpfrom;
 	struct mlfi_priv *priv;
-	struct action *act;
+	struct rule *act;
 	int i;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -480,7 +480,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
 	if (act != NULL) {
 		CFG_UNLOCK();
-		return set_reply (ctx, act);
+		priv->matched_rules[STAGE_ENVFROM] = act;
 	}
 
 	CFG_UNLOCK();
@@ -491,7 +491,7 @@ static sfsistat
 mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 {
 	struct mlfi_priv *priv;
-	struct action *act;
+	struct rule *act;
 	char *tmprcpt;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -525,7 +525,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
 	if (act != NULL) {
 		CFG_UNLOCK();
-		return set_reply (ctx, act);
+		priv->matched_rules[STAGE_ENVRCPT] = act;
 	}
 
 	CFG_UNLOCK();
@@ -580,7 +580,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
     struct mlfi_priv *priv;
     char buf[PATH_MAX];
     int fd;
-	struct action *act;
+	struct rule *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -632,7 +632,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	act = regexp_check (cfg, priv, STAGE_HEADER);
 	if (act != NULL) {
 		CFG_UNLOCK();
-		return set_reply (ctx, act);
+		priv->matched_rules[STAGE_HEADER] = act;
 	}
 
 	CFG_UNLOCK();
@@ -661,6 +661,7 @@ mlfi_eom(SMFICTX * ctx)
     char strres[PATH_MAX], buf[PATH_MAX];
     char *id;
     struct stat sb;
+	struct action *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -685,6 +686,11 @@ mlfi_eom(SMFICTX * ctx)
 		CFG_UNLOCK();
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_REJECT;
+	}
+	act = rules_check (priv->matched_rules);
+	if (act != NULL && act->type != ACTION_ACCEPT) {
+		CFG_UNLOCK ();
+		return set_reply (ctx, act);
 	}
 	/*
 	 * Is the sender address SPF-compliant?
@@ -849,7 +855,7 @@ static sfsistat
 mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 {
     struct mlfi_priv *priv;
-	struct action *act;
+	struct rule *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -869,7 +875,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	act = regexp_check (cfg, priv, STAGE_BODY);
 	if (act != NULL) {
 		CFG_UNLOCK();
-		return set_reply (ctx, act);
+		priv->matched_rules[STAGE_BODY] = act;
 	}
     /* continue processing */
 

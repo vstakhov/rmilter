@@ -83,7 +83,7 @@ extern pthread_rwlock_t cfg_mtx;
 
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
 enum condition_type { 
-	COND_CONNECT, 
+	COND_CONNECT = 0, 
 	COND_HELO, 
 	COND_ENVFROM, 
 	COND_ENVRCPT,

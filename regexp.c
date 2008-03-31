@@ -36,8 +36,8 @@ check_condition (struct cond_arg *arg, const char *match_str, size_t str_len)
 	}
 }
 
-static struct action *
-check_connect_rule (const struct rule *cur, const struct mlfi_priv *priv)
+static struct rule *
+check_connect_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
 	size_t hlen, iplen;
@@ -50,15 +50,15 @@ check_connect_rule (const struct rule *cur, const struct mlfi_priv *priv)
 			/* Hostname and ip address */
 			if (check_condition (&cond->args[0], priv->priv_hostname, hlen)
 			    && check_condition (&cond->args[1], priv->priv_ip, iplen)) {
-				return cur->act;
+				return cur;
 			}
 		}
 	}
 	return NULL;
 }
 
-static struct action *
-check_helo_rule (const struct rule *cur, const struct mlfi_priv *priv)
+static struct rule *
+check_helo_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
 	size_t hlen;
@@ -69,15 +69,15 @@ check_helo_rule (const struct rule *cur, const struct mlfi_priv *priv)
 		if (cond->type == COND_HELO) {
 			/* Helo */
 			if (check_condition (&cond->args[0], priv->priv_helo, hlen)) {
-				return cur->act;
+				return cur;
 			}
 		}
 	}
 	return NULL;
 }
 
-static struct action *
-check_envfrom_rule (const struct rule *cur, const struct mlfi_priv *priv)
+static struct rule *
+check_envfrom_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
 	size_t flen;
@@ -88,15 +88,15 @@ check_envfrom_rule (const struct rule *cur, const struct mlfi_priv *priv)
 		if (cond->type == COND_ENVFROM) {
 			/* From: */
 			if (check_condition (&cond->args[0], priv->priv_from, flen)) {
-				return cur->act;
+				return cur;
 			}
 		}
 	}
 	return NULL;
 }
 
-static struct action *
-check_envrcpt_rule (const struct rule *cur, const struct mlfi_priv *priv)
+static struct rule *
+check_envrcpt_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
 	size_t tlen;
@@ -107,14 +107,14 @@ check_envrcpt_rule (const struct rule *cur, const struct mlfi_priv *priv)
 		if (cond->type == COND_ENVRCPT) {
 			/* To: */
 			if (check_condition (&cond->args[0], priv->priv_cur_rcpt, tlen)) {
-				return cur->act;
+				return cur;
 			}
 		}
 	}
 	return NULL;
 }
-static struct action *
-check_header_rule (const struct rule *cur, const struct mlfi_priv *priv)
+static struct rule *
+check_header_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
 	size_t nlen, vlen;
@@ -127,15 +127,15 @@ check_header_rule (const struct rule *cur, const struct mlfi_priv *priv)
 			/* Header name and value */
 			if (check_condition (&cond->args[0], priv->priv_cur_header.header_name, nlen) 
 				&& check_condition (&cond->args[1], priv->priv_cur_header.header_value, vlen)) {
-				return cur->act;
+				return cur;
 			}
 		}
 	}
 	return NULL;
 }
 
-static struct action *
-check_body_rule (const struct rule *cur, const struct mlfi_priv *priv)
+static struct rule *
+check_body_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
 
@@ -143,18 +143,18 @@ check_body_rule (const struct rule *cur, const struct mlfi_priv *priv)
 		if (cond->type == COND_BODY) {
 			/* Body line */
 			if (check_condition (&cond->args[0], priv->priv_cur_body.value, priv->priv_cur_body.len)) {
-				return cur->act;
+				return cur;
 			}
 		}
 	}
 	return NULL;
 }
 
-struct action *
+struct rule *
 regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum milter_stage stage)
 {
 	struct rule *cur;
-	struct action *r = NULL;
+	struct rule *r = NULL;
 
 	/* Check rules for specific stage */
 	LIST_FOREACH (cur, &cfg->rules, next) {
@@ -195,6 +195,39 @@ regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum 
 		}
 	}
 	
+	return NULL;
+}
+
+struct action * 
+rules_check (struct rule **rules)
+{
+	struct rule *cur;
+	struct condition *cond;
+	int i, r;
+
+	for (i = 0; i < STAGE_MAX; i++) {
+		if (rules[i] == NULL) {
+			continue;
+		}
+		cur = rules[i];
+		r = 1;
+		LIST_FOREACH (cond, cur->conditions, next) {
+			if (rules[cond->type] == 0) {
+				r = 0;
+				break;
+			}
+		}
+		/* Return reject actions before any accept action */
+		if (r == 1 && cur->act->type != ACTION_ACCEPT) {
+			return cur->act;
+		}
+	}
+	
+	/* Return accept action if found */
+	if (cur) {
+		return cur->act;
+	}
+
 	return NULL;
 }
 

@@ -11,16 +11,17 @@
 #include "cfg_file.h"
 
 enum milter_stage {
-	STAGE_CONNECT,
+	STAGE_CONNECT = 0,
 	STAGE_HELO,
 	STAGE_ENVFROM,
 	STAGE_ENVRCPT,
 	STAGE_HEADER,
-	STAGE_BODY
+	STAGE_BODY,
 };
 
-struct action * regexp_check (const struct config_file *,	/* Config file */
+struct rule  * regexp_check (const struct config_file *,	/* Config file */
 				  const struct mlfi_priv *,					/* Current priv data */
 				  enum milter_stage);						/* Current Stage */
+struct action * rules_check (struct rule **);
 
 #endif
