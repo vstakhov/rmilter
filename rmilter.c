@@ -397,6 +397,9 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 			inet_ntop (AF_INET, &priv->priv_addr.sin_addr, priv->priv_ip, INET_ADDRSTRLEN);
 			if (hostname != NULL)
 				strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
+			else {
+				strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+			}
 			break;
 		default:
 			msg_warn ("bad client address");
@@ -614,7 +617,8 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
-		fprintf (priv->fileh, "Received: from %s\n", priv->priv_ip); 
+		fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTPSA id 0000000;\n",
+				 priv->priv_helo, priv->priv_hostname, priv->priv_ip); 
     }
 
     /*

@@ -26,9 +26,14 @@ CFLAGS="$CFLAGS -Wunused-value -ggdb -I${LOCALBASE}/include"
 CFLAGS="$CFLAGS -DMVERSION=\\\"${VERSION}\\\""
 LDFLAGS="$LDFLAGS -L/usr/lib -L${LOCALBASE}/lib"
 PTHREAD_CFLAGS="-D_THREAD_SAFE"
+EXEC=rmilter
+USER=postfix
+GROUP=postfix
 
 MAKEFILE="Makefile"
 MAKEFILE_IN="Makefile.in"
+
+TARGETS="lex build link"
 
 check_compiler()
 {	
@@ -202,6 +207,34 @@ check_os()
 	esac
 }
 
+check_user()
+{
+	_user=$1
+	echo -n "Checking for user $_user: "
+	grep $_user /etc/passwd > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		echo "found"
+		return 0
+	else
+		echo "not found"
+		return 1
+	fi
+}
+
+check_group()
+{
+	_group=$1
+	echo -n "Checking for group $_group: "
+	grep $_group /etc/group > /dev/null 2>&1
+	if [ $? -eq 0 ] ; then
+		echo "found"
+		return 0
+	else
+		echo "not found"
+		return 1
+	fi
+}
+
 write_result()
 {
 	echo "Compiler: $GCC" >> config.log 
@@ -210,22 +243,35 @@ write_result()
 	echo "Cflags: $CFLAGS" >> config.log
 	echo "Ldflags: $LDFLAGS" >> config.log
 	echo "Libs: $LIBS" >> config.log
+	OBJECTS=`echo $SOURCES | sed -e 's/\.c/\.o/g'`
+	cat > $MAKEFILE << END
+CC=$GCC
+CFLAGS=$CFLAGS
+LDFLAGS=$LDFLAGS
+LIBS=$LIBS
+SOURCES=$SOURCES
+OBJECTS=$OBJECTS
+VERION=$VERSION
+OS=$OS
+DCC_VER=$DCC_VER
+LEX_SRC=$LEX_SRC
+YACC_SRC=$YACC_SRC
+LEX_OUTPUT=$LEX_OUTPUT
+YACC_OUTPUT=$YACC_OUTPUT
+LEX=$LEX
+YACC=$YACC
+PTHREAD_CFLAGS=$PTHREAD_CFLAGS
+PTHREAD_LDFLAGS=$PTHREAD_LDFLAGS
+PREFIX=$PREFIX
+LOCALBASE=$LOCALBASE
+INSTALL=install -C -S -v
+MKDIR=install -d -v
+EXEC=$EXEC
+RMILTER_USER=$USER
+RMILTER_GROUP=$GROUP
+TARGETS=$TARGETS
 
-	echo "CC=$GCC" > $MAKEFILE
-	echo "CFLAGS=$CFLAGS" >> $MAKEFILE
-	echo "LDFLAGS=$LDFLAGS" >> $MAKEFILE
-	echo "LIBS=$LIBS" >> $MAKEFILE
-	echo "SOURCES=$SOURCES" >> $MAKEFILE
-	echo "OBJECTS=`echo $SOURCES | sed -e 's/\.c/\.o/g'`" >> $MAKEFILE
-	echo "VERION=$VERSION" >> $MAKEFILE
-	echo "OS=$OS" >> $MAKEFILE
-	echo "DCC_VER=$DCC_VER" >> $MAKEFILE
-	echo "LEX_SRC=$LEX_SRC" >> $MAKEFILE
-	echo "YACC_SRC=$YACC_SRC" >> $MAKEFILE
-	echo "LEX=$LEX" >> $MAKEFILE
-	echo "YACC=$YACC" >> $MAKEFILE
-	echo "PTHREAD_CFLAGS=$PTHREAD_CFLAGS" >> $MAKEFILE
-	echo "PTHREAD_LDFLAGS=$PTHREAD_LDFLAGS" >> $MAKEFILE
+END
 	cat $MAKEFILE_IN >> $MAKEFILE
 }
 
@@ -240,6 +286,8 @@ do
     case "$option" in
         --help)                          help=yes                   ;;
 		--prefix)						 PREFIX=$value				;;
+		--user)							 USER=$value				;;
+		--group)						 GROUP=$value				;;
 		--enable-dcc)                    dcc=yes                    ;;
 		*)
             echo "$0: error: invalid option \"$option\""
@@ -255,6 +303,8 @@ if [ "F$help" = "Fyes" ] ; then
 
   --prefix=PATH                      set the installation prefix
   --enable-dcc                       enable dcc support
+  --user=USER                        set user to use
+  --group=GROUP                      set group to use
 END
 	exit 1
 fi
@@ -326,6 +376,16 @@ fi
 if [ "F$dcc" = "Fyes" ] ; then
 	CFLAGS="$CFLAGS -I./dcc-dccd-${DCC_VER}/include -DHAVE_DCC"
 	LDFLAGS="$LDFLAGS -Ldcc-dccd-${DCC_VER}/dcclib"
+	LIBS="$LIBS -ldcc"
+	TARGETS="dcc $TARGETS"
 fi
 
+check_group $GROUP
+if [ $? -ne 0 ] ; then 
+	TARGETS="$TARGETS creategroup"
+fi
+check_user $USER
+if [ $? -ne 0 ] ; then 
+	TARGETS="$TARGETS createuser"
+fi
 write_result
