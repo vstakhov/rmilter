@@ -617,7 +617,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
 		}
-		fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTPSA id 0000000;\n",
+		fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\n",
 				 priv->priv_helo, priv->priv_hostname, priv->priv_ip); 
     }
 
