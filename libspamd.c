@@ -119,7 +119,7 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
  */
 
 static int 
-spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark[2], struct config_file *cfg, char **symbols)
+spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_mark[2], struct config_file *cfg, char **symbols)
 {
     char buf[MAXPATHLEN + 10], *c, *err;
     struct sockaddr_un server_un;
@@ -200,7 +200,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 		return -1;		
 	}
 #else 
-#error "sendfile required"
+	char tmp_buf[BUFSIZ];
+	while ((r = read (fd, buf, BUFSIZ)) > 0) {
+		write (s, buf, r);
+	}
 #endif
 
     fcntl(s, F_SETFL, ofl);
@@ -244,9 +247,9 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 		/* Find mark */
 		c = strchr (c, ';');
 		if (c != NULL && *c != '\0') {
-			spam_mark[0] = strtol (c + 1, &err, 10);
+			spam_mark[0] = strtod (c + 1, &err);
 			if (*err == ' ' && *(err + 1) == '/') {
-				spam_mark[1] = strtol (err + 3, NULL, 10);
+				spam_mark[1] = strtod (err + 3, NULL);
 			}
 			else {
 				spam_mark[1] = 0;
@@ -270,6 +273,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 		*symbols = NULL;
 	}
 	else {
+		err = strchr (c, '\r');
+		if (err != NULL) {
+			*err = '\0';
+		}
 		*symbols = strdup (c);
 	}
 
@@ -287,7 +294,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
  */
 
 int 
-spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
+spamdscan(const char *file, struct config_file *cfg, double spam_mark[2])
 {
     int retry = 5, r = -2;
     struct timeval t;
@@ -304,7 +311,7 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
 											cfg->spamd_servers_num, sizeof (struct spamd_server),
 											t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
 		if (selected == NULL) {
-			msg_err ("spamdscan: upstream get error, %s", file);
+			msg_err ("(spamdscan) upstream get error, %s", file);
 			return -1;
 		}
 
@@ -315,14 +322,14 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-	    	msg_warn("spamdscan: unexpected problem, %s, %s", selected->name, file);
+	    	msg_warn("(spamdscan) unexpected problem, %s, %s", selected->name, file);
 	    	break;
 		}
 		if (--retry < 1) {
-	    	msg_warn("spamdscan: retry limit exceeded, %s, %s", selected->name, file);
+	    	msg_warn("(spamdscan) retry limit exceeded, %s, %s", selected->name, file);
 	    	break;
 		}
-		msg_warn("spamdscan: failed to scan, retry, %s, %s", selected->name, file);
+		msg_warn("(spamdscan) failed to scan, retry, %s, %s", selected->name, file);
 		sleep(1);
     }
 
@@ -333,7 +340,7 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
     tf = t.tv_sec + t.tv_usec / 1000000.0;
 
     if (r == 1) {
-		msg_info("spamdscan: scan %f, %s, spam found [%d/%d], %s, %s", tf - ts,
+		msg_info("(spamdscan) scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
 					selected->name, 
 					spam_mark[0], spam_mark[1],
 					(symbols != NULL) ? symbols : "no symbols", file);
@@ -342,9 +349,13 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
 		}
 	}
     else {
-		msg_info("spamdscan: scan %f, %s, [%d/%d], %s", tf -ts, 
+		msg_info("(spamdscan) scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
 					selected->name,
-					spam_mark[0], spam_mark[1], file);
+					spam_mark[0], spam_mark[1], 
+					(symbols != NULL) ? symbols : "no symbols", file);
+		if (symbols != NULL) {
+			free (symbols);
+		}
 	}
 
     return r;

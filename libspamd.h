@@ -12,6 +12,6 @@
 
 struct config_file;
 
-int spamdscan(const char *file, struct config_file *cfg, int spam_mark[2]);
+int spamdscan(const char *file, struct config_file *cfg, double spam_mark[2]);
 
 #endif

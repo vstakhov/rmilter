@@ -644,7 +644,8 @@ static sfsistat
 mlfi_eom(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
-    int r, spamd_marks[2];
+    int r;
+	double spamd_marks[2];
     char strres[PATH_MAX], buf[PATH_MAX];
     char *id;
     struct stat sb;
@@ -779,7 +780,7 @@ mlfi_eom(SMFICTX * ctx)
 			return SMFIS_TEMPFAIL;
 		}
 		else if (r == 1) {
-			msg_warn ("(mlfi_eom, %s) rejecting spam [%d/%d]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
+			msg_warn ("(mlfi_eom, %s) rejecting spam [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, cfg->spamd_reject_message);
 			CFG_UNLOCK();
 			mlfi_cleanup (ctx, false);
