@@ -264,7 +264,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, int spam_mark
 
 	/* Skip empty lines */
 	while (*c && *c++ != '\n');
-	while (*c && (*c == '\r' || *c++ == '\n'));
+	while (*c++ && (*c == '\r' || *c == '\n'));
 	/* Write symbols */
 	if (*c == '\0') {
 		*symbols = NULL;
@@ -333,18 +333,18 @@ spamdscan(const char *file, struct config_file *cfg, int spam_mark[2])
     tf = t.tv_sec + t.tv_usec / 1000000.0;
 
     if (r == 1) {
-		msg_info("spamdscan: scan %f, %s, spam found [%d/%d], %s", tf - ts,
+		msg_info("spamdscan: scan %f, %s, spam found [%d/%d], %s, %s", tf - ts,
 					selected->name, 
 					spam_mark[0], spam_mark[1],
-					(symbols != NULL) ? symbols : "no symbols");
+					(symbols != NULL) ? symbols : "no symbols", file);
 		if (symbols != NULL) {
 			free (symbols);
 		}
 	}
     else {
-		msg_info("spamdscan: scan %f, %s, [%d/%d]", tf -ts, 
+		msg_info("spamdscan: scan %f, %s, [%d/%d], %s", tf -ts, 
 					selected->name,
-					spam_mark[0], spam_mark[1]);
+					spam_mark[0], spam_mark[1], file);
 	}
 
     return r;

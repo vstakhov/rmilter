@@ -201,7 +201,7 @@ regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum 
 struct action * 
 rules_check (struct rule **rules)
 {
-	struct rule *cur;
+	struct rule *cur = NULL;
 	struct condition *cond;
 	int i, r;
 
