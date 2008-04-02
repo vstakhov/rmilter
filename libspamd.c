@@ -259,10 +259,6 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 			spam_mark[0] = 0;
 			spam_mark[1] = 0;
 		}
-
-		if (strstr(buf, "True") != NULL) {
-			return 1;
-		}
 	}
 
 	/* Skip empty lines */
@@ -278,6 +274,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 			*err = '\0';
 		}
 		*symbols = strdup (c);
+	}
+
+	if (strstr(buf, "True") != NULL) {
+			return 1;
 	}
 
 	return 0;
