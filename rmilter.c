@@ -446,6 +446,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (tmpfrom != NULL) {
 		strlcpy (priv->priv_ip, tmpfrom, sizeof (priv->priv_ip));
 		inet_aton (priv->priv_ip, &priv->priv_addr.sin_addr);
+		priv->priv_addr.sin_family = AF_INET;
 	}
 	tmpfrom = smfi_getsymval(ctx, "{client_name}");
 	if (tmpfrom != NULL) {
