@@ -147,6 +147,88 @@ copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
 	srv->alive[1] = mctx[1].alive;
 }
 
+static void
+check_message_id (struct mlfi_priv *priv) 
+{
+	MD5_CTX mdctx;
+	u_char final[MD5_SIZE], param = '0';
+	char md5_out[MD5_SIZE * 2 + 1];
+	struct memcached_server *selected;
+	memcached_ctx_t mctx;
+	memcached_param_t cur_param;
+	int r;
+	size_t s;
+	
+	if (cfg->memcached_servers_id_num == 0 || cfg->id_expire == 0) {
+		return;
+	}
+
+	bzero (&cur_param, sizeof (cur_param));
+	MD5Init(&mdctx);
+	/* Make hash from message id */
+	MD5Update(&mdctx, (const u_char *)priv->mlfi_id, strlen(priv->mlfi_id));
+	MD5Final(final, &mdctx);
+
+	/* Format md5 output */
+	s = sizeof (md5_out);
+	for (r = 0; r < MD5_SIZE; r ++){
+		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
+	}
+	memcpy (cur_param.key, md5_out, sizeof (md5_out));
+	s = 1;
+	cur_param.buf = &param;
+	cur_param.bufsize = sizeof (param);
+
+	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_id,
+										cfg->memcached_servers_id_num, sizeof (struct memcached_server),
+										(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time, 
+										cfg->memcached_dead_time, cfg->memcached_maxerrors,
+										(char *)final, MD5_SIZE);
+	if (selected == NULL) {
+		msg_err ("mlfi_data: cannot get memcached upstream for storing message id");
+		return;
+	}
+
+	mctx.protocol = cfg->memcached_protocol;
+	memcpy(&mctx.addr, &selected->addr[0], sizeof (struct in_addr));
+	mctx.port = selected->port[0];
+	mctx.timeout = cfg->memcached_connect_timeout;
+	mctx.alive = selected->alive[0];
+	
+	r = memc_init_ctx(&mctx);
+	if (r == -1) {
+		msg_warn ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
+		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
+		return;
+	}
+
+	r = memc_get (&mctx, &cur_param, &s);
+	if (r == OK) {
+		/* Turn off strict checks if message id is found */
+		memc_close_ctx (&mctx);
+		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
+		priv->strict = 0;
+		msg_info ("mlfi_data: turn off strict checks for id: %s", priv->mlfi_id);
+		return;
+	}
+	else if (r == NOT_EXISTS) {
+		/* Write message id to memcached */
+		s = 1;
+		r = memc_set (&mctx, &cur_param, &s, cfg->id_expire);
+		if (r != OK) {
+			msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
+			upstream_fail (&selected->up, priv->conn_tm.tv_sec);
+		}
+		memc_close_ctx (&mctx);
+	}
+	else {
+		msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
+		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
+		memc_close_ctx (&mctx);
+	}
+
+}
+
 static int
 check_greylisting (struct mlfi_priv *priv) 
 {
@@ -386,6 +468,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		return SMFIS_TEMPFAIL;
     }
     memset(priv, '\0', sizeof (struct mlfi_priv));
+	priv->strict = 1;
 
 	priv->priv_cur_rcpt = NULL;
 	priv->priv_rcptcount = 0;
@@ -527,15 +610,24 @@ mlfi_data(SMFICTX *ctx)
 {
     struct mlfi_priv *priv;
 	int r;
+	char *id;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
 
+    /* set queue id */
+    id = smfi_getsymval(ctx, "i");
+
 	CFG_RLOCK();
+	if (id) {
+    	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+		check_message_id (priv);
+	}
+
 	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_grey_num > 0 &&
-		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0) {
+		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		r = check_greylisting (priv);
 		switch (r) {
@@ -658,12 +750,14 @@ mlfi_eom(SMFICTX * ctx)
 		return SMFIS_TEMPFAIL;
 	}
 
-    /* set queue id */
-    id = smfi_getsymval(ctx, "i");
-    if (id == NULL) {
-		id = "NOQUEUE";
+	if (*priv->mlfi_id == '\0') {
+    	/* set queue id */
+    	id = smfi_getsymval(ctx, "i");
+		if (id == NULL) {
+			id = "NOQUEUE";
+		}
+    	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 	}
-    strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 
 	CFG_RLOCK();
 	/* Update rate limits for message */
@@ -728,7 +822,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 #ifdef HAVE_DCC
  	/* Check dcc */
-	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
+	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict) {
 		r = check_dcc (priv);
 		switch (r) {
 			case 'A':
@@ -772,7 +866,7 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 	/* Check spamd */
-	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) 
+	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {

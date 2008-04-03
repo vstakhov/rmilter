@@ -84,6 +84,7 @@ struct mlfi_priv {
 	int filed;
 	struct timeval conn_tm;
 	struct rule* matched_rules[STAGE_MAX];
+	short int strict;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

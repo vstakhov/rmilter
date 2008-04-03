@@ -44,7 +44,7 @@ parse_limit (const char *limit)
 static unsigned int
 parse_seconds (const char *t)
 {
-	unsigned int result = 0;
+	unsigned long int result = 0;
 	char *err_str;
 
 	if (!t || *t == '\0') return 0;
@@ -148,12 +148,14 @@ servers							return SERVERS;
 servers_limits					return SERVERS_LIMITS;
 servers_grey					return SERVERS_GREY;
 servers_white					return SERVERS_WHITE;
+servers_id						return SERVERS_ID;
 error_time						return ERROR_TIME;
 dead_time						return DEAD_TIME;
 maxerrors						return MAXERRORS;
 connect_timeout					return CONNECT_TIMEOUT;
 port_timeout					return PORT_TIMEOUT;
 results_timeout					return RESULTS_TIMEOUT;
+id_expire						return ID_EXPIRE;
 memcached						return MEMCACHED;
 protocol						return PROTOCOL;
 spf_domains						return SPF;

@@ -47,7 +47,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
-%token  SPAMD REJECT_MESSAGE
+%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_EXPIRE
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -613,11 +613,13 @@ memcachedcmd:
 	memcached_grey_servers
 	| memcached_white_servers
 	| memcached_limits_servers
+	| memcached_id_servers
 	| memcached_connect_timeout
 	| memcached_error_time
 	| memcached_dead_time
 	| memcached_maxerrors
 	| memcached_protocol
+	| memcached_id_expire
 	;
 
 memcached_grey_servers:
@@ -693,6 +695,25 @@ memcached_limits_params:
 	}
 	;
 
+memcached_id_servers:
+	SERVERS_ID EQSIGN memcached_id_server
+	;
+
+memcached_id_server:
+	memcached_id_params
+	| memcached_id_server COMMA memcached_id_params
+	;
+
+memcached_id_params:
+	memcached_hosts {
+		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_ID)) {
+			yyerror ("yyparse: add_memcached_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+
 memcached_hosts:
 	STRING
 	| IPADDR
@@ -732,6 +753,11 @@ memcached_protocol:
 			yyerror ("yyparse: cannot recognize protocol: %s", $3);
 			YYERROR;
 		}
+	}
+	;
+memcached_id_expire:
+	ID_EXPIRE EQSIGN SECONDS {
+		cfg->id_expire = $3 / 1000;
 	}
 	;
 

@@ -94,6 +94,13 @@ memcached {
 	# servers_limits - memcached servers used for limits storing, can not be mirrored
 	servers_limits = mcgi12.rambler.ru, mcgi18.rambler.ru:11211;
 
+	# servers_id - memcached servers used for message id storing, can not be mirrored
+	servers_id = mcgi12.rambler.ru, mcgi18.rambler.ru:11211;
+
+	# id_expire - expiration time for message ids in memcached
+	# Default: 0s (message id checking is disabled)
+	id_expire = 1000s;
+
 	# connect_timeout - timeout in miliseconds for waiting for memcached
 	# Default: 1s
 	connect_timeout = 1s;

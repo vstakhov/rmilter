@@ -61,6 +61,7 @@
 #define MEMCACHED_SERVER_LIMITS 0
 #define MEMCACHED_SERVER_GREY 1
 #define MEMCACHED_SERVER_WHITE 2
+#define MEMCACHED_SERVER_ID 3
 
 #define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
 
@@ -211,6 +212,8 @@ struct config_file {
 	size_t memcached_servers_grey_num;
 	struct memcached_server memcached_servers_white[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_white_num;
+	struct memcached_server memcached_servers_id[MAX_MEMCACHED_SERVERS];
+	size_t memcached_servers_id_num;
 	memc_proto_t memcached_protocol;
 	unsigned int memcached_error_time;
 	unsigned int memcached_dead_time;
@@ -239,6 +242,7 @@ struct config_file {
 	unsigned int greylisting_timeout;
 	unsigned int greylisting_expire;
 	unsigned int whitelisting_expire;
+	unsigned int id_expire;
 	radix_tree_t *grey_whitelist_tree;
 	/* Autowhitelist section */
 	u_char awl_enable;

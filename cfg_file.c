@@ -70,11 +70,19 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	}
 	else if (type == MEMCACHED_SERVER_LIMITS) {
 		if(cf->memcached_servers_limits_num == MAX_MEMCACHED_SERVERS) {
-			yywarn ("yyparse: maximum number of whitelist memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			yywarn ("yyparse: maximum number of limits memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 	
 		mc = &cf->memcached_servers_limits[cf->memcached_servers_limits_num];
+	}
+	else if (type == MEMCACHED_SERVER_ID) {
+		if(cf->memcached_servers_id_num == MAX_MEMCACHED_SERVERS) {
+			yywarn ("yyparse: maximum number of id memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			return 0;
+		}
+	
+		mc = &cf->memcached_servers_id[cf->memcached_servers_id_num];
 	}
 	if (mc == NULL) return 0;
 
@@ -149,6 +157,9 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	}
 	else if (type == MEMCACHED_SERVER_LIMITS) {
 		cf->memcached_servers_limits_num++;
+	}
+	else if (type == MEMCACHED_SERVER_ID) {
+		cf->memcached_servers_id_num++;
 	}
 
 	return 1;
