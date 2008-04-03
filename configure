@@ -348,6 +348,7 @@ if [ $? -eq 1 ] ; then
 	SOURCES="$SOURCES strlcpy.c"
 	CFLAGS="$CFLAGS -DHAVE_STRLCPY_H"
 fi
+check_function "bzero" "string.h"
 check_function "srandomdev"
 if [ $? -eq 0 ] ; then
 	CFLAGS="$CFLAGS -DHAVE_SRANDOMDEV"

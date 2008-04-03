@@ -148,7 +148,7 @@ copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
 }
 
 static void
-check_message_id (struct mlfi_priv *priv) 
+check_message_id (struct mlfi_priv *priv, char *header, short int check) 
 {
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE], param = '0';
@@ -157,25 +157,14 @@ check_message_id (struct mlfi_priv *priv)
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
 	int r;
-	size_t s;
+	size_t s = 1;
 	
 	if (cfg->memcached_servers_id_num == 0 || cfg->id_expire == 0) {
 		return;
 	}
 
 	bzero (&cur_param, sizeof (cur_param));
-	MD5Init(&mdctx);
-	/* Make hash from message id */
-	MD5Update(&mdctx, (const u_char *)priv->mlfi_id, strlen(priv->mlfi_id));
-	MD5Final(final, &mdctx);
 
-	/* Format md5 output */
-	s = sizeof (md5_out);
-	for (r = 0; r < MD5_SIZE; r ++){
-		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
-	}
-	memcpy (cur_param.key, md5_out, sizeof (md5_out));
-	s = 1;
 	cur_param.buf = &param;
 	cur_param.bufsize = sizeof (param);
 
@@ -201,29 +190,54 @@ check_message_id (struct mlfi_priv *priv)
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		return;
 	}
+	
+	r = OK;
+	MD5Init(&mdctx);
+	if (check) {
+		/* Check reply message id in memcached */
+		/* Make hash from message id */
+		MD5Update(&mdctx, (const u_char *)header, strlen(header));
+		MD5Final(final, &mdctx);
 
-	r = memc_get (&mctx, &cur_param, &s);
-	if (r == OK) {
-		/* Turn off strict checks if message id is found */
-		memc_close_ctx (&mctx);
-		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
-		priv->strict = 0;
-		msg_info ("mlfi_data: turn off strict checks for id: %s", priv->mlfi_id);
-		return;
+		/* Format md5 output */
+		s = sizeof (md5_out);
+		for (r = 0; r < MD5_SIZE; r ++){
+			s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
+		}
+		memcpy (cur_param.key, md5_out, sizeof (md5_out));
+		r = memc_get (&mctx, &cur_param, &s);
+		if (r == OK) {
+			/* Turn off strict checks if message id is found */
+			memc_close_ctx (&mctx);
+			upstream_ok (&selected->up, priv->conn_tm.tv_sec);
+			priv->strict = 0;
+			msg_info ("mlfi_data: turn off strict checks for id: %s (reply-to: %s)", priv->mlfi_id, header);
+			return;
+		}
+		else if (r != NOT_EXISTS) {
+			msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
+			upstream_fail (&selected->up, priv->conn_tm.tv_sec);
+			memc_close_ctx (&mctx);
+		}
 	}
-	else if (r == NOT_EXISTS) {
+	else {
 		/* Write message id to memcached */
-		s = 1;
+		/* Make hash from message id */
+		MD5Update(&mdctx, (const u_char *)priv->mlfi_id, strlen(priv->mlfi_id));
+		MD5Final(final, &mdctx);
+
+		/* Format md5 output */
+		s = sizeof (md5_out);
+		for (r = 0; r < MD5_SIZE; r ++){
+			s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
+		}
+		memcpy (cur_param.key, md5_out, sizeof (md5_out));
+
 		r = memc_set (&mctx, &cur_param, &s, cfg->id_expire);
 		if (r != OK) {
 			msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
 			upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		}
-		memc_close_ctx (&mctx);
-	}
-	else {
-		msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
-		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		memc_close_ctx (&mctx);
 	}
 
@@ -623,7 +637,6 @@ mlfi_data(SMFICTX *ctx)
 	CFG_RLOCK();
 	if (id) {
     	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
-		check_message_id (priv);
 	}
 
 	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_grey_num > 0 &&
@@ -669,6 +682,9 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		return SMFIS_TEMPFAIL;
 	}
 
+	if (strncmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
+		check_message_id (priv, headerv, 1);
+	}
     /*
      * Create temporary file, if this is first call of mlfi_header(), and it
      * not yet created
@@ -728,6 +744,11 @@ mlfi_eoh(SMFICTX * ctx)
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
+	}
+
+	if (priv->strict) {
+		/* Write message id to memcached */
+		check_message_id (priv, NULL, 0);
 	}
 
     fprintf (priv->fileh, "\n");
