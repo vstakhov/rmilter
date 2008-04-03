@@ -148,7 +148,7 @@ copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
 }
 
 static void
-check_message_id (struct mlfi_priv *priv, char *header, short int check) 
+check_message_id (struct mlfi_priv *priv, char *header) 
 {
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE], param = '0';
@@ -193,51 +193,29 @@ check_message_id (struct mlfi_priv *priv, char *header, short int check)
 	
 	r = OK;
 	MD5Init(&mdctx);
-	if (check) {
-		/* Check reply message id in memcached */
-		/* Make hash from message id */
-		MD5Update(&mdctx, (const u_char *)header, strlen(header));
-		MD5Final(final, &mdctx);
+	/* Check reply message id in memcached */
+	/* Make hash from message id */
+	MD5Update(&mdctx, (const u_char *)header, strlen(header));
+	MD5Final(final, &mdctx);
 
-		/* Format md5 output */
-		s = sizeof (md5_out);
-		for (r = 0; r < MD5_SIZE; r ++){
-			s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
-		}
-		memcpy (cur_param.key, md5_out, sizeof (md5_out));
-		r = memc_get (&mctx, &cur_param, &s);
-		if (r == OK) {
-			/* Turn off strict checks if message id is found */
-			memc_close_ctx (&mctx);
-			upstream_ok (&selected->up, priv->conn_tm.tv_sec);
-			priv->strict = 0;
-			msg_info ("mlfi_data: turn off strict checks for id: %s (reply-to: %s)", priv->mlfi_id, header);
-			return;
-		}
-		else if (r != NOT_EXISTS) {
-			msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
-			upstream_fail (&selected->up, priv->conn_tm.tv_sec);
-			memc_close_ctx (&mctx);
-		}
+	/* Format md5 output */
+	s = sizeof (md5_out);
+	for (r = 0; r < MD5_SIZE; r ++){
+		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
 	}
-	else {
-		/* Write message id to memcached */
-		/* Make hash from message id */
-		MD5Update(&mdctx, (const u_char *)priv->mlfi_id, strlen(priv->mlfi_id));
-		MD5Final(final, &mdctx);
-
-		/* Format md5 output */
-		s = sizeof (md5_out);
-		for (r = 0; r < MD5_SIZE; r ++){
-			s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
-		}
-		memcpy (cur_param.key, md5_out, sizeof (md5_out));
-
-		r = memc_set (&mctx, &cur_param, &s, cfg->id_expire);
-		if (r != OK) {
-			msg_info ("mlfi_data: cannot write to memcached: %s", memc_strerror (r));
-			upstream_fail (&selected->up, priv->conn_tm.tv_sec);
-		}
+	memcpy (cur_param.key, md5_out, sizeof (md5_out));
+	r = memc_get (&mctx, &cur_param, &s);
+	if (r == OK) {
+		/* Turn off strict checks if message id is found */
+		memc_close_ctx (&mctx);
+		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
+		priv->strict = 0;
+		msg_info ("mlfi_data: turn off strict checks for id: %s (reply-to: %s)", priv->mlfi_id, header);
+		return;
+	}
+	else if (r != NOT_EXISTS) {
+		msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
+		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		memc_close_ctx (&mctx);
 	}
 
@@ -683,7 +661,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	}
 
 	if (strncmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
-		check_message_id (priv, headerv, 1);
+		check_message_id (priv, headerv);
 	}
     /*
      * Create temporary file, if this is first call of mlfi_header(), and it
@@ -746,11 +724,6 @@ mlfi_eoh(SMFICTX * ctx)
 		return SMFIS_TEMPFAIL;
 	}
 
-	if (priv->strict) {
-		/* Write message id to memcached */
-		check_message_id (priv, NULL, 0);
-	}
-
     fprintf (priv->fileh, "\n");
     return SMFIS_CONTINUE;
 }
@@ -809,10 +782,6 @@ mlfi_eom(SMFICTX * ctx)
 			case SPF_RESULT_NONE:
 				break;
 			case SPF_RESULT_FAIL:
-				msg_warn ("(mlfi_eom, %s) SPF check failed. Host %s[%s] is not allowed to send mail as %s ", 
-							priv->mlfi_id, (*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved", 
-							priv->priv_ip, priv->priv_from);
-
 				if (priv->priv_cur_rcpt != NULL && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
 	    			snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
 							(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
