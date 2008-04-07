@@ -243,6 +243,7 @@ struct config_file {
 	unsigned int greylisting_expire;
 	unsigned int whitelisting_expire;
 	unsigned int id_expire;
+	char *id_prefix;
 	radix_tree_t *grey_whitelist_tree;
 	/* Autowhitelist section */
 	u_char awl_enable;

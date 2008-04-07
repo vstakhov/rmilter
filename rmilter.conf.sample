@@ -101,6 +101,10 @@ memcached {
 	# Default: 0s (message id checking is disabled)
 	id_expire = 1000s;
 
+	# id_prefix - prefix for extracting message ids from memcached
+	# Default: empty (no prefix is prepended to key)
+	id_prefix = "message_id.";
+
 	# connect_timeout - timeout in miliseconds for waiting for memcached
 	# Default: 1s
 	connect_timeout = 1s;

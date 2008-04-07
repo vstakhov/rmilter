@@ -47,7 +47,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
-%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_EXPIRE
+%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_EXPIRE ID_PREFIX
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -620,6 +620,7 @@ memcachedcmd:
 	| memcached_maxerrors
 	| memcached_protocol
 	| memcached_id_expire
+	| memcached_id_prefix
 	;
 
 memcached_grey_servers:
@@ -758,6 +759,33 @@ memcached_protocol:
 memcached_id_expire:
 	ID_EXPIRE EQSIGN SECONDS {
 		cfg->id_expire = $3 / 1000;
+	}
+	;
+memcached_id_prefix:
+	ID_PREFIX EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (c[len - 1] == '"') {
+			len--;
+		}
+		
+		if (cfg->id_prefix) {
+			free (cfg->id_prefix);
+		}
+		cfg->id_prefix = (char *)malloc (len + 1);
+		if (!cfg->id_prefix) {
+			yyerror ("yyparse: malloc failed");
+			YYERROR;
+		}
+		strlcpy (cfg->id_prefix, c, len + 1);
+
+		free ($3);
 	}
 	;
 

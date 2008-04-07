@@ -195,6 +195,9 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	MD5Init(&mdctx);
 	/* Check reply message id in memcached */
 	/* Make hash from message id */
+	if (cfg->id_prefix) {
+		MD5Update(&mdctx, (const u_char *)cfg->id_prefix, strlen(cfg->id_prefix));
+	}
 	MD5Update(&mdctx, (const u_char *)header, strlen(header));
 	MD5Final(final, &mdctx);
 

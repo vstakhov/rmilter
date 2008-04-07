@@ -544,7 +544,12 @@ free_config (struct config_file *cfg)
 	radix32tree_delete (cfg->spamd_whitelist, 0, 0);
 	free (cfg->spamd_whitelist);
 	
-	free (cfg->spamd_reject_message);
+	if (cfg->spamd_reject_message) {
+		free (cfg->spamd_reject_message);
+	}
+	if (cfg->id_prefix) {
+		free (cfg->id_prefix);
+	}
 
 	if (cfg->awl_enable && cfg->awl_hash != NULL) {
 		free (cfg->awl_hash->pool);
