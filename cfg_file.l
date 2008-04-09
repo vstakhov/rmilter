@@ -155,7 +155,6 @@ maxerrors						return MAXERRORS;
 connect_timeout					return CONNECT_TIMEOUT;
 port_timeout					return PORT_TIMEOUT;
 results_timeout					return RESULTS_TIMEOUT;
-id_expire						return ID_EXPIRE;
 id_prefix						return ID_PREFIX;
 memcached						return MEMCACHED;
 protocol						return PROTOCOL;

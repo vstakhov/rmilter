@@ -619,7 +619,6 @@ memcachedcmd:
 	| memcached_dead_time
 	| memcached_maxerrors
 	| memcached_protocol
-	| memcached_id_expire
 	| memcached_id_prefix
 	;
 
@@ -754,11 +753,6 @@ memcached_protocol:
 			yyerror ("yyparse: cannot recognize protocol: %s", $3);
 			YYERROR;
 		}
-	}
-	;
-memcached_id_expire:
-	ID_EXPIRE EQSIGN SECONDS {
-		cfg->id_expire = $3 / 1000;
 	}
 	;
 memcached_id_prefix:

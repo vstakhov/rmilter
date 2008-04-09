@@ -152,14 +152,14 @@ check_message_id (struct mlfi_priv *priv, char *header)
 {
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE], param = '0';
-	char md5_out[MD5_SIZE * 2 + 1];
+	char md5_out[MD5_SIZE * 2 + 1], *c;
 	struct memcached_server *selected;
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
 	int r;
 	size_t s = 1;
 	
-	if (cfg->memcached_servers_id_num == 0 || cfg->id_expire == 0) {
+	if (cfg->memcached_servers_id_num == 0) {
 		return;
 	}
 
@@ -195,9 +195,6 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	MD5Init(&mdctx);
 	/* Check reply message id in memcached */
 	/* Make hash from message id */
-	if (cfg->id_prefix) {
-		MD5Update(&mdctx, (const u_char *)cfg->id_prefix, strlen(cfg->id_prefix));
-	}
 	MD5Update(&mdctx, (const u_char *)header, strlen(header));
 	MD5Final(final, &mdctx);
 
@@ -206,7 +203,15 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	for (r = 0; r < MD5_SIZE; r ++){
 		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
 	}
-	memcpy (cur_param.key, md5_out, sizeof (md5_out));
+
+	c = cur_param.key;
+	s = sizeof (cur_param.key);
+	if (cfg->id_prefix) {
+		s = strlcpy (c, cfg->id_prefix, s);
+		c += s + 1;
+	}
+	strlcpy (c, md5_out, sizeof (cur_param.key) - s);
+
 	r = memc_get (&mctx, &cur_param, &s);
 	if (r == OK) {
 		/* Turn off strict checks if message id is found */
