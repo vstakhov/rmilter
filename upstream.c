@@ -283,9 +283,9 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 	p = ups;
 	for (;;) {
 		cur = (struct upstream *)p;
-		p += msize;
 		
-		if (--h == 0) {
+		if (h == 0) {
+			p = ups;
 			while (cur && cur->dead != 0) {
 				cur = (struct upstream *)p;
 				p += msize;
@@ -301,6 +301,8 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 			}
 			break;
 		}
+		h--;
+		p += msize;
 	}
 	U_UNLOCK ();
 	return cur;

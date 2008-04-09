@@ -168,6 +168,33 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	cur_param.buf = &param;
 	cur_param.bufsize = sizeof (param);
 
+	MD5Init(&mdctx);
+	/* Check reply message id in memcached */
+	/* Make hash from message id */
+	MD5Update(&mdctx, (const u_char *)header, strlen(header));
+	MD5Final(final, &mdctx);
+
+	/* Format md5 output */
+	s = sizeof (md5_out);
+	for (r = 0; r < MD5_SIZE; r ++){
+		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
+	}
+
+	c = cur_param.key;
+	s = sizeof (cur_param.key);
+	if (cfg->id_prefix) {
+		s = strlcpy (c, cfg->id_prefix, s);
+		c += s;
+	}
+	if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
+ 		memcpy (c, md5_out, sizeof (md5_out));
+ 	}
+ 	else {
+ 		msg_warn ("check_id: id_prefix(%s) too long for memcached key, error in configure", cfg->id_prefix);
+ 	}
+
+	strlcpy (c, md5_out, sizeof (cur_param.key) - s);
+
 	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_id,
 										cfg->memcached_servers_id_num, sizeof (struct memcached_server),
 										(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time, 
@@ -190,27 +217,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		return;
 	}
-	
 	r = OK;
-	MD5Init(&mdctx);
-	/* Check reply message id in memcached */
-	/* Make hash from message id */
-	MD5Update(&mdctx, (const u_char *)header, strlen(header));
-	MD5Final(final, &mdctx);
-
-	/* Format md5 output */
-	s = sizeof (md5_out);
-	for (r = 0; r < MD5_SIZE; r ++){
-		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
-	}
-
-	c = cur_param.key;
-	s = sizeof (cur_param.key);
-	if (cfg->id_prefix) {
-		s = strlcpy (c, cfg->id_prefix, s);
-		c += s + 1;
-	}
-	strlcpy (c, md5_out, sizeof (cur_param.key) - s);
 
 	r = memc_get (&mctx, &cur_param, &s);
 	if (r == OK) {
@@ -218,7 +225,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		memc_close_ctx (&mctx);
 		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
 		priv->strict = 0;
-		msg_info ("mlfi_data: turn off strict checks for id: %s (reply-to: %s)", priv->mlfi_id, header);
+		msg_info ("mlfi_data: turn off strict checks for id: %s", header);
 		return;
 	}
 	else if (r != NOT_EXISTS) {
