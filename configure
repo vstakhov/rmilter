@@ -23,7 +23,7 @@ SOURCES="upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ratelimit.c m
 CFLAGS="$CFLAGS -W -Wall -Wpointer-arith -Wno-unused-parameter"
 CFLAGS="$CFLAGS -Wno-unused-function -Wunused-variable -Wno-sign-compare"
 CFLAGS="$CFLAGS -Wunused-value -ggdb -I${LOCALBASE}/include"
-CFLAGS="$CFLAGS -DMVERSION=\\\"${VERSION}\\\""
+CFLAGS="$CFLAGS -DMVERSION=\\\"${VERSION}\\\" -DHASH_COMPAT"
 LDFLAGS="$LDFLAGS -L/usr/lib -L${LOCALBASE}/lib"
 PTHREAD_CFLAGS="-D_THREAD_SAFE"
 EXEC=rmilter

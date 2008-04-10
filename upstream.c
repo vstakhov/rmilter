@@ -5,7 +5,13 @@
 #include <sys/types.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdio.h>
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+#include <inttypes.h>
+#endif
 #include <limits.h>
 #include "upstream.h"
 
@@ -20,6 +26,8 @@ pthread_rwlock_t upstream_mtx = PTHREAD_RWLOCK_INITIALIZER;
 #define U_WLOCK() do {} while (0)
 #define U_UNLOCK() do {} while (0)
 #endif
+
+#define MAX_TRIES 20
 
 /*
  * Poly: 0xedb88320
@@ -265,9 +273,9 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 						time_t error_timeout, time_t revive_timeout, size_t max_errors,
 						char *key, size_t keylen)
 {
-	int alive, tries = 0;
+	int alive, tries = 0, r;
 	uint32_t h = 0;
-	char *p;
+	char *p, numbuf[4];
 	struct upstream *cur;
 	
 	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
@@ -276,34 +284,33 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 		return NULL;
 	}
 
-	h = get_hash_for_key (h, key, keylen);
+	h = get_hash_for_key (0, key, keylen);
+#ifdef HASH_COMPAT
+	h = (h >> 16) & 0x7fff;
+#endif
 	h %= members;
+
+	for (;;) {
+		p = (char *)ups + msize * h;
+		cur = (struct upstream *)p;
+		if (!cur->dead) {
+			break;
+		}
+		r = snprintf (numbuf, sizeof (numbuf), "%d", tries);
+		h = get_hash_for_key (0, numbuf, r);
+		h = get_hash_for_key (h, key, keylen);
+#ifdef HASH_COMPAT
+		h = (h >> 16) & 0x7fff;
+#endif
+		h %= members;
+		tries ++;
+		if (tries > MAX_TRIES) {
+			return NULL;
+		}
+	}
 	
 	U_RLOCK ();
 	p = ups;
-	for (;;) {
-		cur = (struct upstream *)p;
-		
-		if (h == 0) {
-			p = ups;
-			while (cur && cur->dead != 0) {
-				cur = (struct upstream *)p;
-				p += msize;
-				if (++h == members) {
-					if (tries > 0) {
-						/* We are trying to scan upstreams once more, maybe this could happen due to locking */
-						return NULL;
-					}
-					p = ups;
-					h = 0;
-					tries ++;
-				}
-			}
-			break;
-		}
-		h--;
-		p += msize;
-	}
 	U_UNLOCK ();
 	return cur;
 }

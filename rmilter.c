@@ -199,7 +199,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 										cfg->memcached_servers_id_num, sizeof (struct memcached_server),
 										(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time, 
 										cfg->memcached_dead_time, cfg->memcached_maxerrors,
-										(char *)final, MD5_SIZE);
+										(char *)md5_out, strlen (md5_out));
 	if (selected == NULL) {
 		msg_err ("mlfi_data: cannot get memcached upstream for storing message id");
 		return;
