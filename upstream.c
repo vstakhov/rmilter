@@ -274,7 +274,7 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 						char *key, size_t keylen)
 {
 	int alive, tries = 0, r;
-	uint32_t h = 0;
+	uint32_t h = 0, ht;
 	char *p, numbuf[4];
 	struct upstream *cur;
 	
@@ -297,10 +297,12 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 			break;
 		}
 		r = snprintf (numbuf, sizeof (numbuf), "%d", tries);
-		h = get_hash_for_key (0, numbuf, r);
-		h = get_hash_for_key (h, key, keylen);
+		ht = get_hash_for_key (0, numbuf, r);
+		ht = get_hash_for_key (ht, key, keylen);
 #ifdef HASH_COMPAT
-		h = (h >> 16) & 0x7fff;
+		h += (ht >> 16) & 0x7fff;
+#else
+		h += ht;
 #endif
 		h %= members;
 		tries ++;
