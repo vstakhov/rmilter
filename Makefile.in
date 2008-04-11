@@ -36,6 +36,9 @@ clean:
 	rm -f cfg_lex.c cfg_yacc.c cfg_yacc.h
 	rm -fr dcc-dccd-$(DCC_VER)
 
+dist-clean: clean
+	rm -f Makefile
+
 creategroup:
 	@echo "Create group $(RMILTER_GROUP) before installing!" 
 

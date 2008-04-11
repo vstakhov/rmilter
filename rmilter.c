@@ -210,6 +210,11 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	mctx.port = selected->port[0];
 	mctx.timeout = cfg->memcached_connect_timeout;
 	mctx.alive = selected->alive[0];
+#ifdef WITH_DEBUG
+	mctx.options = MEMC_OPT_DEBUG;
+#else
+	mctx.options = 0;
+#endif
 	
 	r = memc_init_ctx(&mctx);
 	if (r == -1) {
@@ -308,6 +313,13 @@ check_greylisting (struct mlfi_priv *priv)
 				mctx_white[1].alive = 1;
 				copy_alive (selected, mctx_white);
 			}
+#ifdef WITH_DEBUG
+			mctx_white[0].options = MEMC_OPT_DEBUG;
+			mctx_white[1].options = MEMC_OPT_DEBUG;
+#else
+			mctx_white[0].options = 0;
+			mctx_white[1].options = 0;
+#endif
 			
 			r = memc_init_ctx_mirror (mctx_white, 2);
 			copy_alive (selected, mctx_white);
@@ -357,6 +369,13 @@ check_greylisting (struct mlfi_priv *priv)
 			mctx[1].alive = 1;
 			copy_alive (selected, mctx);
 		}
+#ifdef WITH_DEBUG
+		mctx[0].options = MEMC_OPT_DEBUG;
+		mctx[1].options = MEMC_OPT_DEBUG;
+#else
+		mctx[0].options = 0;
+		mctx[1].options = 0;
+#endif
 
 		r = memc_init_ctx_mirror (mctx, 2);
 		copy_alive (selected, mctx);
@@ -426,6 +445,13 @@ check_greylisting (struct mlfi_priv *priv)
 						mctx_white[1].alive = 1;
 						copy_alive (selected, mctx_white);
 					}
+#ifdef WITH_DEBUG
+					mctx_white[0].options = MEMC_OPT_DEBUG;
+					mctx_white[1].options = MEMC_OPT_DEBUG;
+#else
+					mctx_white[0].options = 0;
+					mctx_white[1].options = 0;
+#endif
 					r = memc_init_ctx_mirror (mctx_white, 2);
 					copy_alive (selected, mctx_white);
 					if (r == -1) {
@@ -498,6 +524,7 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
+	msg_debug ("mlfi_helo: got helo value: %s", priv->priv_helo);
 	
 	return SMFIS_CONTINUE;
 }
@@ -530,17 +557,20 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		}
 	}
 	priv->priv_from[i] = '\0';
+	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
 
 	/* Extract IP and hostname */
 	tmpfrom = smfi_getsymval(ctx, "{client_addr}");
 	if (tmpfrom != NULL) {
 		strlcpy (priv->priv_ip, tmpfrom, sizeof (priv->priv_ip));
 		inet_aton (priv->priv_ip, &priv->priv_addr.sin_addr);
+		msg_debug ("mlfi_envfrom: got ip value: %s", priv->priv_ip);
 		priv->priv_addr.sin_family = AF_INET;
 	}
 	tmpfrom = smfi_getsymval(ctx, "{client_name}");
 	if (tmpfrom != NULL) {
 		strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
+		msg_debug ("mlfi_envfrom: got host value: %s", priv->priv_hostname);
 	}
 	else {
 		strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
@@ -589,6 +619,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	/* Copy first recipient to priv - this is needed for dcc checking and ratelimits */
 	if (!priv->priv_cur_rcpt) {
 		strlcpy (priv->priv_rcpt, tmprcpt, sizeof (priv->priv_rcpt));
+		msg_debug ("mlfi_envrcpt: got rcpt value: %s", priv->priv_rcpt);
 	}
 	CFG_RLOCK();
 	/* Check ratelimit */
@@ -635,6 +666,7 @@ mlfi_data(SMFICTX *ctx)
 	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_grey_num > 0 &&
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
+		msg_debug ("mlfi_data: checking greylisting");
 		r = check_greylisting (priv);
 		switch (r) {
 			case GREY_GREYLISTED:
@@ -771,6 +803,7 @@ mlfi_eom(SMFICTX * ctx)
 	CFG_RLOCK();
 	/* Update rate limits for message */
 	priv->priv_cur_rcpt = priv->priv_rcpt;
+	msg_debug ("mlfi_eom: updating rate limits");
 	if (rate_check (priv, cfg, 1) == 0) {
 		/* Rate is more than limit */
 		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
@@ -780,6 +813,7 @@ mlfi_eom(SMFICTX * ctx)
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_REJECT;
 	}
+	msg_debug ("mlfi_eom: checking regexp rules");
 	act = rules_check (priv->matched_rules);
 	if (act != NULL && act->type != ACTION_ACCEPT) {
 		CFG_UNLOCK ();
@@ -789,6 +823,7 @@ mlfi_eom(SMFICTX * ctx)
 	 * Is the sender address SPF-compliant?
 	 */
 	if (cfg->spf_domains_num > 0) {
+		msg_debug ("mlfi_eom: check spf");
 		r = spf_check (priv, cfg);
 		switch (r) {
 			case SPF_RESULT_PASS:
@@ -828,6 +863,7 @@ mlfi_eom(SMFICTX * ctx)
 #ifdef HAVE_DCC
  	/* Check dcc */
 	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict) {
+		msg_debug ("mlfi_eom: check dcc");
 		r = check_dcc (priv);
 		switch (r) {
 			case 'A':
@@ -854,6 +890,7 @@ mlfi_eom(SMFICTX * ctx)
 	
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0) {
+		msg_debug ("mlfi_eom: check clamav");
 	    r = check_clamscan (priv->file, strres, PATH_MAX);
     	if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
@@ -873,6 +910,7 @@ mlfi_eom(SMFICTX * ctx)
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+		msg_debug ("mlfi_eom: check spamd");
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) spamdscan() failed, %d", priv->mlfi_id, r);
@@ -902,6 +940,7 @@ mlfi_close(SMFICTX * ctx)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
+	msg_debug ("mlfi_close: cleanup");
 
     free(priv);
     smfi_setpriv(ctx, NULL);
@@ -925,6 +964,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
+	msg_debug ("mlfi_cleanup: cleanup");
 
     /* release message-related memory */
     priv->mlfi_id[0] = '\0';

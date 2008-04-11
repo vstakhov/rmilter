@@ -47,7 +47,11 @@
 #define msg_err(args...) syslog(LOG_ERR, ##args)
 #define msg_warn(args...)	syslog(LOG_WARNING, ##args)
 #define msg_info(args...)	syslog(LOG_INFO, ##args)
+#ifdef WITH_DEBUG
 #define msg_debug(args...) syslog(LOG_DEBUG, ##args)
+#else
+#define msg_debug(args...) do {} while(0)
+#endif
 
 #define RCODE_REJECT    "554"
 #define RCODE_TEMPFAIL  "451"

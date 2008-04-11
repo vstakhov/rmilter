@@ -284,11 +284,12 @@ do
     esac
 
     case "$option" in
-        --help)                          help=yes                   ;;
-		--prefix)						 PREFIX=$value				;;
-		--user)							 USER=$value				;;
-		--group)						 GROUP=$value				;;
-		--enable-dcc)                    dcc=yes                    ;;
+        --help)                          help=yes                  		;;
+		--prefix)						 PREFIX=$value					;;
+		--user)							 USER=$value					;;
+		--group)						 GROUP=$value					;;
+		--enable-dcc)                    dcc=yes                    	;;
+		--enable-debug)					 CFLAGS="$CFLAGS -DWITH_DEBUG" 	;;
 		*)
             echo "$0: error: invalid option \"$option\""
             exit 1
@@ -303,6 +304,7 @@ if [ "F$help" = "Fyes" ] ; then
 
   --prefix=PATH                      set the installation prefix
   --enable-dcc                       enable dcc support
+  --enable-debug                     turn on extra debug messages
   --user=USER                        set user to use
   --group=GROUP                      set group to use
 END
@@ -313,6 +315,7 @@ CFLAGS="$CFLAGS -I$PREFIX/include"
 LDFLAGS="$LDFLAGS -L$PREFIX/lib"
 
 echo "Starting configure for rmilter" >config.log
+echo $0 $@ >> config.log
 
 check_compiler
 check_make

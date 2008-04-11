@@ -247,7 +247,9 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			if ((r = readv (ctx->sock, iov, 2)) == -1) {
 				return SERVER_ERROR;
 			}
+			memc_log (ctx, __LINE__, "memc_read: got read_buf: %s", read_buf);
 			if (header.req_id != ctx->count && retries < MAX_RETRIES) {
+				memc_log (ctx, __LINE__, "memc_read: got wrong packet id: %d, %d was awaited", header.req_id, ctx->count);
 				retries++;
 				/* Not our reply packet */
 				continue;
@@ -256,6 +258,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 		}
 		if (ctx->protocol != UDP_TEXT) {
 			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+				memc_log (ctx, __LINE__, "memc_read: timeout waiting reply");
 				return SERVER_TIMEOUT;
 			}
 			r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
@@ -266,13 +269,16 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			read_buf[r] = 0;
 			r = memc_parse_header (read_buf, &datalen, &p);
 			if (r < 0) {
+				memc_log (ctx, __LINE__, "memc_read: cannot parse memcached reply");
 				return SERVER_ERROR;
 			}
 			else if (r == 0) {
+				memc_log (ctx, __LINE__, "memc_read: record does not exists");
 				return NOT_EXISTS;
 			}
 
 			if (datalen != params[i].bufsize) {
+				memc_log (ctx, __LINE__, "memc_read: user's buffer is too small: %zd, %zd required", params[i].bufsize, datalen);
 				return WRONG_LENGTH;
 			}
 
@@ -293,6 +299,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			}
 		}
 		else {
+			memc_log (ctx, __LINE__, "memc_read: read(v) failed: %d, %m", r);
 			return SERVER_ERROR;
 		}
 		/* Read data from multiply datagrams */
@@ -302,6 +309,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			retries = 0;
 			while (ctx->protocol == UDP_TEXT) {
 				if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+					memc_log (ctx, __LINE__, "memc_read: timeout waiting reply");
 					return SERVER_TIMEOUT;
 				}
 				iov[0].iov_base = &header;
@@ -309,9 +317,11 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				iov[1].iov_base = read_buf;
 				iov[1].iov_len = READ_BUFSIZ;
 				if ((r = readv (ctx->sock, iov, 2)) == -1) {
+					memc_log (ctx, __LINE__, "memc_read: read(v) failed: %d, %m", r);
 					return SERVER_ERROR;
 				}
 				if (header.req_id != ctx->count && retries < MAX_RETRIES) {
+					memc_log (ctx, __LINE__, "memc_read: got wrong packet id: %d, %d was awaited", header.req_id, ctx->count);
 					retries ++;
 					/* Not our reply packet */
 					continue;
@@ -319,6 +329,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			}
 			if (ctx->protocol != UDP_TEXT) {
 				if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+					memc_log (ctx, __LINE__, "memc_read: timeout waiting reply");
 					return SERVER_TIMEOUT;
 				}
 				r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
@@ -405,6 +416,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		retries = 0;
 		while (ctx->protocol == UDP_TEXT) {
 			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+				memc_log (ctx, __LINE__, "memc_write: timeout waiting reply");
 				return SERVER_TIMEOUT;
 			}
 			iov[0].iov_base = &header;
@@ -423,6 +435,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		}
 		if (ctx->protocol != UDP_TEXT) {
 			if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+				memc_log (ctx, __LINE__, "memc_write: timeout waiting reply");
 				return SERVER_TIMEOUT;
 			}
 			r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
