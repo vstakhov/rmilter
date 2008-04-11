@@ -78,7 +78,7 @@ parse_flag (const char *str)
 {
 	if (!str || !*str) return -1;
 
-	if (*str == '1' && *(str + 1) == '\0') {
+	if ((*str == 'y' || *str == 'Y') && *(str + 1) == '\0') {
 		return 1;
 	}
 
@@ -89,7 +89,7 @@ parse_flag (const char *str)
 		return 1;		
 	}
 
-	if (*str == '0' && *(str + 1) == '\0') {
+	if ((*str == 'n' || *str == 'N') && *(str + 1) == '\0') {
 		return 0;
 	}
 
@@ -202,7 +202,7 @@ tempfail						return TEMPFAIL;
 ;								return SEMICOLON;
 ,								return COMMA;
 =								return EQSIGN;
-yes|YES|no|NO|0|1				yylval.flag=parse_flag(yytext); return FLAG;
+yes|YES|no|NO|[yY]|[nN]			yylval.flag=parse_flag(yytext); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
 \".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;
