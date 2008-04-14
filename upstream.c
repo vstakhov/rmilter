@@ -13,8 +13,16 @@
 #include <inttypes.h>
 #endif
 #include <limits.h>
+#ifdef WITH_DEBUG
+#include <syslog.h>
+#endif
 #include "upstream.h"
 
+#ifdef WITH_DEBUG
+#define msg_debug(args...) syslog(LOG_DEBUG, ##args)
+#else
+#define msg_debug(args...) do {} while(0)
+#endif
 
 #ifdef _THREAD_SAFE
 pthread_rwlock_t upstream_mtx = PTHREAD_RWLOCK_INITIALIZER;
@@ -88,6 +96,7 @@ check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t re
 {
 	if (up->dead) {
 		if (now - up->time >= revive_timeout) {
+			msg_debug ("check_upstream: reviving upstream after %ld seconds", (long int) now - up->time);
 			U_WLOCK ();
 			up->dead = 0;
 			up->errors = 0;
@@ -98,6 +107,7 @@ check_upstream (struct upstream *up, time_t now, time_t error_timeout, time_t re
 	}
 	else {
 		if (now - up->time >= error_timeout && up->errors >= max_errors) {
+			msg_debug ("check_upstream: marking upstreams as dead after %ld errors", (long int) up->errors);
 			U_WLOCK ();
 			up->dead = 1;
 			up->time = now;
@@ -149,6 +159,7 @@ revive_all_upstreams (void *ups, size_t members, size_t msize)
 	u_char *p;
 
 	U_WLOCK ();
+	msg_debug ("revive_all_upstreams: starting reviving all upstreams");
 	p = ups;
 	for (i = 0; i < members; i++) {
 		cur = (struct upstream *)p;
@@ -187,6 +198,8 @@ rescan_upstreams (void *ups, size_t members, size_t msize, time_t now, time_t er
 		revive_all_upstreams (ups, members, msize);
 		alive = members;
 	}
+
+	msg_debug ("rescan_upstreams: %d upstreams alive", alive);
 	
 	return alive;
 
@@ -261,6 +274,7 @@ get_random_upstream (void *ups, size_t members, size_t msize, time_t now, time_t
 	
 	alive = rescan_upstreams (ups, members, msize, now, error_timeout, revive_timeout, max_errors);
 	selected = rand () % alive;
+	msg_debug ("get_random_upstream: return upstream with number %d of %d", selected, alive);
 	
 	return get_upstream_by_number (ups, members, msize, selected); 
 }
@@ -289,6 +303,7 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 	h = (h >> 16) & 0x7fff;
 #endif
 	h %= members;
+	msg_debug ("get_upstream_by_hash: try to select upstream number %d of %zd", h, members);
 
 	for (;;) {
 		p = (char *)ups + msize * h;
@@ -305,8 +320,10 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 		h += ht;
 #endif
 		h %= members;
+		msg_debug ("get_upstream_by_hash: try to select upstream number %d of %zd, tries: %d", h, members, tries);
 		tries ++;
 		if (tries > MAX_TRIES) {
+			msg_debug ("get_upstream_by_hash: max tries exceed, returning NULL");
 			return NULL;
 		}
 	}
@@ -361,6 +378,7 @@ get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, t
 		}
 		U_UNLOCK ();
 	}
+	msg_debug ("get_upstream_round_robin: selecting upstream with weight %d", max_weight);
 
 	return selected;
 }
@@ -392,6 +410,7 @@ get_upstream_master_slave (void *ups, size_t members, size_t msize, time_t now, 
 		p += msize;
 	}
 	U_UNLOCK ();
+	msg_debug ("get_upstream_master_slave: selecting upstream with priority %d", max_weight);
 
 	return selected;
 }
@@ -494,6 +513,7 @@ get_upstream_by_hash_ketama (void *ups, size_t members, size_t msize, time_t now
 
 #undef U_LOCK
 #undef U_UNLOCK
+#undef msg_debug
 /* 
  * vi:ts=4 
  */

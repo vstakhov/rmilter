@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 
+
 struct upstream {
 	unsigned int errors;
 	time_t time;
