@@ -193,13 +193,11 @@ check_message_id (struct mlfi_priv *priv, char *header)
  		msg_warn ("check_id: id_prefix(%s) too long for memcached key, error in configure", cfg->id_prefix);
  	}
 
-	strlcpy (c, md5_out, sizeof (cur_param.key) - s);
-
 	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_id,
 										cfg->memcached_servers_id_num, sizeof (struct memcached_server),
 										(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time, 
 										cfg->memcached_dead_time, cfg->memcached_maxerrors,
-										(char *)md5_out, strlen (md5_out));
+										(char *)cur_param.key, strlen (cur_param.key));
 	if (selected == NULL) {
 		msg_err ("mlfi_data: cannot get memcached upstream for storing message id");
 		return;
