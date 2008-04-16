@@ -209,7 +209,8 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	    	return -1;
 		}
 
-		r = snprintf(buf, sizeof(buf), "STREAM");
+		snprintf(path, sizeof(path), "stream");
+		r = snprintf(buf, sizeof(buf), "STREAM\n");
 
 		if (write(s, buf, r) != r) {
 	    	msg_warn("clamav: write %s, %d: %m", srv->name, errno);
@@ -314,7 +315,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 
     buf[0] = 0;
 
-    while ((r = read(s, buf, MAXPATHLEN)) > 0) {
+    while ((r = read(s, buf, sizeof(buf))) > 0) {
 		buf[r] = 0;
     }
 
