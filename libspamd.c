@@ -4,7 +4,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef HAVE_PATH_MAX
+#include <limits.h>
+#endif
+#ifdef HAVE_MAXPATHLEN
 #include <sys/param.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,7 +126,14 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 static int 
 spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_mark[2], struct config_file *cfg, char **symbols)
 {
-    char buf[MAXPATHLEN + 10], *c, *err;
+#ifdef HAVE_PATH_MAX
+	char buf[PATH_MAX + 10];
+#elif defined(HAVE_MAXPATHLEN)
+	char buf[MAXPATHLEN + 10];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
+	char *c, *err;
     struct sockaddr_un server_un;
     struct sockaddr_in server_in;
     int s, r, fd, ofl;
@@ -200,8 +212,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 		return -1;		
 	}
 #else 
-	char tmp_buf[BUFSIZ];
-	while ((r = read (fd, buf, BUFSIZ)) > 0) {
+	while ((r = read (fd, buf, sizeof (buf))) > 0) {
 		write (s, buf, r);
 	}
 #endif
@@ -223,7 +234,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 
     buf[0] = 0;
 
-    while ((r = read(s, buf, MAXPATHLEN)) > 0) {
+    while ((r = read(s, buf, sizeof (buf))) > 0) {
 		buf[r] = 0;
     }
 

@@ -22,7 +22,12 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef HAVE_PATH_MAX
+#include <limits.h>
+#endif
+#ifdef HAVE_MAXPATHLEN
 #include <sys/param.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -140,26 +145,33 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 static int 
 clamscan_socket(const char *file, const struct clamav_server *srv, char *strres, size_t strres_len, struct config_file *cfg)
 {
-    char path[MAXPATHLEN], buf[MAXPATHLEN + 10], *c;
-    struct sockaddr_un server_un;
-    struct sockaddr_in server_in, server_w;
-    int s, sw, r, fd, port = 0, path_len;
+	char *c;
+#ifdef HAVE_PATH_MAX
+	char path[PATH_MAX], buf[PATH_MAX + 10];
+#elif defined(HAVE_MAXPATHLEN)
+	char path[MAXPATHLEN], buf[MAXPATHLEN + 10];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
+	struct sockaddr_un server_un;
+	struct sockaddr_in server_in, server_w;
+	int s, sw, r, fd, port = 0, path_len, ofl;
 	struct stat sb;
 
-    *strres = '\0';
+	*strres = '\0';
 
     /* somebody doesn't need reply... */
     if (!srv)
 		return 0;
 
     if (srv->sock_type == AF_LOCAL) {
-		/* unix socket, use 'SCAN <filename>' command on clamd */
-		snprintf(buf, sizeof(buf), "SCAN %s\n", file);
-
 		if (!realpath(file, path)) {
 	    	msg_warn("clamav: realpath, %d: %m", errno);
 	    	return -1;
 		}
+		/* unix socket, use 'SCAN <filename>' command on clamd */
+		r = snprintf(buf, sizeof(buf), "SCAN %s\n", path);
+
 		memset(&server_un, 0, sizeof(server_un));
 		server_un.sun_family = AF_UNIX;
 		strncpy(server_un.sun_path, srv->sock.unix_path, sizeof(server_un.sun_path));
@@ -173,7 +185,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	    	close(s);
 	    	return -1;
 		}
-		if (write(s, buf, strlen(buf)) != strlen(buf)) {
+		if (write(s, buf, r) != r) {
 	    	msg_warn("clamav: write %s, %d: %m", srv->sock.unix_path, errno);
 	    	close(s);
 	    	return -1;
@@ -196,10 +208,10 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	    	close(s);
 	    	return -1;
 		}
-		snprintf(path, MAXPATHLEN, "stream");
-		snprintf(buf, MAXPATHLEN, "STREAM");
 
-		if (write(s, buf, strlen(buf)) != strlen(buf)) {
+		r = snprintf(buf, sizeof(buf), "STREAM");
+
+		if (write(s, buf, r) != r) {
 	    	msg_warn("clamav: write %s, %d: %m", srv->name, errno);
 	    	close(s);
 	    	return -1;
@@ -213,11 +225,12 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		/* clamav must reply with PORT to connect */
 
 		buf[0] = 0;
-		if ((r = read(s, buf, MAXPATHLEN)) > 0)
+		if ((r = read(s, buf, sizeof(buf))) > 0)
 	    	buf[r] = 0;
 
-		if (strncmp(buf, "PORT ", 5) == 0)
+		if (strncmp(buf, "PORT ", sizeof("PORT ") - 1) == 0) {
 	    	port = atoi(buf + 5);
+		}
 
 		if (port < 1024) {
 	    	msg_warn("clamav: can't get port number for data stream, got: %s", buf);
@@ -233,6 +246,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	    	close(s);
 	    	return -1;
 		}
+
 		memset(&server_w, 0, sizeof(server_w));
 		server_w.sin_family = AF_INET;
 		server_w.sin_port = htons(port);
@@ -255,8 +269,13 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	    	close(s);
 			return -1;
 		}
+
+		/* Set blocking again */
+		ofl = fcntl(sw, F_GETFL, 0);
+    	fcntl(sw, F_SETFL, ofl & (~O_NONBLOCK));
+
 		#if defined(FREEBSD) || defined(HAVE_SENDFILE)
-		if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
+		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
 			msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
 			close(fd);
 			close(s);
@@ -264,14 +283,16 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		}
 		#elif defined(LINUX)
 		off_t off = 0;
-		if (sendfile(s, fd, &off, sb.st_size) == -1) {
+		if (sendfile(sw, fd, &off, sb.st_size) == -1) {
 			msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
 			close(fd);
 			close(s);
 			return -1;		
 		}
-		#else 
-		#error "sendfile required"
+		#else
+		while ((r = read (fd, buf, sizeof(buf))) > 0) {
+			write (sw, buf, r);
+		}
 		#endif
 		close(fd);
 		shutdown(sw, SHUT_RDWR);

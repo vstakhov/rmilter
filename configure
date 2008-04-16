@@ -9,7 +9,7 @@ OS=""
 LOCALBASE=/usr/local
 PREFIX=$LOCALBASE
 
-VERSION=1.5.3
+VERSION=1.5.4
 DCC_VER=1.2.74
 COMPAT_DIR="./compat"
 
@@ -34,6 +34,12 @@ MAKEFILE="Makefile"
 MAKEFILE_IN="Makefile.in"
 
 TARGETS="lex build link"
+
+cleanup()
+{
+	rm -f autotest.c
+	rm -f autotest
+}
 
 check_compiler()
 {	
@@ -106,12 +112,12 @@ check_function()
 	$GCC $PTHREAD_CFLAGS $CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS  autotest.c >>config.log 2>&1
 	if [ $? -eq 0 ] ; then 
 		echo "found"
-		rm -f autotest.c
+		cleanup
 		echo "-> OK" >> config.log
 		return 0
 	else
 		echo "not found"
-		rm -f autotest.c
+		cleanup
 		echo "-> FAILED" >> config.log
 		return 1
 	fi
@@ -129,14 +135,14 @@ check_include()
 	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
 	if [ $? -eq 0 ] ; then 
 		echo "found"
-		rm -f autotest.c
+		cleanup
 		echo "-> OK" >> config.log
 		_CFLAG=`echo "-DHAVE_$INCLUDE" | sed -e 's/[./]/_/g' | tr '[:lower:]' '[:upper:]'`
 		CFLAGS="$CFLAGS $_CFLAG"
 		return 0
 	else
 		echo "not found"
-		rm -f autotest.c
+		cleanup
 		echo "-> FAILED" >> config.log
 		return 1
 	fi
@@ -159,12 +165,12 @@ check_macro()
 	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
 	if [ $? -eq 0 ] ; then 
 		echo "found"
-		rm -f autotest.c
+		cleanup
 		echo "-> OK" >> config.log
 		return 0
 	else
 		echo "not found"
-		rm -f autotest.c
+		cleanup
 		echo "-> FAILED" >> config.log
 		return 1
 	fi
@@ -186,12 +192,12 @@ check_lib()
 	if [ $? -eq 0 ] ; then 
 		echo "found"
 		LIBS="$LIBS -l$LIB"
-		rm -f autotest.c
+		cleanup
 		echo "-> OK" >> config.log
 		return 0
 	else
 		echo "not found"
-		rm -f autotest.c
+		cleanup
 		echo "-> FAILED" >> config.log
 		return 1
 	fi
@@ -375,6 +381,18 @@ check_macro "SLIST_FOREACH_SAFE" "sys/queue.h"
 if [ $? -eq 1 ] ; then 
 	cp $COMPAT_DIR/queue.h .
 	CFLAGS="$CFLAGS -DOWN_QUEUE_H"
+fi
+
+check_macro "PATH_MAX" "limits.h"
+if [ $? -eq 1 ] ; then
+	check_macro "MAXPATHLEN" "sys/param.h"
+	if [ $? -eq 1 ] ; then
+		CFLAGS="$CFLAGS -DHAVE_MAXPATHLEN -DMAXPATHLEN=4096"
+	else
+		CFLAGS="$CFLAGS -DHAVE_MAXPATHLEN"
+	fi
+else
+	CFLAGS="$CFLAGS -DHAVE_PATH_MAX"
 fi
 
 if [ "F$dcc" = "Fyes" ] ; then
