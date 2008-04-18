@@ -11,18 +11,18 @@ lex: $(LEX_SRC) $(YACC_SRC)
 
 build: 
 	@for src in $(SOURCES) ; do \
-	echo $(CC) $(CFLAGS) $(PTHREAD_FLAGS) -c $$src ; \
-	$(CC) $(CFLAGS) $(PTHREAD_FLAGS) -c $$src  || exit ; \
+	echo $(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c $$src ; \
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c $$src  || exit ; \
 	done
 
 link:
-	$(CC) $(PTHREAD_FLAGS) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $(EXEC)
+	$(CC) $(PTHREAD_LDFLAGS) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $(EXEC)
 
 memctest: upstream.c memcached.c memcached-test.c
-	$(CC) $(CFLAGS) $(PTHREAD_FLAGS) -c upstream.c
-	$(CC) $(CFLAGS) $(PTHREAD_FLAGS) -c memcached.c
-	$(CC) $(CFLAGS) $(PTHREAD_FLAGS) -c memcached-test.c
-	$(CC) $(PTHREAD_FLAGS) $(LD_PATH) upstream.o memcached.o memcached-test.o $(LIBS) -o memcached-test
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c upstream.c
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c memcached.c
+	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c memcached-test.c
+	$(CC) $(OPT_FLAGS) $(PTHREAD_LDFLAGS) $(LD_PATH) upstream.o memcached.o memcached-test.o $(LIBS) -o memcached-test
 
 install:
 	$(INSTALL) -b $(EXEC) $(PREFIX)/sbin/$(EXEC)
@@ -38,6 +38,7 @@ clean:
 
 dist-clean: clean
 	rm -f Makefile
+	rm -f config.log
 
 creategroup:
 	@echo "Create group $(RMILTER_GROUP) before installing!" 
