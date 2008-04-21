@@ -23,7 +23,6 @@ struct radix_node_s {
 
 typedef struct {
     radix_node_t  *root;
-    char              *start;
     size_t             size;
 } radix_tree_t;
 
@@ -34,6 +33,6 @@ int radix32tree_insert(radix_tree_t *tree,
 int radix32tree_delete(radix_tree_t *tree,
     uint32_t key, uint32_t mask);
 unsigned char radix32tree_find(radix_tree_t *tree, uint32_t key);
-
+void radix_tree_free(radix_tree_t *tree);
 
 #endif

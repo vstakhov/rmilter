@@ -538,10 +538,10 @@ free_config (struct config_file *cfg)
 		free (addr_cur);
 	}
 
-	radix32tree_delete (cfg->grey_whitelist_tree, 0, 0);
+	radix_tree_free (cfg->grey_whitelist_tree);
 	free (cfg->grey_whitelist_tree);
 	
-	radix32tree_delete (cfg->spamd_whitelist, 0, 0);
+	radix_tree_free (cfg->spamd_whitelist);
 	free (cfg->spamd_whitelist);
 	
 	if (cfg->spamd_reject_message) {

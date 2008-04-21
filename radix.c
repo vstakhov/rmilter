@@ -4,7 +4,6 @@
 
 static void *radix_alloc(radix_tree_t *tree);
 
-
 radix_tree_t *
 radix_tree_create()
 {
@@ -15,7 +14,6 @@ radix_tree_create()
         return NULL;
     }
 
-    tree->start = NULL;
     tree->size = 0;
 
     tree->root = radix_alloc(tree);
@@ -43,7 +41,7 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
 
     node = tree->root;
     next = tree->root;
-
+	/* Find a place in trie to insert */
     while (bit & mask) {
         if (key & bit) {
             next = node->right;
@@ -68,7 +66,7 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
         node->value = value;
         return 0;
     }
-
+	/* Inserting value in trie creating all path components */
     while (bit & mask) {
         next = radix_alloc(tree);
         if (next == NULL) {
@@ -195,22 +193,50 @@ radix_alloc(radix_tree_t *tree)
 {
     char  *p;
 
-    if (tree->size < sizeof(radix_node_t)) {
-        tree->start = malloc(sizeof(radix_node_t));
-        if (tree->start == NULL) {
-            return NULL;
-        }
+	p = malloc(sizeof(radix_node_t));
 
-        tree->size = sizeof(radix_node_t);
-    }
-
-    p = tree->start;
-    tree->start += sizeof(radix_node_t);
-    tree->size -= sizeof(radix_node_t);
+	tree->size += sizeof(radix_node_t);
 
     return p;
 }
 
+void
+radix_tree_free(radix_tree_t *tree) 
+{
+	radix_node_t  *node, *tmp;
+
+	node = tree->root;
+
+	for (;;) {
+		/* Traverse to the end of trie */
+		while (node->left || node->right) {
+			if (node->left) {
+				node = node->left;
+			}
+			else {
+				node = node->right;
+			}
+		}
+		/* Found leaf node, free it */
+		if (node->parent->right == node) {
+            node->parent->right = NULL;
+
+        } else {
+            node->parent->left = NULL;
+        }
+
+		tmp = node;
+		/* Go up */
+		node = node->parent;
+		free (tmp);
+		
+		/* We are at the trie root and we have no more leaves, end of algorithm */
+		if (!node->left && !node->right && !node->parent) {
+			free (node);
+			break;
+		}
+	}
+}
 /* 
  * vi:ts=4 
  */
