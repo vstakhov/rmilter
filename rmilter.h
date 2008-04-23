@@ -83,7 +83,13 @@ struct mlfi_priv {
 		size_t len;
 	} priv_cur_body;
     char mlfi_id[32];
-    char file[PATH_MAX];
+	#ifdef HAVE_PATH_MAX
+	char file[PATH_MAX];
+#elif defined(HAVE_MAXPATHLEN)
+	char file[MAXPATHLEN];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
     FILE *fileh;
 	int filed;
 	struct timeval conn_tm;

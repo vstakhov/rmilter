@@ -696,7 +696,13 @@ static sfsistat
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
     struct mlfi_priv *priv;
-    char buf[PATH_MAX];
+#ifdef HAVE_PATH_MAX
+	char buf[PATH_MAX];
+#elif defined(HAVE_MAXPATHLEN)
+	char buf[MAXPATHLEN];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
     int fd;
 	struct rule *act;
 
@@ -779,7 +785,13 @@ mlfi_eom(SMFICTX * ctx)
     struct mlfi_priv *priv;
     int r;
 	double spamd_marks[2];
-    char strres[PATH_MAX], buf[PATH_MAX];
+#ifdef HAVE_PATH_MAX
+	char strres[PATH_MAX], buf[PATH_MAX];
+#elif defined(HAVE_MAXPATHLEN)
+	char strres[MAXPATHLEN], buf[MAXPATHLEN ];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
     char *id;
     struct stat sb;
 	struct action *act;
@@ -889,7 +901,7 @@ mlfi_eom(SMFICTX * ctx)
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0) {
 		msg_debug ("mlfi_eom: check clamav");
-	    r = check_clamscan (priv->file, strres, PATH_MAX);
+	    r = check_clamscan (priv->file, strres, sizeof (strres));
     	if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
 			CFG_UNLOCK();
