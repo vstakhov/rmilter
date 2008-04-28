@@ -403,8 +403,7 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 			yywarn ("add_ip_radix: invalid netmask value: %d", k);
 			k = 32;
 		}
-		mask = pow (2, k) - 1;
-		mask <<= 32 - k;
+		mask = ((1 << k) - 1) << (32 - k);
 	}
 
 	if (inet_aton (token, &ina) == 0) {
@@ -412,7 +411,7 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 		return 0;
 	}
 
-	ip = (uint32_t)ina.s_addr;
+	ip = ntohl((uint32_t)ina.s_addr);
 	if (radix32tree_insert (tree, ip, mask, 1) == -1) {
 		yyerror ("add_ip_radix: cannot insert ip to tree");
 		return 0;

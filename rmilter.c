@@ -253,7 +253,7 @@ check_greylisting (struct mlfi_priv *priv)
 	size_t s;
 
 	/* Check whitelist */
-	if (radix32tree_find (cfg->grey_whitelist_tree, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+	if (radix32tree_find (cfg->grey_whitelist_tree, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
 		if (cfg->awl_enable && awl_check ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec) == 1) {
 			/* Auto whitelisted */
 			return GREY_WHITELISTED;
@@ -919,7 +919,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict
-		&& radix32tree_find (cfg->spamd_whitelist, (uint32_t)priv->priv_addr.sin_addr.s_addr) == RADIX_NO_VALUE) {
+		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
 		msg_debug ("mlfi_eom: check spamd");
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {
