@@ -208,6 +208,12 @@ radix_tree_free(radix_tree_t *tree)
 	node = tree->root;
 
 	for (;;) {
+		/* We are at the trie root and we have no more leaves, end of algorithm */
+		if (!node->left && !node->right && !node->parent) {
+			free (node);
+			break;
+		}
+
 		/* Traverse to the end of trie */
 		while (node->left || node->right) {
 			if (node->left) {
@@ -229,12 +235,6 @@ radix_tree_free(radix_tree_t *tree)
 		/* Go up */
 		node = node->parent;
 		free (tmp);
-		
-		/* We are at the trie root and we have no more leaves, end of algorithm */
-		if (!node->left && !node->right && !node->parent) {
-			free (node);
-			break;
-		}
 	}
 }
 /* 
