@@ -1,3 +1,4 @@
+
 all: $(TARGETS)
 
 dcc: dcc-$(DCC_VER).tar.gz
@@ -5,26 +6,13 @@ dcc: dcc-$(DCC_VER).tar.gz
 	cd dcc-dccd-$(DCC_VER) && ./configure && make && \
 	cd .. )
 
-lex: $(LEX_SRC) $(YACC_SRC)
-	$(LEX) -o$(LEX_OUTPUT) $(LEX_SRC)
-	$(YACC) -d -o $(YACC_OUTPUT) $(YACC_SRC)
-
-build: 
-	@for src in $(SOURCES) ; do \
-	echo $(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c $$src ; \
-	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c $$src  || exit ; \
-	done
-
-link:
-	$(CC) $(PTHREAD_LDFLAGS) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $(EXEC)
-
 memctest: upstream.c memcached.c memcached-test.c
 	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c upstream.c
 	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c memcached.c
 	$(CC) $(OPT_FLAGS) $(CFLAGS) $(PTHREAD_CFLAGS) -c memcached-test.c
 	$(CC) $(OPT_FLAGS) $(PTHREAD_LDFLAGS) $(LD_PATH) upstream.o memcached.o memcached-test.o $(LIBS) -o memcached-test
 
-install:
+install: $(EXEC)
 	$(INSTALL) -b $(EXEC) $(PREFIX)/sbin/$(EXEC)
 	$(INSTALL) -v $(EXEC).sh $(PREFIX)/etc/rc.d
 	$(INSTALL) -m0644 rmilter-grey.conf $(PREFIX)/etc/rmilter-grey.conf.sample
