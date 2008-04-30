@@ -349,6 +349,7 @@ get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, t
 
 	p = ups;
 	max_weight = 0;
+	selected = (struct upstream *)p;
 	U_RLOCK ();
 	for (i = 0; i < members; i++) {
 		cur = (struct upstream *)p;
@@ -398,6 +399,7 @@ get_upstream_master_slave (void *ups, size_t members, size_t msize, time_t now, 
 
 	p = ups;
 	max_weight = 0;
+	selected = (struct upstream *)p;
 	U_RLOCK ();
 	for (i = 0; i < members; i++) {
 		cur = (struct upstream *)p;

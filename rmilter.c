@@ -924,9 +924,6 @@ mlfi_eom(SMFICTX * ctx)
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {
 			msg_warn ("(mlfi_eom, %s) spamdscan() failed, %d", priv->mlfi_id, r);
-			CFG_UNLOCK();
-			(void)mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
 		}
 		else if (r == 1) {
 			msg_warn ("(mlfi_eom, %s) rejecting spam [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
