@@ -953,7 +953,9 @@ mlfi_close(SMFICTX * ctx)
 	msg_debug ("mlfi_close: cleanup");
 
 	if (priv->fileh) {
-		fclose (priv->fileh);
+		if (fclose (priv->fileh) != 0) {
+			msg_err ("mlfi_close: close failed (%d), %m", errno);
+		}
 		priv->fileh = NULL;
     }
     if (*priv->file) {
@@ -986,7 +988,9 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 
     /* release message-related memory */
     if (priv->fileh) {
-		fclose (priv->fileh);
+		if (fclose (priv->fileh) != 0) {
+			msg_err ("mlfi_close: close failed (%d), %m", errno);
+		}
 		priv->fileh = NULL;
     }
     if (*priv->file) {
