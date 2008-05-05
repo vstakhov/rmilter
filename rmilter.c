@@ -772,6 +772,7 @@ mlfi_eoh(SMFICTX * ctx)
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -798,6 +799,7 @@ mlfi_eom(SMFICTX * ctx)
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -827,6 +829,7 @@ mlfi_eom(SMFICTX * ctx)
 	act = rules_check (priv->matched_rules);
 	if (act != NULL && act->type != ACTION_ACCEPT) {
 		CFG_UNLOCK ();
+		(void)mlfi_cleanup (ctx, false);
 		return set_reply (ctx, act);
 	}
 	/*
@@ -949,6 +952,14 @@ mlfi_close(SMFICTX * ctx)
 	}
 	msg_debug ("mlfi_close: cleanup");
 
+	if (priv->fileh) {
+		fclose (priv->fileh);
+		priv->fileh = NULL;
+    }
+    if (*priv->file) {
+		unlink (priv->file);
+    }
+
     free(priv);
     smfi_setpriv(ctx, NULL);
 
@@ -974,14 +985,12 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	msg_debug ("mlfi_cleanup: cleanup");
 
     /* release message-related memory */
-    priv->mlfi_id[0] = '\0';
     if (priv->fileh) {
 		fclose (priv->fileh);
 		priv->fileh = NULL;
     }
     if (*priv->file) {
 		unlink (priv->file);
-		*priv->file = '\0';
     }
     /* return status */
     return rstat;

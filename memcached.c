@@ -147,6 +147,8 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 	
 	if ((r = connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in))) == -1) {
 		if (errno != EINPROGRESS) {
+			close (ctx->sock);
+			ctx->sock = -1;
 			memc_log (ctx, __LINE__, "memc_make_tcp_sock: connect() failed: %m");
 			return -1;
 		}
@@ -158,6 +160,7 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 	else {
 		memc_log (ctx, __LINE__, "memc_make_tcp_sock: poll() timeout");
 		close (ctx->sock);
+		ctx->sock = -1;
 		return -1;
 	}
 }
