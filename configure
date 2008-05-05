@@ -27,12 +27,13 @@ CFLAGS="$CFLAGS -DMVERSION=\\\"${VERSION}\\\" -DHASH_COMPAT"
 LDFLAGS="$LDFLAGS -L/usr/lib -L${LOCALBASE}/lib"
 PTHREAD_CFLAGS="-D_THREAD_SAFE"
 OPT_FLAGS="-O -pipe -fno-omit-frame-pointer"
-DEPS="awl.h cfg_file.h libclamc.h libspamd.h md5.h memcached.h queue.h radix.h ratelimit.h regexp.h rmilter.h spf.h strlcpy.h upstream.h ${LEX_OUTPUT} ${YACC_OUTPUT}"
+DEPS="awl.h cfg_file.h libclamc.h libspamd.h memcached.h radix.h ratelimit.h regexp.h rmilter.h spf.h upstream.h ${LEX_OUTPUT} ${YACC_OUTPUT}"
 EXEC=rmilter
 USER=postfix
 GROUP=postfix
 INSTALL="/usr/bin/install -v"
 MKDIR="/usr/bin/install -v -d"
+MANPATH="${PREFIX}/share/man"
 
 MAKEFILE="Makefile"
 MAKEFILE_IN="Makefile.in"
@@ -312,6 +313,8 @@ RMILTER_GROUP=$GROUP
 TARGETS=$TARGETS
 # Common dependenses
 DEPS=$DEPS
+# Path to install manual page
+MANPATH=$MANPATH
 
 END
 	# Write build targets to makefile
