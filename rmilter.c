@@ -235,7 +235,9 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		memc_close_ctx (&mctx);
+		return;
 	}
+	memc_close_ctx (&mctx);
 
 }
 
