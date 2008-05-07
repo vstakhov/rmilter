@@ -95,6 +95,8 @@ struct mlfi_priv {
 	struct timeval conn_tm;
 	struct rule* matched_rules[STAGE_MAX];
 	short int strict;
+	/* Config serial */
+	short int serial;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

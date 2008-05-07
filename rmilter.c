@@ -502,6 +502,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
     }
     memset(priv, '\0', sizeof (struct mlfi_priv));
 	priv->strict = 1;
+	priv->serial = cfg->serial;
 
 	priv->priv_cur_rcpt = NULL;
 	priv->priv_rcptcount = 0;
@@ -827,12 +828,17 @@ mlfi_eom(SMFICTX * ctx)
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_REJECT;
 	}
-	msg_debug ("mlfi_eom: checking regexp rules");
-	act = rules_check (priv->matched_rules);
-	if (act != NULL && act->type != ACTION_ACCEPT) {
-		CFG_UNLOCK ();
-		(void)mlfi_cleanup (ctx, false);
-		return set_reply (ctx, act);
+	if (cfg->serial == priv->serial) {
+		msg_debug ("mlfi_eom: checking regexp rules");
+		act = rules_check (priv->matched_rules);
+		if (act != NULL && act->type != ACTION_ACCEPT) {
+			CFG_UNLOCK ();
+			(void)mlfi_cleanup (ctx, false);
+			return set_reply (ctx, act);
+		}
+	}
+	else {
+		msg_warn ("mlfi_eom: config was reloaded, not checking rules");
 	}
 	/*
 	 * Is the sender address SPF-compliant?

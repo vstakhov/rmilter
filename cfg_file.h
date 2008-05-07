@@ -250,6 +250,9 @@ struct config_file {
 	uint16_t awl_max_hits;
 	unsigned int awl_ttl;
 	size_t awl_pool_size;
+
+	/* Number of config reloads */
+	short int serial;
 };
 
 int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);

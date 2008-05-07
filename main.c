@@ -107,12 +107,15 @@ reload_thread (void *unused)
 			CFG_UNLOCK();
 			fclose (f);
 			msg_warn ("reload_thread: cannot parse config file %s", cfg->cfg_name);
+			free_config (new_cfg);
+			free (new_cfg);
 			cfg = tmp;
 			continue;
 		}
 
 		fclose (f);
 		new_cfg->cfg_name = cfg->cfg_name;
+		new_cfg->serial = cfg->serial + 1;
 
 		/* Sort spf domains array */
 		qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);

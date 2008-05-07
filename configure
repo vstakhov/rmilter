@@ -9,7 +9,7 @@ OS=""
 LOCALBASE=/usr/local
 PREFIX=$LOCALBASE
 
-VERSION=1.5.5
+VERSION=1.5.6
 DCC_VER=1.2.74
 COMPAT_DIR="./compat"
 
@@ -217,6 +217,7 @@ check_os()
 				CFLAGS="${CFLAGS} -DFREEBSD"
 				INSTALL="/usr/bin/install -C -S -v"
 				MKDIR="/usr/bin/install -d -v"
+				MANPATH="${PREFIX}/man"
 				case `uname -r` in
 				4.*)
 					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-lc_r" ;;
@@ -333,10 +334,10 @@ ${o}: \$(DEPS) ${SO}
 END
 	done
 	cat >> $MAKEFILE << END
-${LEX_OUTPUT}: ${LEX_SRC} ${YACC_OUTPUT}
+${LEX_OUTPUT}: cfg_file.h ${LEX_SRC} ${YACC_OUTPUT}
 	\$(LEX) -o${LEX_OUTPUT} ${LEX_SRC}
 
-${YACC_OUTPUT}: ${YACC_SRC}
+${YACC_OUTPUT}: cfg_file.h ${YACC_SRC}
 	\$(YACC) -d -o ${YACC_OUTPUT} ${YACC_SRC}
 END
 
