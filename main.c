@@ -114,8 +114,8 @@ reload_thread (void *unused)
 		}
 
 		fclose (f);
-		new_cfg->cfg_name = cfg->cfg_name;
-		new_cfg->serial = cfg->serial + 1;
+		new_cfg->cfg_name = tmp->cfg_name;
+		new_cfg->serial = tmp->serial + 1;
 
 		/* Sort spf domains array */
 		qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
