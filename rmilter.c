@@ -713,8 +713,11 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		return SMFIS_TEMPFAIL;
 	}
 
-	if (strncmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
+	if (strncasecmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
 		check_message_id (priv, headerv);
+	}
+	else if (strncasecmp (headerf, "Return-Path", sizeof ("Return-Path") - 1) == 0) {
+		priv->has_return_path = 1;
 	}
     /*
      * Create temporary file, if this is first call of mlfi_header(), and it
@@ -777,8 +780,11 @@ mlfi_eoh(SMFICTX * ctx)
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
-
-    fprintf (priv->fileh, "\n");
+	
+	if (!priv->has_return_path) {
+		fprintf (priv->fileh, "Return-Path: %s\r\n", priv->priv_from);
+	}
+    fprintf (priv->fileh, "\r\n");
     return SMFIS_CONTINUE;
 }
 

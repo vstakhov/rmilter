@@ -97,6 +97,7 @@ struct mlfi_priv {
 	short int strict;
 	/* Config serial */
 	short int serial;
+	short int has_return_path;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))
