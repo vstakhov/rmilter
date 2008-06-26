@@ -782,7 +782,7 @@ mlfi_eoh(SMFICTX * ctx)
 	}
 	
 	if (!priv->has_return_path) {
-		fprintf (priv->fileh, "Return-Path: %s\r\n", priv->priv_from);
+		fprintf (priv->fileh, "Return-Path: <%s>\r\n", priv->priv_from);
 	}
     fprintf (priv->fileh, "\r\n");
     return SMFIS_CONTINUE;
