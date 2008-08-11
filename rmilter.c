@@ -821,18 +821,8 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
 	CFG_RLOCK();
-	/* Update rate limits for message */
 	priv->priv_cur_rcpt = priv->priv_rcpt;
-	msg_debug ("mlfi_eom: updating rate limits");
-	if (rate_check (priv, cfg, 1) == 0) {
-		/* Rate is more than limit */
-		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
-			msg_err("smfi_setreply");
-		}
-		CFG_UNLOCK();
-		(void)mlfi_cleanup (ctx, false);
-		return SMFIS_REJECT;
-	}
+	
 	if (cfg->serial == priv->serial) {
 		msg_debug ("mlfi_eom: checking regexp rules");
 		act = rules_check (priv->matched_rules);
@@ -954,6 +944,17 @@ mlfi_eom(SMFICTX * ctx)
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
 		}
+	}
+	/* Update rate limits for message */
+	msg_debug ("mlfi_eom: updating rate limits");
+	if (rate_check (priv, cfg, 1) == 0) {
+		/* Rate is more than limit */
+		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
+			msg_err("smfi_setreply");
+		}
+		CFG_UNLOCK();
+		(void)mlfi_cleanup (ctx, false);
+		return SMFIS_REJECT;
 	}
 
 	CFG_UNLOCK();

@@ -209,7 +209,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	memc_close_ctx (&mctx);
 	upstream_ok (&selected->up, floor (tm));
 
-	if (b.count > bucket->burst) {
+	if (b.count > bucket->burst && !is_update) {
 		/* Rate limit exceeded */
 		msg_info ("rate_check: ratelimit exceeded for key: %s, count: %f, burst: %u", cur_param.key, b.count, bucket->burst);
 		return 0;
@@ -247,7 +247,7 @@ rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
 		}
 	}
 	/* Check other limits */
-	r = check_specific_limit (priv, cfg, TO, &cfg->limit_to, t, is_update);
+	r = check_specific_limit (priv, cfg, TO_IP_FROM, &cfg->limit_to_ip_from, t, is_update);
 	if (r != 1) {
 		return r;
 	}
@@ -255,7 +255,7 @@ rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
 	if (r != 1) {
 		return r;
 	}
-	r = check_specific_limit (priv, cfg, TO_IP_FROM, &cfg->limit_to_ip_from, t, is_update);
+	r = check_specific_limit (priv, cfg, TO, &cfg->limit_to, t, is_update);
 	if (r != 1) {
 		return r;
 	}
