@@ -947,15 +947,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Update rate limits for message */
 	msg_debug ("mlfi_eom: updating rate limits");
-	if (rate_check (priv, cfg, 1) == 0) {
-		/* Rate is more than limit */
-		if (smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, (char *)"Rate limit exceeded") != MI_SUCCESS) {
-			msg_err("smfi_setreply");
-		}
-		CFG_UNLOCK();
-		(void)mlfi_cleanup (ctx, false);
-		return SMFIS_REJECT;
-	}
+	rate_check (priv, cfg, 1);
 
 	CFG_UNLOCK();
     return mlfi_cleanup (ctx, true);
