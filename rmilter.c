@@ -867,8 +867,6 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 
-    msg_warn ("mlfi_eom: %s: tempfile=%s", priv->mlfi_id, priv->file);
-
     fflush (priv->fileh);
 
     /* check file size */
@@ -882,6 +880,7 @@ mlfi_eom(SMFICTX * ctx)
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
+    msg_warn ("mlfi_eom: %s: tempfile=%s, size=%lu", priv->mlfi_id, priv->file, (unsigned long int)st.st_size);
 	
 	if (!priv->strict) {
 		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message; skip greylist, dcc, spamd", priv->mlfi_id, 
