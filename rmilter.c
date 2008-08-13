@@ -662,16 +662,20 @@ mlfi_data(SMFICTX *ctx)
 	if (id) {
     	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 	}
+	else {
+		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
+		msg_info ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
+	}
 
 	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_grey_num > 0 &&
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
-		msg_debug ("mlfi_data: checking greylisting");
+		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
 		r = check_greylisting (priv);
 		switch (r) {
 			case GREY_GREYLISTED:
 				if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
-					msg_err("mlfi_data: smfi_setreply failed");
+					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
 				}
 				CFG_UNLOCK();
 				(void)mlfi_cleanup (ctx, false);
@@ -679,7 +683,7 @@ mlfi_data(SMFICTX *ctx)
 				break;
 			case GREY_ERROR:
 				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Service unavailable") != MI_SUCCESS) {
-					msg_err("mlfi_data: smfi_setreply failed");
+					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
 				}
 				CFG_UNLOCK();
 				(void)mlfi_cleanup (ctx, false);
@@ -736,7 +740,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		pthread_mutex_unlock (&mkstemp_mtx);
 
 		if (fd == -1) {
-	    	msg_warn ("(mlfi_header) mkstemp failed, %d: %m", errno);
+	    	msg_warn ("mlfi_header: %s: mkstemp failed, %d: %m", priv->mlfi_id, errno);
 			CFG_UNLOCK();
 	    	(void)mlfi_cleanup (ctx, false);
 	    	return SMFIS_TEMPFAIL;
@@ -744,7 +748,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		priv->fileh = fdopen(fd, "w");
 
 		if (!priv->fileh) {
-	    	msg_warn ("(mlfi_header) can't open tempfile, %d: %m", errno);
+	    	msg_warn ("mlfi_header: %s: can't open tempfile, %d: %m", priv->mlfi_id, errno);
 			CFG_UNLOCK();
 	    	(void)mlfi_cleanup(ctx, false);
 	    	return SMFIS_TEMPFAIL;
@@ -810,21 +814,23 @@ mlfi_eom(SMFICTX * ctx)
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
+	
+	/* set queue id */
+    id = smfi_getsymval(ctx, "i");
 
-	if (*priv->mlfi_id == '\0') {
-    	/* set queue id */
-    	id = smfi_getsymval(ctx, "i");
-		if (id == NULL) {
-			id = "NOQUEUE";
-		}
+	if (id) {
     	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+	}
+	else {
+		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
+		msg_info ("mlfi_eom: cannot get queue id, set to 'NOQUEUE'");
 	}
 
 	CFG_RLOCK();
 	priv->priv_cur_rcpt = priv->priv_rcpt;
 	
 	if (cfg->serial == priv->serial) {
-		msg_debug ("mlfi_eom: checking regexp rules");
+		msg_debug ("mlfi_eom: %s: checking regexp rules", priv->mlfi_id);
 		act = rules_check (priv->matched_rules);
 		if (act != NULL && act->type != ACTION_ACCEPT) {
 			CFG_UNLOCK ();
@@ -833,13 +839,13 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 	else {
-		msg_warn ("mlfi_eom: config was reloaded, not checking rules");
+		msg_warn ("mlfi_eom: %s: config was reloaded, not checking rules", priv->mlfi_id);
 	}
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
 	if (cfg->spf_domains_num > 0) {
-		msg_debug ("mlfi_eom: check spf");
+		msg_debug ("mlfi_eom: %s: check spf", priv->mlfi_id);
 		r = spf_check (priv, cfg);
 		switch (r) {
 			case SPF_RESULT_PASS:
@@ -861,43 +867,43 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 
-    msg_warn ("%s: tempfile=%s", priv->mlfi_id, priv->file);
+    msg_warn ("mlfi_eom: %s: tempfile=%s", priv->mlfi_id, priv->file);
 
     fflush (priv->fileh);
 
     /* check file size */
     if (stat (priv->file, &sb) == -1) {
-		msg_warn ("(mlfi_eom, %s) stat failed: %m", priv->mlfi_id);
+		msg_warn ("mlfi_eom: %s: stat failed: %m", priv->mlfi_id);
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
     else if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
-		msg_warn ("message size(%zd) exceeds limit(%zd), not scanned, %s", (size_t)sb.st_size, cfg->sizelimit, priv->file);
+		msg_warn ("mlfi_eom: %s: message size(%zd) exceeds limit(%zd), not scanned, %s", priv->mlfi_id, (size_t)sb.st_size, cfg->sizelimit, priv->file);
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
 	
 	if (!priv->strict) {
-		msg_info ("(mlfi_eom, %s) from %s[%s] from=<%s> to=<%s> is reply to our message; skip greylist, dcc, spamd", priv->mlfi_id, 
+		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message; skip greylist, dcc, spamd", priv->mlfi_id, 
 				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->priv_rcpt);
 	}
 
 #ifdef HAVE_DCC
  	/* Check dcc */
 	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict) {
-		msg_debug ("mlfi_eom: check dcc");
+		msg_debug ("mlfi_eom: %s: check dcc", priv->mlfi_id);
 		r = check_dcc (priv);
 		switch (r) {
 			case 'A':
 				break;
 			case 'G':
-				msg_warn ("(mlfi_eom, %s) greylisting by dcc", priv->mlfi_id);
+				msg_warn ("mlfi_eom: %s: greylisting by dcc", priv->mlfi_id);
 				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Try again later");
 				CFG_UNLOCK();
 				mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
 			case 'R':
-				msg_warn ("(mlfi_eom, %s) rejected by dcc", priv->mlfi_id);
+				msg_warn ("mlfi_eom: %s: rejected by dcc", priv->mlfi_id);
 				smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
 				CFG_UNLOCK();
 				mlfi_cleanup (ctx, false);
@@ -912,16 +918,16 @@ mlfi_eom(SMFICTX * ctx)
 	
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0) {
-		msg_debug ("mlfi_eom: check clamav");
+		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
 	    r = check_clamscan (priv->file, strres, sizeof (strres));
     	if (r < 0) {
-			msg_warn ("(mlfi_eom, %s) check_clamscan() failed, %d", priv->mlfi_id, r);
+			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
 			CFG_UNLOCK();
 			(void)mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
     	}
     	if (*strres) {
-			msg_warn ("(mlfi_eom, %s) rejecting virus %s", priv->mlfi_id, strres);
+			msg_warn ("mlfi_eom: %s: rejecting virus %s", priv->mlfi_id, strres);
 			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 			CFG_UNLOCK();
@@ -932,13 +938,13 @@ mlfi_eom(SMFICTX * ctx)
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
-		msg_debug ("mlfi_eom: check spamd");
+		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (priv->file, cfg, spamd_marks);
 		if (r < 0) {
-			msg_warn ("(mlfi_eom, %s) spamdscan() failed, %d", priv->mlfi_id, r);
+			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
 		}
 		else if (r == 1) {
-			msg_warn ("(mlfi_eom, %s) rejecting spam [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
+			msg_warn ("mlfi_eom: %s: rejecting spam [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, cfg->spamd_reject_message);
 			CFG_UNLOCK();
 			mlfi_cleanup (ctx, false);
@@ -946,7 +952,7 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 	/* Update rate limits for message */
-	msg_debug ("mlfi_eom: updating rate limits");
+	msg_debug ("mlfi_eom: %s: updating rate limits", priv->mlfi_id);
 	rate_check (priv, cfg, 1);
 
 	CFG_UNLOCK();
@@ -963,16 +969,6 @@ mlfi_close(SMFICTX * ctx)
 		return SMFIS_TEMPFAIL;
 	}
 	msg_debug ("mlfi_close: cleanup");
-
-	if (priv->fileh) {
-		if (fclose (priv->fileh) != 0) {
-			msg_err ("mlfi_close: close failed (%d), %m", errno);
-		}
-		priv->fileh = NULL;
-    }
-    if (*priv->file) {
-		unlink (priv->file);
-    }
 
     free(priv);
     smfi_setpriv(ctx, NULL);
@@ -998,16 +994,22 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	}
 	msg_debug ("mlfi_cleanup: cleanup");
 
-    /* release message-related memory */
     if (priv->fileh) {
 		if (fclose (priv->fileh) != 0) {
-			msg_err ("mlfi_close: close failed (%d), %m", errno);
+			msg_err ("mlfi_close: %s: close failed (%d), %m", priv->mlfi_id, errno);
 		}
 		priv->fileh = NULL;
     }
     if (*priv->file) {
 		unlink (priv->file);
+		priv->file[0] = '\0';
     }
+	/* clean message specific data */
+	priv->mlfi_id[0] = '\0';
+	priv->priv_from[0] = '\0';
+	priv->priv_rcpt[0] = '\0';
+	priv->priv_cur_rcpt = NULL;
+	priv->priv_rcptcount = 0;
     /* return status */
     return rstat;
 }
@@ -1024,7 +1026,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	}
 
     if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
-		msg_warn ("(mlfi_body, %s) file write error, %d: %m", priv->mlfi_id, errno);
+		msg_warn ("mlfi_body: %s: file write error, %d: %m", priv->mlfi_id, errno);
 		(void)mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;;
     }
@@ -1090,7 +1092,7 @@ check_dcc (const struct mlfi_priv *priv)
 	dccfd = open (priv->file, O_RDONLY);
 
 	if (dccfd == -1) {
-		msg_warn ("dcc data file open(): %s", strerror (errno));
+		msg_warn ("check_dcc: %s: dcc data file open(): %s", priv->mlfi_id, strerror (errno));
 		return 0;
 	}
 

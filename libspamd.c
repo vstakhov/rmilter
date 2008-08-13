@@ -322,7 +322,7 @@ spamdscan(const char *file, struct config_file *cfg, double spam_mark[2])
 											cfg->spamd_servers_num, sizeof (struct spamd_server),
 											t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
 		if (selected == NULL) {
-			msg_err ("(spamdscan) upstream get error, %s", file);
+			msg_err ("spamdscan: upstream get error, %s", file);
 			return -1;
 		}
 
@@ -333,14 +333,14 @@ spamdscan(const char *file, struct config_file *cfg, double spam_mark[2])
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-	    	msg_warn("(spamdscan) unexpected problem, %s, %s", selected->name, file);
+	    	msg_warn("spamdscan: unexpected problem, %s, %s", selected->name, file);
 	    	break;
 		}
 		if (--retry < 1) {
-	    	msg_warn("(spamdscan) retry limit exceeded, %s, %s", selected->name, file);
+	    	msg_warn("spamdscan: retry limit exceeded, %s, %s", selected->name, file);
 	    	break;
 		}
-		msg_warn("(spamdscan) failed to scan, retry, %s, %s", selected->name, file);
+		msg_warn("spamdscan: failed to scan, retry, %s, %s", selected->name, file);
 		sleep(1);
     }
 
@@ -351,7 +351,7 @@ spamdscan(const char *file, struct config_file *cfg, double spam_mark[2])
     tf = t.tv_sec + t.tv_usec / 1000000.0;
 
     if (r == 1) {
-		msg_info("(spamdscan) scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
+		msg_info("spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
 					selected->name, 
 					spam_mark[0], spam_mark[1],
 					(symbols != NULL) ? symbols : "no symbols", file);
@@ -360,7 +360,7 @@ spamdscan(const char *file, struct config_file *cfg, double spam_mark[2])
 		}
 	}
     else {
-		msg_info("(spamdscan) scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
+		msg_info("spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
 					selected->name,
 					spam_mark[0], spam_mark[1], 
 					(symbols != NULL) ? symbols : "no symbols", file);

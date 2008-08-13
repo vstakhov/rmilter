@@ -266,7 +266,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 
 		fd = open(file, O_RDONLY);
 		if (fstat (fd, &sb) == -1) {
-			msg_warn ("spamd: stat failed: %m");
+			msg_warn ("clamav: stat failed: %m");
 	    	close(s);
 			return -1;
 		}
@@ -277,7 +277,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 
 		#if defined(FREEBSD) || defined(HAVE_SENDFILE)
 		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
-			msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+			msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
 			close(fd);
 			close(s);
 			return -1;
@@ -285,7 +285,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		#elif defined(LINUX)
 		off_t off = 0;
 		if (sendfile(sw, fd, &off, sb.st_size) == -1) {
-			msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+			msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
 			close(fd);
 			close(s);
 			return -1;		
@@ -419,14 +419,14 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-	    	msg_warn("(clamscan) unexpected problem, %s, %s", selected->name, file);
+	    	msg_warn("clamscan: unexpected problem, %s, %s", selected->name, file);
 	    	break;
 		}
 		if (--retry < 1) {
-	    	msg_warn("(clamscan) retry limit exceeded, %s, %s", selected->name, file);
+	    	msg_warn("clamscan: retry limit exceeded, %s, %s", selected->name, file);
 	    	break;
 		}
-		msg_warn("(clamscan) failed to scan, retry, %s, %s", selected->name, file);
+		msg_warn("clamscan: failed to scan, retry, %s, %s", selected->name, file);
 		sleep(1);
     }
 
@@ -437,12 +437,12 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
     tf = t.tv_sec + t.tv_usec / 1000000.0;
 
     if (*strres) {
-		msg_info("(clamscan) scan %f, %s, found %s, %s", tf - ts,
+		msg_info("clamscan: scan %f, %s, found %s, %s", tf - ts,
 					selected->name, 
 					strres, file);
 	}
     else {
-		msg_info("(clamscan) scan %f, %s, %s", tf -ts, 
+		msg_info("clamscan: scan %f, %s, %s", tf -ts, 
 					selected->name,
 					file);
 	}
