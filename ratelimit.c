@@ -109,19 +109,19 @@ make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
 {
 	switch (type) {
 		case TO:
-			snprintf (buf, buflen, "%s", priv->priv_cur_rcpt);
+			snprintf (buf, buflen, "%s", priv->priv_rcpt);
 			break;
 		case TO_IP:
-			snprintf (buf, buflen, "%s:%s", priv->priv_cur_rcpt, priv->priv_ip);
+			snprintf (buf, buflen, "%s:%s", priv->priv_rcpt, priv->priv_ip);
 			break;
 		case TO_IP_FROM:
-			snprintf (buf, buflen, "%s:%s:%s", priv->priv_cur_rcpt, priv->priv_ip, priv->priv_from);
+			snprintf (buf, buflen, "%s:%s:%s", priv->priv_rcpt, priv->priv_ip, priv->priv_from);
 			break;
 		case BOUNCE_TO:
-			snprintf (buf, buflen, "%s:<>", priv->priv_cur_rcpt);
+			snprintf (buf, buflen, "%s:<>", priv->priv_rcpt);
 			break;
 		case BOUNCE_TO_IP:
-			snprintf (buf, buflen, "%s:%s:<>",  priv->priv_cur_rcpt, priv->priv_ip);
+			snprintf (buf, buflen, "%s:%s:<>",  priv->priv_rcpt, priv->priv_ip);
 			break;
 	}
 }
@@ -225,7 +225,7 @@ rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
 	struct timeval tm;
 	int r;
 
-	if (is_whitelisted (&priv->priv_addr.sin_addr, priv->priv_cur_rcpt, cfg) != 0) {
+	if (is_whitelisted (&priv->priv_addr.sin_addr, priv->priv_rcpt, cfg) != 0) {
 		msg_info ("rate_check: address is whitelisted, skipping checks");
 		return 1;
 	}

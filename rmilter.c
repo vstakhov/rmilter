@@ -265,7 +265,7 @@ check_greylisting (struct mlfi_priv *priv)
 		/* Make hash from components: envfrom, ip address, envrcpt */
 		MD5Update(&mdctx, (const u_char *)priv->priv_from, strlen(priv->priv_from));
 		MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
-		MD5Update(&mdctx, (const u_char *)priv->priv_cur_rcpt, strlen(priv->priv_cur_rcpt));
+		MD5Update(&mdctx, (const u_char *)priv->priv_rcpt, strlen(priv->priv_rcpt));
 		MD5Final(final, &mdctx);
 		
 		tm.tv_sec = priv->conn_tm.tv_sec;
@@ -503,7 +503,6 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	priv->strict = 1;
 	priv->serial = cfg->serial;
 
-	priv->priv_cur_rcpt = NULL;
 	priv->priv_rcptcount = 0;
 
 	if (gettimeofday (&priv->conn_tm, NULL) == -1) {
@@ -617,13 +616,10 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		tmprcpt = "<>";
 	}
 	/* Copy first recipient to priv - this is needed for dcc checking and ratelimits */
-	if (!priv->priv_cur_rcpt) {
-		strlcpy (priv->priv_rcpt, tmprcpt, sizeof (priv->priv_rcpt));
-		msg_debug ("mlfi_envrcpt: got rcpt value: %s", priv->priv_rcpt);
-	}
+	strlcpy (priv->priv_rcpt, tmprcpt, sizeof (priv->priv_rcpt));
+	msg_debug ("mlfi_envrcpt: got rcpt value: %s", priv->priv_rcpt);
 	CFG_RLOCK();
 	/* Check ratelimit */
-	priv->priv_cur_rcpt = tmprcpt;
 	if (rate_check (priv, cfg, 0) == 0) {
 		/* Rate is more than limit */
 		if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Rate limit exceeded") != MI_SUCCESS) {
@@ -667,7 +663,7 @@ mlfi_data(SMFICTX *ctx)
 		msg_info ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
 	}
 
-	if (priv->priv_ip[0] != '\0' && priv->priv_cur_rcpt != NULL && cfg->memcached_servers_grey_num > 0 &&
+	if (priv->priv_ip[0] != '\0' && *priv->priv_rcpt != '\0' && cfg->memcached_servers_grey_num > 0 &&
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
@@ -827,7 +823,6 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
 	CFG_RLOCK();
-	priv->priv_cur_rcpt = priv->priv_rcpt;
 	
 	if (cfg->serial == priv->serial) {
 		msg_debug ("mlfi_eom: %s: checking regexp rules", priv->mlfi_id);
@@ -854,7 +849,7 @@ mlfi_eom(SMFICTX * ctx)
 			case SPF_RESULT_NONE:
 				break;
 			case SPF_RESULT_FAIL:
-				if (priv->priv_cur_rcpt != NULL && !is_whitelisted_rcpt (priv->priv_cur_rcpt)) {
+				if (*priv->priv_rcpt != '\0' && !is_whitelisted_rcpt (priv->priv_rcpt)) {
 	    			snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
 							(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
 							priv->priv_ip, priv->priv_from);
@@ -889,7 +884,7 @@ mlfi_eom(SMFICTX * ctx)
 
 #ifdef HAVE_DCC
  	/* Check dcc */
-	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict) {
+	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict) {
 		msg_debug ("mlfi_eom: %s: check dcc", priv->mlfi_id);
 		r = check_dcc (priv);
 		switch (r) {
@@ -935,7 +930,7 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 	/* Check spamd */
-	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_cur_rcpt) && priv->strict
+	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (priv->file, cfg, spamd_marks);
@@ -1007,7 +1002,6 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->mlfi_id[0] = '\0';
 	priv->priv_from[0] = '\0';
 	priv->priv_rcpt[0] = '\0';
-	priv->priv_cur_rcpt = NULL;
 	priv->priv_rcptcount = 0;
     /* return status */
     return rstat;
