@@ -172,7 +172,8 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		upstream_fail (&selected->up, floor (tm));
 		return -1;
 	}
-
+	
+	msg_debug ("check_specific_limit: got limit for key: '%s', count: %.1f, time: %.1f", cur_param.key, b.count, b.tm);
 	/* Leak from bucket at specified rate */
 	if (b.count > 0) {
 		b.count -= (tm - b.tm) * bucket->rate;
@@ -185,6 +186,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 
 	if (is_update && b.count == 0) {
 		/* Delete key if bucket is empty */
+		msg_debug ("check_specific_limit: delete key '%s' as it is empty", cur_param.key);
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_delete (&mctx, &cur_param, &s) != OK) {
@@ -196,6 +198,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	}
 	else {
 		/* Update rate limit */
+		msg_debug ("check_specific_limit: write limit for key: '%s', count: %.1f, time: %.1f", cur_param.key, b.count, b.tm);
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) != OK) {
