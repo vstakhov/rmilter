@@ -156,6 +156,11 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	mctx.port = selected->port[0];
 	mctx.timeout = cfg->memcached_connect_timeout;
 	mctx.sock = -1;
+#ifdef WITH_DEBUG
+	mctx.options = MEMC_OPT_DEBUG;
+#else
+	mctx.options = 0;
+#endif
 	
 	if (memc_init_ctx (&mctx) == -1) {
 		upstream_fail (&selected->up, floor (tm));
