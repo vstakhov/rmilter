@@ -16,6 +16,7 @@
 #include <sys/un.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -173,6 +174,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	s = 1;
 	r = memc_get (&mctx, &cur_param, &s);
 	if (r != OK && r != NOT_EXISTS) {
+		msg_info ("check_specific_limit: got error on 'get' command from memcached server(%s): %s", inet_ntoa(selected->addr[0]), memc_strerror (r));
 		memc_close_ctx (&mctx);
 		upstream_fail (&selected->up, floor (tm));
 		return -1;
@@ -195,6 +197,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_delete (&mctx, &cur_param, &s) != OK) {
+				msg_info ("check_specific_limit: got error on 'delete' command from memcached server(%s): %s", inet_ntoa(selected->addr[0]), memc_strerror (r));
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
@@ -207,6 +210,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) != OK) {
+				msg_info ("check_specific_limit: got error on 'set' command from memcached server(%s): %s", inet_ntoa(selected->addr[0]), memc_strerror (r));
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
