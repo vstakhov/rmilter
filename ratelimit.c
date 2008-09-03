@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <ctype.h>
 
 #include "cfg_file.h"
 #include "rmilter.h"
@@ -42,6 +43,15 @@ enum keytype {
 	BOUNCE_TO,
 	BOUNCE_TO_IP
 };
+
+/* Convert string to lowercase */
+static void
+convert_to_lowercase (char *str, unsigned int size)
+{
+	while (size--) {
+		*str = tolower (*str ++);
+	}
+}
 
 /* Return lenth of user part */
 static size_t
@@ -108,23 +118,26 @@ is_bounce (char *from, struct config_file *cfg)
 static void
 make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
 {
+	int r = 0;
 	switch (type) {
 		case TO:
-			snprintf (buf, buflen, "%s", priv->priv_rcpt);
+			r = snprintf (buf, buflen, "%s", priv->priv_rcpt);
 			break;
 		case TO_IP:
-			snprintf (buf, buflen, "%s:%s", priv->priv_rcpt, priv->priv_ip);
+			r = snprintf (buf, buflen, "%s:%s", priv->priv_rcpt, priv->priv_ip);
 			break;
 		case TO_IP_FROM:
-			snprintf (buf, buflen, "%s:%s:%s", priv->priv_rcpt, priv->priv_ip, priv->priv_from);
+			r = snprintf (buf, buflen, "%s:%s:%s", priv->priv_rcpt, priv->priv_ip, priv->priv_from);
 			break;
 		case BOUNCE_TO:
-			snprintf (buf, buflen, "%s:<>", priv->priv_rcpt);
+			r = snprintf (buf, buflen, "%s:<>", priv->priv_rcpt);
 			break;
 		case BOUNCE_TO_IP:
-			snprintf (buf, buflen, "%s:%s:<>",  priv->priv_rcpt, priv->priv_ip);
+			r = snprintf (buf, buflen, "%s:%s:<>",  priv->priv_rcpt, priv->priv_ip);
 			break;
 	}
+	
+	convert_to_lowercase (buf, r);
 }
 
 static int
@@ -174,7 +187,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 	s = 1;
 	r = memc_get (&mctx, &cur_param, &s);
 	if (r != OK && r != NOT_EXISTS) {
-		msg_info ("check_specific_limit: got error on 'get' command from memcached server(%s): %s", inet_ntoa(selected->addr[0]), memc_strerror (r));
+		msg_info ("check_specific_limit: got error on 'get' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 		memc_close_ctx (&mctx);
 		upstream_fail (&selected->up, floor (tm));
 		return -1;
@@ -197,7 +210,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_delete (&mctx, &cur_param, &s) != OK) {
-				msg_info ("check_specific_limit: got error on 'delete' command from memcached server(%s): %s", inet_ntoa(selected->addr[0]), memc_strerror (r));
+				msg_info ("check_specific_limit: got error on 'delete' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
@@ -210,7 +223,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) != OK) {
-				msg_info ("check_specific_limit: got error on 'set' command from memcached server(%s): %s", inet_ntoa(selected->addr[0]), memc_strerror (r));
+				msg_info ("check_specific_limit: got error on 'set' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
