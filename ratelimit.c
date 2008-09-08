@@ -49,7 +49,8 @@ static void
 convert_to_lowercase (char *str, unsigned int size)
 {
 	while (size--) {
-		*str = tolower (*str ++);
+		*str = tolower (*str);
+		str ++;
 	}
 }
 
