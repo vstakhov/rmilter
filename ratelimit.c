@@ -122,7 +122,12 @@ make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
 	int r = 0;
 	switch (type) {
 		case TO:
-			r = snprintf (buf, buflen, "%s", priv->priv_rcpt);
+			if (!priv->priv_rcpt || *priv->priv_rcpt == '\0') {
+				snprintf (buf, buflen, "%s", "unknown");
+			}
+			else {
+				snprintf (buf, buflen, "%s", priv->priv_rcpt);
+			}
 			break;
 		case TO_IP:
 			r = snprintf (buf, buflen, "%s:%s", priv->priv_rcpt, priv->priv_ip);
@@ -131,7 +136,12 @@ make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
 			r = snprintf (buf, buflen, "%s:%s:%s", priv->priv_rcpt, priv->priv_ip, priv->priv_from);
 			break;
 		case BOUNCE_TO:
-			r = snprintf (buf, buflen, "%s:<>", priv->priv_rcpt);
+			if (!priv->priv_rcpt || *priv->priv_rcpt == '\0') {
+				snprintf (buf, buflen, "%s:<>", "unknown");
+			}
+			else {
+				snprintf (buf, buflen, "%s:<>", priv->priv_rcpt);
+			}
 			break;
 		case BOUNCE_TO_IP:
 			r = snprintf (buf, buflen, "%s:%s:<>",  priv->priv_rcpt, priv->priv_ip);
