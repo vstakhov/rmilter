@@ -82,12 +82,13 @@ struct mlfi_priv {
 		size_t len;
 	} priv_cur_body;
     char mlfi_id[32];
+	char reply_id[ADDRLEN + 33];
 	#ifdef HAVE_PATH_MAX
 	char file[PATH_MAX];
 #elif defined(HAVE_MAXPATHLEN)
 	char file[MAXPATHLEN];
 #else
-#error "neither PATH_MAX nor MAXPATHEN defined"
+#error "neither PATH_MAX nor MAXPATHLEN defined"
 #endif
     FILE *fileh;
 	int filed;

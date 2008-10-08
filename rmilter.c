@@ -228,6 +228,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		memc_close_ctx (&mctx);
 		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
 		priv->strict = 0;
+		strlcpy (priv->reply_id, header, sizeof (priv->reply_id));
 		return;
 	}
 	else if (r != NOT_EXISTS) {
@@ -878,8 +879,8 @@ mlfi_eom(SMFICTX * ctx)
     msg_warn ("mlfi_eom: %s: tempfile=%s, size=%lu", priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
 	
 	if (!priv->strict) {
-		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message; skip greylist, dcc, spamd", priv->mlfi_id, 
-				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->priv_rcpt);
+		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; skip greylist, dcc, spamd", priv->mlfi_id, 
+				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->priv_rcpt, priv->reply_id);
 	}
 
 #ifdef HAVE_DCC
@@ -1000,6 +1001,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
     }
 	/* clean message specific data */
 	priv->mlfi_id[0] = '\0';
+	priv->reply_id[0] = '\0';
 	priv->priv_from[0] = '\0';
 	priv->priv_rcpt[0] = '\0';
 	priv->priv_rcptcount = 0;
