@@ -931,7 +931,7 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 	/* Check spamd */
-	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt)
+	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (priv->file, cfg, spamd_marks);
@@ -1000,6 +1000,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		priv->file[0] = '\0';
     }
 	/* clean message specific data */
+	priv->strict = 1;
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
 	priv->priv_from[0] = '\0';
