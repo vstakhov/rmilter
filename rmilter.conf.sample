@@ -97,10 +97,6 @@ memcached {
 	# servers_id - memcached servers used for message id storing, can not be mirrored
 	servers_id = mcgi12.rambler.ru, mcgi18.rambler.ru:11211;
 
-	# id_expire - expiration time for message ids in memcached
-	# Default: 0s (message id checking is disabled)
-	id_expire = 1000s;
-
 	# id_prefix - prefix for extracting message ids from memcached
 	# Default: empty (no prefix is prepended to key)
 	id_prefix = "message_id.";
