@@ -9,7 +9,7 @@ OS=""
 LOCALBASE=/usr/local
 PREFIX=$LOCALBASE
 
-VERSION=1.5.10
+VERSION=1.5.11
 DCC_VER=1.2.74
 COMPAT_DIR="./compat"
 
@@ -356,6 +356,7 @@ do
 		--prefix)						 PREFIX=$value								;;
 		--user)							 USER=$value								;;
 		--group)						 GROUP=$value								;;
+		--enable-auth-strict)			 CFLAGS="$CFLAGS -DSTRICT_AUTH"             ;;
 		--enable-dcc)                    dcc=yes                    				;;
 		--enable-debug)					 CFLAGS="$CFLAGS -DWITH_DEBUG" OPT_FLAGS=""	;;
 		--enable-opt)                    OPT_FLAGS="-O3 -pipe"						;;
@@ -375,6 +376,7 @@ if [ "F$help" = "Fyes" ] ; then
   --enable-dcc                       enable dcc support
   --enable-debug                     turn on extra debug messages
   --enable-opt                       turn on extra optimization
+  --enable-auth-strict               turn on strict check for authenticated users
   --user=USER                        set user to use
   --group=GROUP                      set group to use
 END

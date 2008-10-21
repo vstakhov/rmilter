@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <db.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
