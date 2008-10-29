@@ -353,9 +353,9 @@ do
 
     case "$option" in
         --help)                          help=yes                  					;;
-		--prefix)						 PREFIX=$value								;;
-		--user)							 USER=$value								;;
-		--group)						 GROUP=$value								;;
+		--prefix*)						 PREFIX=$value								;;
+		--user*)						 USER=$value								;;
+		--group*)						 GROUP=$value								;;
 		--enable-auth-strict)			 CFLAGS="$CFLAGS -DSTRICT_AUTH"             ;;
 		--enable-dcc)                    dcc=yes                    				;;
 		--enable-debug)					 CFLAGS="$CFLAGS -DWITH_DEBUG" OPT_FLAGS=""	;;
