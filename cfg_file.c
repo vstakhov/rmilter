@@ -549,6 +549,12 @@ free_config (struct config_file *cfg)
 	if (cfg->id_prefix) {
 		free (cfg->id_prefix);
 	}
+	if (cfg->grey_prefix) {
+		free (cfg->grey_prefix);
+	}
+	if (cfg->white_prefix) {
+		free (cfg->white_prefix);
+	}
 
 	if (cfg->awl_enable && cfg->awl_hash != NULL) {
 		free (cfg->awl_hash->pool);

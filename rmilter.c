@@ -245,7 +245,7 @@ check_greylisting (struct mlfi_priv *priv)
 {
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE];
-	char md5_out[MD5_SIZE * 2 + 1];
+	char md5_out[MD5_SIZE * 2 + 1], *c;
 	struct memcached_server *selected;
 	memcached_ctx_t mctx[2], mctx_white[2];
 	memcached_param_t cur_param;
@@ -275,9 +275,23 @@ check_greylisting (struct mlfi_priv *priv)
 		for (r = 0; r < MD5_SIZE; r ++){
 			s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
 		}
-		memcpy (cur_param.key, md5_out, sizeof (md5_out));
+
+		c = cur_param.key;
+		s = sizeof (cur_param.key);
+		if (cfg->white_prefix) {
+			s = strlcpy (c, cfg->white_prefix, s);
+			c += s;
+		}
+		if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
+			memcpy (c, md5_out, sizeof (md5_out));
+		}
+		else {
+			msg_warn ("check_greylisting: white_prefix(%s) too long for memcached key, error in configure", cfg->white_prefix);
+			memcpy (cur_param.key, md5_out, sizeof (md5_out));
+		}
+
 		msg_debug ("check_greylisting: check from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->priv_rcpt, md5_out, (long int)tm.tv_sec, (long int)tm.tv_usec);
+							priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 		s = 1;
 		cur_param.buf = (u_char *)&tm1;
 		cur_param.bufsize = sizeof (tm1);
@@ -334,7 +348,7 @@ check_greylisting (struct mlfi_priv *priv)
 				if (r == OK) {
 					/* Do not check anything if whitelist is found */
 					msg_debug ("check_greylisting: hash is in whitelist from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->priv_rcpt, md5_out, (long int)tm1.tv_sec, (long int)tm1.tv_usec);
+							priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm1.tv_sec, (long int)tm1.tv_usec);
 					memc_close_ctx_mirror (mctx_white, 2);
 					upstream_ok (&selected->up, tm.tv_sec);
 					return GREY_WHITELISTED;
@@ -342,7 +356,21 @@ check_greylisting (struct mlfi_priv *priv)
 				memc_close_ctx_mirror (mctx_white, 2);
 			}
 		}
-			/* Try to get record from memcached */
+		
+		c = cur_param.key;
+		s = sizeof (cur_param.key);
+		if (cfg->grey_prefix) {
+			s = strlcpy (c, cfg->grey_prefix, s);
+			c += s;
+		}
+		if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
+			memcpy (c, md5_out, sizeof (md5_out));
+		}
+		else {
+			msg_warn ("check_greylisting: grey_prefix(%s) too long for memcached key, error in configure", cfg->grey_prefix);
+			memcpy (cur_param.key, md5_out, sizeof (md5_out));
+		}
+		/* Try to get record from memcached_grey */
 		selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_grey,
 										cfg->memcached_servers_grey_num, sizeof (struct memcached_server),
 										(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
@@ -391,13 +419,26 @@ check_greylisting (struct mlfi_priv *priv)
 		copy_alive (selected, mctx);
 		/* Greylisting record does not exist, writing new one */
 		if (r == NOT_EXISTS) {
+			c = cur_param.key;
+			s = sizeof (cur_param.key);
+			if (cfg->white_prefix) {
+				s = strlcpy (c, cfg->white_prefix, s);
+				c += s;
+			}
+			if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
+				memcpy (c, md5_out, sizeof (md5_out));
+			}
+			else {
+				msg_warn ("check_greylisting: white_prefix(%s) too long for memcached key, error in configure", cfg->white_prefix);
+				memcpy (cur_param.key, md5_out, sizeof (md5_out));
+			}
 			s = 1;
 			/* Write record to memcached */
 			cur_param.buf = (u_char *)&tm;
 			cur_param.bufsize = sizeof (tm);
 			r = memc_set_mirror (mctx, 2, &cur_param, &s, cfg->greylisting_expire);
 			msg_debug ("check_greylisting: write hash to grey list from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->priv_rcpt, md5_out, (long int)tm.tv_sec, (long int)tm.tv_usec);
+							priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 			copy_alive (selected, mctx);
 			if (r == OK) {
 				upstream_ok (&selected->up, tm.tv_sec);

@@ -100,6 +100,14 @@ memcached {
 	# id_prefix - prefix for extracting message ids from memcached
 	# Default: empty (no prefix is prepended to key)
 	id_prefix = "message_id.";
+	
+	# grey_prefix - prefix for extracting greylisted records from memcached
+	# Default: empty (no prefix is prepended to key)
+	grey_prefix = "grey.";
+
+	# id_prefix - prefix for extracting whitelisted records from memcached
+	# Default: empty (no prefix is prepended to key)
+	white_prefix = "white.";
 
 	# connect_timeout - timeout in miliseconds for waiting for memcached
 	# Default: 1s

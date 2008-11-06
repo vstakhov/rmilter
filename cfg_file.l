@@ -156,6 +156,8 @@ connect_timeout					return CONNECT_TIMEOUT;
 port_timeout					return PORT_TIMEOUT;
 results_timeout					return RESULTS_TIMEOUT;
 id_prefix						return ID_PREFIX;
+grey_prefix						return GREY_PREFIX;
+white_prefix					return WHITE_PREFIX;
 memcached						return MEMCACHED;
 protocol						return PROTOCOL;
 spf_domains						return SPF;
