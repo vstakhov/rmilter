@@ -498,7 +498,7 @@ check_greylisting (struct mlfi_priv *priv)
 						copy_alive (selected, mctx_white);
 						if (r == OK) {
 							msg_debug ("check_greylisting: write hash to white list from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-								priv->priv_ip, priv->priv_rcpt, md5_out, (long int)tm.tv_sec, (long int)tm.tv_usec);
+								priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 							memc_close_ctx_mirror (mctx_white, 2);
 							upstream_ok (&selected->up, tm.tv_sec);
 						}
