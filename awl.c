@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <strings.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <syslog.h>
 
 #ifdef _THREAD_SAFE
 #include <pthread.h>
@@ -15,6 +18,7 @@
 #endif
 
 #include "awl.h"
+#include "rmilter.h"
 
 static void *
 awl_pool_alloc (int nest, size_t offset, awl_hash_t *hash)
@@ -87,31 +91,64 @@ int
 awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 {
 	uint32_t nest;
-	awl_item_t *cur, *expired = NULL, *eldest = NULL, *new;
-	int live_time;
+	awl_item_t *cur;
+	struct in_addr in = {.s_addr = ip};
 
 	nest = awl_get_hash (ip);
 	
+	cur = hash->nests[nest];
+	
+	A_LOCK (nest, hash);
+	while (cur) {
+		/* Found record */
+		if (cur->ip == ip) {
+			cur->last = tm;
+			A_UNLOCK (nest, hash);
+			if (cur->hits >= hash->white_hits) {
+				/* Address whitelisted */
+				msg_info ("awl_check: ip %s is whitelisted, hits %d", inet_ntoa (in), cur->hits);
+				return 1;
+			}
+			else {
+				return 0;
+			}
+			cur->hits ++;
+		}
+
+		cur = cur->next;
+	}
+	A_UNLOCK (nest, hash);
+
+	return 0;
+}
+
+void
+awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
+{
+	uint32_t nest;
+	awl_item_t *cur, *expired = NULL, *eldest = NULL, *new;
+	int live_time;
+	struct in_addr in = {.s_addr = ip};
+
+	nest = awl_get_hash (ip);
 	/* Find free nest */
 	if (hash->nests[nest] == NULL) {
 		cur = awl_pool_alloc (nest, 0, hash);
-		if (cur == NULL) {
-			return -1;
-		}
+		msg_info ("awl_add: insert ip %s in cache, insert first item", inet_ntoa (in));
 		cur->ip = ip;
 		cur->hits = 1;
 		cur->last = tm;
 		cur->prev = NULL;
 		cur->next = NULL;
 		hash->nests[nest] = cur;
-		return 0;
+		return;
 	}
 
 	cur = hash->nests[nest];
-	live_time = 0;
-	
+
 	A_LOCK (nest, hash);
 	while (cur) {
+		/* Find eldest item */
 		if (tm - cur->last > live_time) {
 			live_time = tm - cur->last;
 			eldest = cur;
@@ -121,36 +158,30 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 			cur->hits = 0;
 			expired = cur;
 		}
-		/* Found record */
 		if (cur->ip == ip) {
-			cur->hits ++;
+			/* Increase hits for specified item */
 			cur->last = tm;
-			A_UNLOCK (nest, hash);
-			if (cur->hits >= hash->white_hits) {
-				/* Address whitelisted */
-				return 1;
-			}
-			else {
-				return 0;
-			}
+			return;
 		}
-
 		cur = cur->next;
 	}
+
 
 	/* Record not found */
 	if (expired != NULL) {
 		/* Insert in place of expired item */
+		msg_info ("awl_add: insert ip %s in cache, replace expired item", inet_ntoa (in));
 		expired->ip = ip;
 		expired->hits = 1;
 		expired->last = tm;
 	}
 	if (hash->free[nest] >= sizeof (awl_item_t)) {
 		/* We have enough free space in pool */
+		msg_info ("awl_add: insert ip %s in cache, normal insert", inet_ntoa (in));
 		new = awl_pool_alloc (nest, cur - hash->nests[nest] + sizeof (awl_item_t), hash);
 		if (new == NULL) {
 			A_UNLOCK (nest, hash);
-			return -1;
+			return;
 		}
 		new->prev = cur;
 		cur->next = new;
@@ -161,14 +192,12 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 	}
 	else {
 		/* Not enough space in pool, replace latest used item */
+		msg_info ("awl_add: insert ip %s in cache, replace eldest item", inet_ntoa (in));
 		eldest->ip = ip;
 		eldest->hits = 1;
 		eldest->last = tm;
 	}
-
-	A_UNLOCK (nest, hash);
-
-	return 0;
+	
 }
 
 /*

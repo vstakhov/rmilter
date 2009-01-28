@@ -40,6 +40,7 @@ typedef struct awl_hash_s {
 
 awl_hash_t * awl_init (size_t poolsize, int hits, int ttl);
 int awl_check (uint32_t ip, awl_hash_t *hash, time_t tm);
+void awl_add (uint32_t ip, awl_hash_t *hash, time_t tm);
 
 #endif
 /*

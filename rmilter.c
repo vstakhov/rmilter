@@ -444,6 +444,10 @@ check_greylisting (struct mlfi_priv *priv)
 				return GREY_GREYLISTED;
 			}
 			else {
+				/* Write to autowhitelist */
+				if (cfg->awl_enable) {
+					awl_add ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec);
+				}
 				/* Write to whitelist memcached server */
 				selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
 									cfg->memcached_servers_white_num, sizeof (struct memcached_server),
