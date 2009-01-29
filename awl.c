@@ -103,6 +103,7 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 		/* Found record */
 		if (cur->ip == ip) {
 			cur->last = tm;
+			msg_debug ("awl_check: ip %s in awl, hits %d", inet_ntoa (in), cur->hits);
 			A_UNLOCK (nest, hash);
 			if (cur->hits >= hash->white_hits) {
 				/* Address whitelisted */
@@ -110,9 +111,9 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 				return 1;
 			}
 			else {
+				cur->hits ++;
 				return 0;
 			}
-			cur->hits ++;
 		}
 
 		cur = cur->next;
