@@ -128,7 +128,7 @@ awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
 {
 	uint32_t nest;
 	awl_item_t *cur, *expired = NULL, *eldest = NULL, *new;
-	int live_time;
+	int live_time = 0;
 	struct in_addr in = {.s_addr = ip};
 
 	nest = awl_get_hash (ip);
