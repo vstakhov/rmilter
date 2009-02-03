@@ -385,7 +385,7 @@ add_spf_domain (struct config_file *cfg, char *domain)
 int
 add_ip_radix (radix_tree_t *tree, char *ipnet)
 {
-	uint32_t mask;
+	uint32_t mask = 0xFFFFFFFF;
 	uint32_t ip;
 	char *token;
 	struct in_addr ina;
@@ -393,17 +393,14 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 
 	token = strsep (&ipnet, "/");
 
-	if (ipnet == NULL) {
-		/* Assume /32 if no mask is given */
-		mask = 0xFFFFFFFF;
-	}
-	else {
+	if (ipnet != NULL) {
 		k = atoi (ipnet);
 		if (k > 32 || k < 0) {
 			yywarn ("add_ip_radix: invalid netmask value: %d", k);
 			k = 32;
 		}
-		mask = ((1 << k) - 1) << (32 - k);
+		k = 32 - k;
+		mask = mask << k;
 	}
 
 	if (inet_aton (token, &ina) == 0) {
@@ -413,7 +410,7 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 
 	ip = ntohl((uint32_t)ina.s_addr);
 	if (radix32tree_insert (tree, ip, mask, 1) == -1) {
-		yyerror ("add_ip_radix: cannot insert ip to tree");
+		yyerror ("add_ip_radix: cannot insert ip to tree: %X / %X", ip, mask);
 		return 0;
 	}
 
