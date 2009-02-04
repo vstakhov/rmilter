@@ -1,6 +1,9 @@
 #include <sys/types.h>
 #include <stdlib.h>
+#include <syslog.h>
+
 #include "radix.h"
+#include "rmilter.h"
 
 static void *radix_alloc(radix_tree_t *tree);
 
@@ -60,7 +63,8 @@ radix32tree_insert(radix_tree_t *tree, uint32_t key, uint32_t mask,
 
     if (next) {
         if (node->value != RADIX_NO_VALUE) {
-            return -1;
+			msg_warn ("radix_tree_insert: key %X, mask %X, value already exists", key, mask);
+            return 0;
         }
 
         node->value = value;
