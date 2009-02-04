@@ -409,9 +409,13 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 	}
 
 	ip = ntohl((uint32_t)ina.s_addr);
-	if (radix32tree_insert (tree, ip, mask, 1) == -1) {
-		yyerror ("add_ip_radix: cannot insert ip to tree: %X / %X", ip, mask);
+	k = radix32tree_insert (tree, ip, mask, 1);
+	if (k == -1) {
+		yyerror ("add_ip_radix: cannot insert ip to tree: %s, mask %X", inet_ntoa (ina), mask);
 		return 0;
+	}
+	else if (k == 1) {
+		yywarn ("add_ip_radix: ip %s, mask %X, value already exists", inet_ntoa (ina), mask);
 	}
 
 	return 1;
