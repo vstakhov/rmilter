@@ -11,6 +11,7 @@
 #include <syslog.h>
 #include <netdb.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include "pcre.h"
 #include "cfg_file.h"
@@ -18,6 +19,43 @@
 
 extern int yylineno;
 extern char *yytext;
+
+void
+parse_err (const char *fmt, ...)
+{
+	va_list aq;
+	char logbuf[BUFSIZ], readbuf[32];
+	int r;
+	
+	va_start (aq, fmt);
+	strlcpy (readbuf, yytext, sizeof (readbuf));
+
+	r = snprintf (logbuf, sizeof (logbuf), "config file parse error! line: %d, text: %s, reason: ", yylineno, readbuf);
+	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
+
+	va_end (aq);
+	syslog (LOG_ERR, "%s", logbuf);
+
+	exit (EXIT_FAILURE);
+}
+
+void
+parse_warn (const char *fmt, ...)
+{
+	va_list aq;
+	char logbuf[BUFSIZ], readbuf[32];
+	int r;
+	
+	va_start (aq, fmt);
+	strlcpy (readbuf, yytext, sizeof (readbuf));
+
+	r = snprintf (logbuf, sizeof (logbuf), "config file parse warning! line: %d, text: %s, reason: ", yylineno, readbuf);
+	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
+
+	va_end (aq);
+	syslog (LOG_ERR, "%s", logbuf);
+}
+
 
 static size_t
 copy_regexp (char **dst, const char *src)

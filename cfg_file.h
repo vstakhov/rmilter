@@ -65,17 +65,8 @@
 
 #define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
 
-#define yyerror(fmt, ...) \
-		fprintf (stderr, "Config file parse error!\non line: %d\n", yylineno); \
-		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
-		fprintf (stderr, fmt, ##__VA_ARGS__); \
-		fprintf (stderr, "\n")
-#define yywarn(fmt, ...) \
-		fprintf (stderr, "Config file parse warning!\non line %d\n", yylineno); \
-		fprintf (stderr, "while reading text: %s\nreason: ", yytext); \
-		fprintf (stderr, fmt, ##__VA_ARGS__); \
-		fprintf (stderr, "\n")
-
+#define yyerror parse_err
+#define yywarn parse_warn
 #define CFG_RLOCK() do { pthread_rwlock_rdlock (&cfg_mtx); } while (0) 
 #define CFG_WLOCK() do { pthread_rwlock_wrlock (&cfg_mtx); } while (0) 
 #define CFG_UNLOCK() do { pthread_rwlock_unlock (&cfg_mtx); } while (0) 
@@ -270,6 +261,9 @@ int add_ip_radix (radix_tree_t *tree, char *ipnet);
 int yylex (void);
 int yyparse (void);
 void yyrestart (FILE *);
+
+void parse_err (const char *fmt, ...);
+void parse_warn (const char *fmt, ...);
 
 #endif /* ifdef CFG_FILE_H */
 /* 
