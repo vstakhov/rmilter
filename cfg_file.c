@@ -35,8 +35,6 @@ parse_err (const char *fmt, ...)
 
 	va_end (aq);
 	syslog (LOG_ERR, "%s", logbuf);
-
-	exit (EXIT_FAILURE);
 }
 
 void
