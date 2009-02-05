@@ -161,6 +161,7 @@ awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
 		}
 		if (cur->ip == ip) {
 			/* Increase hits for specified item */
+			A_UNLOCK (nest, hash);
 			cur->last = tm;
 			return;
 		}
@@ -198,7 +199,8 @@ awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
 		eldest->hits = 1;
 		eldest->last = tm;
 	}
-	
+
+	A_UNLOCK (nest, hash);
 }
 
 /*
