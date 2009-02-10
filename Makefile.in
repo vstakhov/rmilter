@@ -1,5 +1,6 @@
-
 all: $(TARGETS)
+
+.SUFFIXES:
 
 dcc: dcc-$(DCC_VER).tar.gz
 	test -d dcc-dccd-$(DCC_VER) || ( tar xzf dcc-$(DCC_VER).tar.gz && \

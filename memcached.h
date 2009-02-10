@@ -38,6 +38,7 @@ typedef struct memcached_ctx_s {
 	uint16_t count;
 	/* Flag that signalize that this memcached is alive */
 	short alive;
+	short opened;
 	/* Options that can be specified for memcached connection */
 	short options;
 } memcached_ctx_t;

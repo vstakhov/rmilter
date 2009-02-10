@@ -97,6 +97,7 @@ memc_make_udp_sock (memcached_ctx_t *ctx)
 	struct sockaddr_in sc;
 	int ofl;
 
+	ctx->opened = 0;
 	bzero (&sc, sizeof (struct sockaddr_in *));
 	sc.sin_family = AF_INET;
 	sc.sin_port = ctx->port;
@@ -117,7 +118,12 @@ memc_make_udp_sock (memcached_ctx_t *ctx)
 	 * Call connect to set default destination for datagrams 
 	 * May not block
 	 */
-	return connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in));
+	if (connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in)) != -1) {
+		ctx->opened = 1;
+		return 0;
+	}
+
+	return -1;
 }
 
 /*
@@ -133,7 +139,8 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 	sc.sin_family = AF_INET;
 	sc.sin_port = ctx->port;
 	memcpy (&sc.sin_addr, &ctx->addr, sizeof (struct in_addr));
-
+	
+	ctx->opened = 0;
 	ctx->sock = socket (PF_INET, SOCK_STREAM, 0);
 
 	if (ctx->sock == -1) {
@@ -155,14 +162,15 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 	}
 	/* Get write readiness */
 	if (poll_d (ctx->sock, 0, 1, ctx->timeout) == 1) {
+		ctx->opened = 1;
 		return 0;
 	} 
 	else {
 		memc_log (ctx, __LINE__, "memc_make_tcp_sock: poll() timeout");
 		close (ctx->sock);
 		ctx->sock = -1;
-		return -1;
 	}
+	return -1;
 }
 
 /* 
@@ -663,6 +671,9 @@ memc_init_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 				result = 1;
 			}
 		}
+		else {
+			ctx[memcached_num].opened = 0;
+		}
 	}
 
 	return result;
@@ -675,10 +686,15 @@ int
 memc_close_ctx (memcached_ctx_t *ctx)
 {
 	int fd;
+	
+	if (!ctx->opened) {
+		return 0;
+	}
 
 	if (ctx != NULL && ctx->sock != -1) {
 		fd = ctx->sock;
 		ctx->sock = -1;
+		ctx->opened = 0;
 		return close (fd);
 	}
 
