@@ -688,12 +688,10 @@ memc_close_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 {
 	int r = 0;
 	while (memcached_num--) {
-		if (ctx[memcached_num].alive == 1) {
-			r = memc_close_ctx (&ctx[memcached_num]);
-			if (r == -1) {
-				memc_log (&ctx[memcached_num], __LINE__, "memc_close_ctx_mirror: cannot close connection to server properly");
-				ctx[memcached_num].alive = 0;
-			}
+		r = memc_close_ctx (&ctx[memcached_num]);
+		if (r == -1) {
+			memc_log (&ctx[memcached_num], __LINE__, "memc_close_ctx_mirror: cannot close connection to server properly");
+			ctx[memcached_num].alive = 0;
 		}
 	}
 
