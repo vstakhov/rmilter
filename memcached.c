@@ -674,8 +674,12 @@ memc_init_ctx_mirror (memcached_ctx_t *ctx, size_t memcached_num)
 int
 memc_close_ctx (memcached_ctx_t *ctx)
 {
+	int fd;
+
 	if (ctx != NULL && ctx->sock != -1) {
-		return close (ctx->sock);
+		fd = ctx->sock;
+		ctx->sock = -1;
+		return close (fd);
 	}
 
 	return -1;
