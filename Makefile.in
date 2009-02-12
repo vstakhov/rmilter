@@ -21,7 +21,8 @@ install: $(EXEC) rmilter.8 rmilter.conf.sample
 	$(MKDIR) -o $(RMILTER_USER) -g $(RMILTER_GROUP) /var/run/rmilter
 
 clean:
-	rm -f *.o $(EXEC) *.core
+	rm -f $(OBJDIR)/*
+	rm -f $(EXEC) *.core
 	rm -f cfg_lex.c cfg_yacc.c cfg_yacc.h
 	rm -fr dcc-dccd-$(DCC_VER)
 
