@@ -192,6 +192,8 @@ main(int argc, char *argv[])
 		return EBADF;
 	}
 	yyin = f;
+	
+	yyrestart (yyin);
 
 	if (yyparse() != 0 || yynerrs > 0) {
 		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
