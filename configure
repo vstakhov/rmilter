@@ -9,7 +9,7 @@ OS=""
 LOCALBASE=/usr/local
 PREFIX=$LOCALBASE
 
-VERSION=1.5.18
+VERSION=1.5.17
 DCC_VER=1.2.74
 COMPAT_DIR="./compat"
 
@@ -17,9 +17,6 @@ YACC_SRC="cfg_file.y"
 LEX_SRC="cfg_file.l"
 YACC_OUTPUT="cfg_yacc.c"
 LEX_OUTPUT="cfg_lex.c"
-SRCDIR="."
-OBJDIR="./obj"
-CACHE="config.cache"
 
 SOURCES="upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ratelimit.c memcached.c main.c radix.c awl.c libspamd.c ${LEX_OUTPUT} ${YACC_OUTPUT}"
 
@@ -44,86 +41,18 @@ MAKEFILE_IN="Makefile.in"
 
 TARGETS="${EXEC}"
 
-check_cache()
-{
-	type=$1
-	name=$2
-
-	line=`fgrep "$type:$name" $CACHE 2>/dev/null`
-	if [ $? -eq 0 ] ; then
-		result=`echo $line | cut -d ':' -f 3`
-		CACHED=`echo $line | cut -d ':' -f 4-`
-		if [ "F$result" = "Fyes" ] ; then
-			return 0
-		elif [ "F$result" = "Fno" ] ; then
-			return 1
-		else
-			return 2
-		fi
-	else
-		return 3
-	fi
-}
-
-write_cache()
-{
-	type=$1
-	name=$2
-	result=$3
-	value=$4
-	if [ "F$CACHE" != "F" ] ; then
-		echo "$type:$name:$result:$value" >> $CACHE
-	fi
-}
-
-prepare_config()
-{
-	if [ "F$CONFIG" != "F" ] ; then
-		echo "#ifndef CONFIG_H_IN" > $SRCDIR/$CONFIG
-		echo "#define CONFIG_H_IN" >> $SRCDIR/$CONFIG
-		cat "$CONFIG.in" >> $SRCDIR/$CONFIG
-	fi
-}
-
-finish_config()
-{
-	if [ "F$CONFIG" != "F" ] ; then
-		echo "#endif" >> $SRCDIR/$CONFIG
-	fi
-}
-
 cleanup()
 {
 	rm -f autotest.c
 	rm -f autotest
-	INCLUDE=""
-}
-
-have_opt()
-{
-	
-	if [ "F$CONFIG" != "F" ] ; then
-		echo "#define HAVE_$1" >> $SRCDIR/$CONFIG
-	else
-		CFLAGS="$CFLAGS -DHAVE_$1"
-	fi
-	OPTS="$OPTS HAVE_$1"
 }
 
 check_compiler()
 {	
-	echo -n "Testing for gcc: "
-	check_cache "compiler" "gcc"
-	if [ $? -eq 0 ] ; then
-		GCC=$CACHED
-		echo "found(cached) -> $GCC"
-		return 0
-	fi
-
 	GCC=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which gcc`
+	echo -n "Testing for gcc: "
 	if [ -x $GCC ] ; then
 		echo "found -> $GCC"
-		write_cache "compiler" "gcc" "yes" "$GCC"
 		return 0
 	else
 		echo "not found"
@@ -132,18 +61,11 @@ check_compiler()
 }
 
 check_make()
-{	
-	echo -n "Testing for make: "
-	check_cache "make" "make"
-	if [ $? -eq 0 ] ; then
-		MAKE=$CACHED
-		echo "found(cached) -> $MAKE"
-		return 0
-	fi
+{
 	MAKE=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which make`
+	echo -n "Testing for make: "
 	if [ -x $MAKE ] ; then
 		echo "found -> $MAKE"
-		write_cache "make" "make" "yes" "$MAKE"
 		return 0
 	else
 		echo "not found"
@@ -154,18 +76,10 @@ check_make()
 
 check_lex()
 {
-	echo -n "Testing for lex: "
-	check_cache "binary" "lex"
-	if [ $? -eq 0 ] ; then
-		LEX=$CACHED
-		echo "found(cached) -> $LEX"
-		return 0
-	fi
-
 	LEX=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which lex`
+	echo -n "Testing for lex: "
 	if [ -x $LEX ] ; then
 		echo "found -> $LEX"
-		write_cache "binary" "lex" "yes" "$LEX"
 		return 0
 	else
 		echo "not found"
@@ -176,19 +90,10 @@ check_lex()
 
 check_yacc()
 {
-	echo -n "Testing for yacc: "
-	check_cache "binary" "yacc"
-	if [ $? -eq 0 ] ; then
-		YACC=$CACHED
-		echo "found(cached) -> $YACC"
-		return 0
-	fi
-
 	YACC=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which yacc`
 	echo -n "Testing for yacc: "
 	if [ -x $YACC ] ; then
 		echo "found -> $YACC"
-		write_cache "binary" "yacc" "yes" "$YACC"
 		return 0
 	else
 		echo "not found"
@@ -197,51 +102,15 @@ check_yacc()
 
 }
 
-check_util()
-{
-	echo -n "Testing for $1: "
-	check_cache "binary" "$1"
-	if [ $? -eq 0 ] ; then
-		echo "found(cached) -> $CACHED"
-		return 0
-	fi
-	UTIL=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which $1`
-	if [ -x $UTIL ] ; then
-		echo "found -> $UTIL"
-		write_cache "binary" "$1" "yes" "$UTIL"
-		return 0
-	else
-		echo "not found"
-		exit 1
-	fi
-
-}
 
 check_function()
 {
 	FUNCTION=$1
-	while [ $# -ne 0 -a -n $2 ] ; do 
-		shift
-		if [ "F$INCLUDE" = "F" ] ; then
-			INCLUDE="$1"
-		else
-			INCLUDE="$INCLUDE $1"
-		fi
-	done
+	INCLUDE=$2
 	echo -n "Testing for $FUNCTION: "
-	echo >> config.log
-	echo "Testing for $FUNCTION: " >> config.log
-	check_cache "function" "$FUNCTION"
-	if [ $? -eq 0 ] ; then
-		echo "-> OK (cached)"
-		echo "-> OK (cached)" >> config.log
-		return 0
-	fi
 	echo "#include <sys/types.h>" > autotest.c
 	if [ "F$INCLUDE" != "F" ] ; then
-		for inc in $INCLUDE ; do
-			echo "#include \"$inc\"" >> autotest.c
-		done
+		echo "#include <$INCLUDE>" >> autotest.c
 	fi
 	echo "#include <stdlib.h>" >> autotest.c
 	echo "int main (int argc, char **argv) { $FUNCTION; return 0; }" >> autotest.c
@@ -251,53 +120,36 @@ check_function()
 		echo "found"
 		cleanup
 		echo "-> OK" >> config.log
-		write_cache "function" "$FUNCTION" "yes" ""
 		return 0
 	else
 		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
 		cleanup
-		write_cache "function" "$FUNCTION" "no" ""
+		echo "-> FAILED" >> config.log
 		return 1
 	fi
 }
 
 check_include()
 {
-	_INCLUDE="$1"
-	echo -n "Testing for $_INCLUDE: "
-	echo >> config.log
-	echo "Testing for $_INCLUDE: " >> config.log
-	check_cache "include" "$_INCLUDE"
-	if [ $? -eq 0 ] ; then
-		echo "-> OK (cached)"
-		echo "-> OK (cached)" >> config.log
-		have_opt $CACHED
-		return 0
-	fi
+	INCLUDE=$1
+	echo -n "Testing for $INCLUDE: "
 	echo "#include <sys/types.h>" > autotest.c
-	echo "#include \"$_INCLUDE\"" >> autotest.c
+	echo "#include <$INCLUDE>" >> autotest.c
 	echo "#include <stdlib.h>" >> autotest.c
 	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
 	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c" >>config.log
 	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
 	if [ $? -eq 0 ] ; then 
 		echo "found"
-		echo "-> OK" >> config.log
-		_CFLAG=`echo "$_INCLUDE" | sed -e 's/[./]/_/g' | tr '[:lower:]' '[:upper:]'`
-		have_opt $_CFLAG
-		write_cache "include" "$_INCLUDE" "yes" "$_CFLAG"
 		cleanup
+		echo "-> OK" >> config.log
+		_CFLAG=`echo "-DHAVE_$INCLUDE" | sed -e 's/[./]/_/g' | tr '[:lower:]' '[:upper:]'`
+		CFLAGS="$CFLAGS $_CFLAG"
 		return 0
 	else
 		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
-		write_cache "include" "$_INCLUDE" "no" ""
 		cleanup
+		echo "-> FAILED" >> config.log
 		return 1
 	fi
 }
@@ -305,49 +157,27 @@ check_include()
 check_macro()
 {
 	MACRO=$1
-	_INCLUDE=""
-	while [ $# -ne 1 -a -n $1 ] ; do 
-		shift
-		if [ "F$_INCLUDE" = "F" ] ; then
-			_INCLUDE="$1"
-		else
-			_INCLUDE="$_INCLUDE $1"
-		fi
-	done
+	INCLUDE=$2
 	echo -n "Testing for $MACRO: "
-	echo >> config.log
-	echo "Testing for $MACRO: " >> config.log
-	check_cache "macro" "$MACRO"
-	if [ $? -eq 0 ] ; then
-		echo "-> OK (cached)"
-		echo "-> OK (cached)" >> config.log
-		return 0
-	fi
 	echo "#include <sys/types.h>" > autotest.c
-	for _inc in $_INCLUDE ; do
-		echo "#include \"$_inc\"" >> autotest.c
-	done
+	echo "#include \"${INCLUDE}\"" >> autotest.c
 	echo "#include <stdlib.h>" >> autotest.c
 	echo "int main (int argc, char **argv) {" >>autotest.c
 	echo "#ifndef $MACRO" >>autotest.c
 	echo "#error \"$MACRO not defined\"" >>autotest.c 
 	echo "#endif" >> autotest.c
 	echo "}" >>autotest.c
-	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c" >> config.log
+	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c" >>config.log
 	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
 	if [ $? -eq 0 ] ; then 
 		echo "found"
-		echo "-> OK" >> config.log
-		write_cache "macro" "$MACRO" "yes" ""
 		cleanup
+		echo "-> OK" >> config.log
 		return 0
 	else
 		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
-		write_cache "macro" "$MACRO" "no" ""
 		cleanup
+		echo "-> FAILED" >> config.log
 		return 1
 	fi
 }
@@ -356,29 +186,10 @@ check_macro()
 check_lib()
 {
 	LIB=$1
-	while [ $# -ne 1 -a -n $1 ] ; do 
-		shift
-		if [ "F$INCLUDE" = "F" ] ; then
-			INCLUDE="$1"
-		else
-			INCLUDE="$INCLUDE $1"
-		fi
-	done
 	echo -n "Testing for lib$LIB: "
-	echo >> config.log
-	echo "Testing for lib$LIB: " >> config.log
-	check_cache "lib" "$LIB"
-	if [ $? -eq 0 ] ; then
-		LIBS="$LIBS -l$LIB"
-		echo "-> OK (cached)"
-		echo "-> OK (cached)" >> config.log
-		return 0
-	fi
 	echo "#include <sys/types.h>" > autotest.c
 	if [ "F$INCLUDE" != "F" ] ; then
-		for inc in $INCLUDE ; do
-			echo "#include \"$inc\"" >> autotest.c
-		done
+		echo "#include <$INCLUDE>" >> autotest.c
 	fi
 	echo "#include <stdlib.h>" >> autotest.c
 	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
@@ -387,124 +198,15 @@ check_lib()
 	if [ $? -eq 0 ] ; then 
 		echo "found"
 		LIBS="$LIBS -l$LIB"
-		echo "-> OK" >> config.log
-		write_cache "lib" "$LIB" "yes" ""
 		cleanup
+		echo "-> OK" >> config.log
 		return 0
 	else
 		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
-		write_cache "lib" "$LIB" "no" ""
 		cleanup
+		echo "-> FAILED" >> config.log
 		return 1
 	fi
-}
-
-check_package()
-{
-	PACKAGE=$1
-	PLIBS=`$PKG_CONFIG --libs $PACKAGE`
-	PCFLAGS=`$PKG_CONFIG --cflags $PACKAGE`
-	while [ $# -ne 1 -a -n $1 ] ; do 
-		shift
-		if [ "F$INCLUDE" = "F" ] ; then
-			INCLUDE="$1"
-		else
-			INCLUDE="$INCLUDE $1"
-		fi
-	done
-	echo -n "Testing for $PACKAGE: "
-	echo >> config.log
-	echo "Testing for $PACKAGE: " >> config.log
-	check_cache "package" "$PACKAGE"
-	if [ $? -eq 0 ] ; then
-		echo "-> OK (cached)"
-		echo "-> OK (cached)" >> config.log
-		_p_cflags=`echo $CACHED | cut -d ':' -f 1`
-		_p_libs=`echo $CACHED | cut -d ':' -f 2`
-		LIBS="$LIBS $_p_libs"
-		CFLAGS="$CFLAGS $_p_cflags"
-		return 0
-	fi
-	echo "#include <sys/types.h>" > autotest.c
-	if [ "F$INCLUDE" != "F" ] ; then
-		for inc in $INCLUDE ; do
-			echo "#include \"$inc\"" >> autotest.c
-		done
-	fi
-	echo "#include <stdlib.h>" >> autotest.c
-	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
-	echo "$GCC $CFLAGS $PCFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PLIBS $PTHREAD_LDFLAGS autotest.c" >>config.log
-	$GCC $CFLAGS $PCFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PLIBS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
-	if [ $? -eq 0 ] ; then 
-		echo "found"
-		LIBS="$LIBS $PLIBS"
-		CFLAGS="$CFLAGS $PCFLAGS"
-		echo "-> OK" >> config.log
-		write_cache "package" "$PACKAGE" "yes" "$PCFLAGS:$PLIBS"
-		cleanup
-		return 0
-	else
-		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
-		write_cache "package" "$PACKAGE" "no" ""
-		cleanup
-		return 1
-	fi
-
-}
-
-check_perl()
-{
-	echo -n "Testing for $PERL: "
-	echo >> config.log
-	echo "Testing for $PERL: " >> config.log
-	check_cache "perl" "$PERL"
-	if [ $? -eq 0 ] ; then
-		echo "-> OK (cached)"
-		echo "-> OK (cached)" >> config.log
-		_p_cflags=`echo $CACHED | cut -d ':' -f 1`
-		_p_libs=`echo $CACHED | cut -d ':' -f 2`
-		PERLLDFLAGS="$LIBS $_p_libs"
-		PERLCFLAGS="$CFLAGS $_p_cflags"
-		return 0
-	fi
-
-	if [ ! -x $PERL ] ; then
-		echo "not found"
-		echo "-> FAILED" >> config.log
-		cleanup
-		return 1
-	fi
-	PERLCFLAGS=`$PERL -MExtUtils::Embed -e ccopts`
-	PERLLDFLAGS=`$PERL -MExtUtils::Embed -e ldopts`
-
-	echo "#include <stdlib.h>" > autotest.c
-	echo "#include <EXTERN.h>" >> autotest.c
-	echo "#include <perl.h>" >> autotest.c
-	echo "int main (int argc, char **argv, char **env) { PERL_SYS_INIT3(&argc,&argv,&env); return 0; }" >> autotest.c
-	echo "$GCC $CFLAGS $PERLCFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PERLLDFLAGS $PTHREAD_LDFLAGS autotest.c" >>config.log
-	$GCC $CFLAGS $PERLCFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS $PERLLDFLAGS $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
-	if [ $? -eq 0 ] ; then 
-		echo "found"
-		echo "-> OK" >> config.log
-		cleanup
-		write_cache "perl" "$PERL" "yes" "$PERLCFLAGS:$PERLLDFLAGS"
-		return 0
-	else
-		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
-		write_cache "perl" "$PERL" "no" ""
-		cleanup
-		return 1
-	fi
-
 }
 
 check_os()
@@ -560,136 +262,6 @@ check_group()
 	fi
 }
 
-check_depends()
-{
-	ifdep=""
-	depends=""
-	if [ ! -f $DEPENDS_FILE ] ; then
-		return 0
-	fi
-
-	while read line ; do
-		echo $line | grep '#if' > /dev/null
-		if [ $? -eq 0 ] ; then
-			ifdep=`echo $line | sed -e 's/^#if \([A-Za-z0-9_]*\)$/\1/'`
-		elif [ "F$ifdep" != "F" ] ; then
-			echo $line | grep "#endif" > /dev/null
-			if [ $? -eq 0 ] ; then
-				ifdep=""
-			else
-				echo $OPTS | grep $ifdep > /dev/null
-				if [ $? -eq 0 ] ; then
-					depends="$depends $line"
-				fi
-			fi
-		else
-			depends="$depends $line"
-		fi
-	done < $DEPENDS_FILE
-	
-	obj_depends=`echo $depends | sed -e 's/\([^ ]\{1,\}\)\/\([^/]\{1,\}\).c/\2.o/g'`
-	echo "DEPENDS=$depends" >> $MAKEFILE
-	echo "OBJ_DEPENDS=$obj_depends" >> $MAKEFILE
-	for _dep in $depends ; do
-		_obj_dep=`echo $_dep | sed -e 's/\([^ ]\{1,\}\)\/\([^/]\{1,\}\).c/\2.o/g'`
-		cat >> $MAKEFILE.dep << END
-${_obj_dep}: ${_dep}
-	\$(CC) \$(OPT_FLAGS) \$(CFLAGS) \$(PTHREAD_CFLAGS) -o ${_obj_dep} -c ${_dep}
-
-END
-
-	done
-}
-
-write_modules()
-{
-	# Write modules init function
-	echo "#ifndef MODULES_H" > $SRCDIR/modules.h
-	echo "#include \"config.h\"" >> $SRCDIR/modules.h
-	echo "#include \"modules.h\"" > $SRCDIR/modules.c
-	echo "module_t modules[] = {" >> $SRCDIR/modules.c;
-	modules_num=0
-	for m in $MODULES ; do
-		echo "{\"${m}\", ${m}_module_init, ${m}_module_config, ${m}_module_reconfig}," >> $SRCDIR/modules.c
-		echo "int ${m}_module_init(struct config_file *cfg, struct module_ctx **ctx);" >> $SRCDIR/modules.h
-		echo "int ${m}_module_config(struct config_file *cfg);" >> $SRCDIR/modules.h
-		echo "int ${m}_module_reconfig(struct config_file *cfg);" >> $SRCDIR/modules.h
-		modules_num=`expr $modules_num + 1`
-	done
-	echo "};" >> $SRCDIR/modules.c
-	echo "#endif" >> $SRCDIR/modules.h
-	echo "#define MODULES_NUM $modules_num" >> $SRCDIR/$CONFIG
-	SOURCES="$SOURCES modules.c"
-
-}
-
-write_perl()
-{
-	# Write to perl Makefile
-	sed -e "s|%%libs%%|${LDFLAGS} ${LIBS}|" < $PERL_MAKEFILE > .pl_tmp
-	sed -e "s|%%include%%|${CFLAGS}|" < .pl_tmp > .pl2_tmp
-	PERL_MAKEFILE=`echo ${PERL_MAKEFILE} | sed -e 's|.in$||'`
-	mv .pl2_tmp $PERL_MAKEFILE
-	rm -f .pl_tmp .pl2_tmp
-	CURDIR=`pwd`
-	cd `dirname ${PERL_MAKEFILE}`
-	$PERL Makefile.PL
-	cd $CURDIR
-}
-
-write_subdirs()
-{
-	# Write subdirs makefiles
-	clean_target="clean-subdirs: "
-	dist_clean_target="dist-clean-subdirs: "
-	for sub in $SUBDIRS ; do
-		cp $MAKEFILE $sub/$MAKEFILE
-		saved_pwd=`pwd`
-		old_objs=`echo $OBJECTS | sed -e 's/\([^. ]*\.o\)/..\/%%OBJDIR%%\/\1/g' | sed -e "s,%%OBJDIR%%,${OBJDIR},g"`
-		old_srcs=`echo $SOURCES | sed -e 's/\([^. ]*\.c\)/..\/%%SRCDIR%%\/\1/g' | sed -e "s,%%SRCDIR%%,${SRCDIR},g"`
-		cd $sub
-		sub_src="`echo *.c`"
-		sub_obj="`echo $sub_src | sed -e 's/\.c/\.o/g'`"
-		echo "SOURCES=$sub_src" >> $MAKEFILE
-		echo "OBJECTS=$sub_obj" >> $MAKEFILE
-		check_depends
-		cat Makefile.in >> $MAKEFILE
-		if [ -f $MAKEFILE.dep ] ; then
-			cat $MAKEFILE.dep >> $MAKEFILE
-			rm -f $MAKEFILE.dep
-		fi
-		for _sub_src in $sub_src ; do
-			_sub_obj=`echo $_sub_src | sed -e 's/\.c/\.o/g'`
-			cat >> $MAKEFILE << END
-${_sub_obj}: ${_sub_src}
-	\$(CC) \$(OPT_FLAGS) \$(CFLAGS) \$(PTHREAD_CFLAGS) -o ${_sub_obj} -c ${_sub_src}
-
-END
-		done
-		cd $saved_pwd
-		dist_clean_target="$dist_clean_target ${sub}-dist-clean"
-		clean_target="$clean_target ${sub}-clean"
-	done
-
-	# Write IN file
-	cat $MAKEFILE_IN >> $MAKEFILE
-
-	# Process clean targets for all subdirs
-	echo $dist_clean_target >> $MAKEFILE
-	echo $clean_target >> $MAKEFILE
-	for sub in $SUBDIRS ; do
-		cat >> $MAKEFILE << END
-${sub}-clean:
-	cd ${sub} && make clean && cd ..
-${sub}-dist-clean:
-	cd ${sub} && make dist-clean && cd ..
-${sub}:
-	cd ${sub} && make && cd ..
-
-END
-	done
-}
-
 write_result()
 {
 	echo "Compiler: $GCC" >> config.log 
@@ -698,28 +270,7 @@ write_result()
 	echo "Cflags: $CFLAGS" >> config.log
 	echo "Ldflags: $LDFLAGS" >> config.log
 	echo "Libs: $LIBS" >> config.log
-	if [ "F$CONFIG" != "F" ] ; then
-		echo "#define RVERSION \"${VERSION}\"" >> $SRCDIR/$CONFIG
-		echo "#define HASH_COMPAT" >> $SRCDIR/$CONFIG
-	fi
-
-	if [ "F$MODULES" != "F" ] ; then
-		write_modules
-	fi
-	for _s in $SOURCES ; do
-		_o=`echo $_s | awk -F '/' '{split($NF, A, "."); print "%%OBJDIR%%/"A[1]".o"}' | sed -e "s,%%OBJDIR%%,${OBJDIR},"`
-		OBJECTS="$OBJECTS $_o"
-		SRC_OBJ="$SRC_OBJ $_s#$_o"
-	done
-	if [ "F$PERL" != "F" ] ; then
-		write_perl
-	fi
-	# Make CFLAGS more readable
-	CFLAGS="$CFLAGS $PERLCFLAGS"
-	LIBS="$LIBS $PERLLDFLAGS"
-	CFLAGS=`echo $CFLAGS | tr [:space:] \\\n | sed -e 's/$/ \\\/' | sed -e '$,$s/\\\//' | sort -r -k2 | uniq`
-	LDFLAGS=`echo $LDFLAGS | tr [:space:] \\\n | sed -e 's/$/ \\\/' | sed -e '$,$s/\\\//' | sort -r -k2 | uniq`
-	LIBS=`echo $LIBS | tr [:space:] \\\n | sed -e 's/$/ \\\/' | sed -e '$,$s/\\\//' | sort -r -k2 | uniq`
+	OBJECTS=`echo $SOURCES | sed -e 's/\.c/\.o/g'`
 	cat > $MAKEFILE << END
 # This is ${EXEC} Makefile
 # For options edit Makefile.in, this file is autogenerated by configure
@@ -733,17 +284,16 @@ CFLAGS=$CFLAGS
 LDFLAGS=$LDFLAGS
 # Libraries to link
 LIBS=$LIBS
-# Directories for sources and objects
-SRCDIR=$SRCDIR
-OBJDIR=$OBJDIR
 # ${EXEC} sources
 SOURCES=$SOURCES
 # ${EXEC} objects 
 OBJECTS=$OBJECTS
 # Version of product
-VERSION=$VERSION
+VERION=$VERSION
 # Detected operation system
 OS=$OS
+# Version of dcc (if needed)
+DCC_VER=$DCC_VER
 # Lex and yacc executables
 LEX=$LEX
 YACC=$YACC
@@ -760,42 +310,39 @@ MKDIR=$MKDIR
 # Executable name
 EXEC=$EXEC
 # User and group
-RSPAMD_USER=$USER
-RSPAMD_GROUP=$GROUP
+RMILTER_USER=$USER
+RMILTER_GROUP=$GROUP
 # All target dependenses
-TARGETS=$TARGETS $SUBDIRS
+TARGETS=$TARGETS
 # Common dependenses
 DEPS=$DEPS
 # Path to install manual page
 MANPATH=$MANPATH
-# Subdirectories
-SUBDIRS=$SUBDIRS
 
 END
-
-	write_subdirs
-
 	# Write build targets to makefile
+
+	cat $MAKEFILE_IN >> $MAKEFILE
 	cat >> $MAKEFILE << END
 ${EXEC}: \$(OBJECTS)
 	\$(CC) \$(PTHREAD_LDFLAGS) \$(LDFLAGS) \$(OBJECTS) \$(LIBS) -o \$(EXEC)
 END
-	for o in $SRC_OBJ ; do
-		SO=`echo $o | cut -d '#' -f 1`
-		O=`echo $o | cut -d '#' -f 2`
+	for o in $OBJECTS ; do
+		SO=`echo $o | sed -e 's/\.o/\.c/g'`
 		cat >> $MAKEFILE << END
-${O}: \$(DEPS) ${SRCDIR}/${SO}
-	\$(CC) \$(OPT_FLAGS) \$(CFLAGS) \$(PTHREAD_CFLAGS) -o ${O} -c ${SRCDIR}/${SO}
+${o}: \$(DEPS) ${SO}
+	\$(CC) \$(OPT_FLAGS) \$(CFLAGS) \$(PTHREAD_CFLAGS) -c ${SO}
 
 END
 	done
 	cat >> $MAKEFILE << END
-${SRCDIR}/${LEX_OUTPUT}: \$(SRCDIR)/cfg_file.h \$(SRCDIR)/${LEX_SRC} \$(SRCDIR)/${YACC_OUTPUT}
-	\$(LEX) -o\$(SRCDIR)/${LEX_OUTPUT} \$(SRCDIR)/${LEX_SRC}
+${LEX_OUTPUT}: cfg_file.h ${LEX_SRC} ${YACC_OUTPUT}
+	\$(LEX) -o${LEX_OUTPUT} ${LEX_SRC}
 
-${SRCDIR}/${YACC_OUTPUT}: \$(SRCDIR)/cfg_file.h \$(SRCDIR)/${YACC_SRC}
-	\$(YACC) -d -o \$(SRCDIR)/${YACC_OUTPUT} \$(SRCDIR)/${YACC_SRC}
+${YACC_OUTPUT}: cfg_file.h ${YACC_SRC}
+	\$(YACC) -d -o ${YACC_OUTPUT} ${YACC_SRC}
 END
+
 }
 
 
@@ -865,7 +412,7 @@ if [ $? -eq 1 ] ; then
 	echo "Libmilter not found, check config.log for details"
 	exit 1
 fi
-check_lib "spf2" "netinet/in.h" "spf2/spf.h"
+check_lib "spf2" "spf2/spf.h"
 if [ $? -eq 1 ] ; then
 	echo "Libspf2 not found, check config.log for details"
 	exit 1
