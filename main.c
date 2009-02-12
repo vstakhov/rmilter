@@ -74,7 +74,7 @@ reload_thread (void *unused)
 		pthread_mutex_lock(&cfg_reload_mtx);
 		pthread_cond_wait(&cfg_cond, &cfg_reload_mtx);
 		pthread_mutex_unlock(&cfg_reload_mtx);
-		msg_warn ("reload_thread: reloading...");
+		msg_warn ("reload_thread: reloading, rmilter version %s", MVERSION);
 		/* lock for writing */
 		CFG_WLOCK();
 		f = fopen (cfg->cfg_name, "r");
