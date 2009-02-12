@@ -83,7 +83,7 @@ struct smfiDesc smfilter =
     	mlfi_eom,		/* end of message */
     	mlfi_abort,		/* message aborted */
     	mlfi_close,		/* connection cleanup */
-#if (SMFI_PROT_VERSION > 4)
+#if (SMFI_PROT_VERSION >= 4)
 		NULL,			/* unknown situation */
 		mlfi_data,		/* SMTP DATA callback */
 		NULL			/* Negotiation callback */
@@ -549,6 +549,17 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		return SMFIS_TEMPFAIL;
 	}
 
+#ifdef SENDMAIL
+	strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
+	if ((addr == NULL) || (&(((struct sockaddr_in *)(addr))->sin_addr) == NULL)) {
+		msg_warn ("mlfi_connect: hostaddr is NULL");
+	}
+	else {
+		(void)inet_ntop(AF_INET, &((struct sockaddr_in *)(addr))->sin_addr, priv->priv_ip, sizeof (priv->priv_ip));
+		memcpy (&priv->priv_addr, addr, sizeof (struct sockaddr_in));
+	}
+#endif
+
     smfi_setpriv(ctx, priv);
 	/* Cannot set reply here, so delay processing of connect stage */
 	return SMFIS_CONTINUE;
@@ -597,6 +608,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	priv->priv_from[i] = '\0';
 	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
 
+#ifndef SENDMAIL
 	/* Extract IP and hostname */
 	tmpfrom = smfi_getsymval(ctx, "{client_addr}");
 	if (tmpfrom != NULL) {
@@ -613,6 +625,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	else {
 		strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
 	}
+#endif
 
 #ifndef STRICT_AUTH
 	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
@@ -870,6 +883,36 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
 	CFG_RLOCK();
+#if (SMFI_PROT_VERSION < 4)
+	/* Do greylisting here if DATA callback is not available */
+	if (priv->priv_ip[0] != '\0' && *priv->priv_rcpt != '\0' && cfg->memcached_servers_grey_num > 0 &&
+		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
+
+		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
+		r = check_greylisting (priv);
+		switch (r) {
+			case GREY_GREYLISTED:
+				if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
+					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
+				}
+				CFG_UNLOCK();
+				(void)mlfi_cleanup (ctx, false);
+				return SMFIS_TEMPFAIL;
+				break;
+			case GREY_ERROR:
+				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Service unavailable") != MI_SUCCESS) {
+					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
+				}
+				CFG_UNLOCK();
+				(void)mlfi_cleanup (ctx, false);
+				break;
+			case GREY_WHITELISTED:
+			default:
+				break;
+		}
+	}
+
+#endif
 	
 	if (cfg->serial == priv->serial) {
 		msg_debug ("mlfi_eom: %s: checking regexp rules", priv->mlfi_id);
@@ -918,7 +961,11 @@ mlfi_eom(SMFICTX * ctx)
 		return mlfi_cleanup (ctx, true);
 	}
     else if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
+#ifndef FREEBSD_LEGACY
 		msg_warn ("mlfi_eom: %s: message size(%zd) exceeds limit(%zd), not scanned, %s", priv->mlfi_id, (size_t)sb.st_size, cfg->sizelimit, priv->file);
+#else
+		msg_warn ("mlfi_eom: %s: message size(%ld) exceeds limit(%ld), not scanned, %s", priv->mlfi_id, (long int)sb.st_size, (long int)cfg->sizelimit, priv->file);
+#endif
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}

@@ -233,7 +233,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		msg_debug ("check_specific_limit: write limit for key: '%s', count: %.1f, time: %.1f", cur_param.key, b.count, b.tm);
 		if (mctx.sock != -1) {
 			s = 1;
-			if (memc_set (&mctx, &cur_param, &s, EXPIRE_TIME) != OK) {
+			if ((r = memc_set (&mctx, &cur_param, &s, EXPIRE_TIME)) != OK) {
 				msg_info ("check_specific_limit: got error on 'set' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));

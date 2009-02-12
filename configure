@@ -9,7 +9,7 @@ OS=""
 LOCALBASE=/usr/local
 PREFIX=$LOCALBASE
 
-VERSION=1.5.16
+VERSION=1.5.17
 DCC_VER=1.2.74
 COMPAT_DIR="./compat"
 
@@ -31,6 +31,7 @@ DEPS="awl.h cfg_file.h libclamc.h libspamd.h memcached.h radix.h ratelimit.h reg
 EXEC=rmilter
 USER=postfix
 GROUP=postfix
+SENDMAIL=no
 INSTALL="/usr/bin/install -v"
 MKDIR="/usr/bin/install -v -d"
 MANPATH="${PREFIX}/share/man"
@@ -220,6 +221,7 @@ check_os()
 				MANPATH="${PREFIX}/man"
 				case `uname -r` in
 				4.*)
+					CFLAGS="$CFLAGS -DFREEBSD_LEGACY"
 					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-lc_r" ;;
 				5.*)
 					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-lpthread" ;;
@@ -360,6 +362,7 @@ do
 		--enable-dcc)                    dcc=yes                    				;;
 		--enable-debug)					 CFLAGS="$CFLAGS -DWITH_DEBUG" OPT_FLAGS=""	;;
 		--enable-opt)                    OPT_FLAGS="-O3 -pipe"						;;
+		--enable-sendmail)               SENDMAIL=yes                               ;;
 		*)
             echo "$0: error: invalid option \"$option\""
             exit 1
@@ -377,10 +380,19 @@ if [ "F$help" = "Fyes" ] ; then
   --enable-debug                     turn on extra debug messages
   --enable-opt                       turn on extra optimization
   --enable-auth-strict               turn on strict check for authenticated users
+  --enable-sendmail                  build rmilter for using with sendmail MTA
   --user=USER                        set user to use
   --group=GROUP                      set group to use
 END
 	exit 1
+fi
+
+if [ "F$SENDMAIL" = "Fyes" ] ; then
+	CFLAGS="$CFLAGS -DSENDMAIL"
+	if [ "F$USER" = "Fpostfix" ] ; then
+		USER="mailnull"
+		GROUP="mailnull"
+	fi
 fi
 
 CFLAGS="$CFLAGS -I$PREFIX/include"

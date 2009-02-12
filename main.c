@@ -67,14 +67,14 @@ reload_thread (void *unused)
 	signals.sa_handler = sig_usr1_handler;
 	sigaction (SIGUSR1, &signals, NULL);
 
-	msg_info ("(reload_thread) starting...");
+	msg_info ("reload_thread: starting...");
 
 	/* lock on mutex until we got SIGUSR1 that unlocks mutex */
 	while (1) {
 		pthread_mutex_lock(&cfg_reload_mtx);
 		pthread_cond_wait(&cfg_cond, &cfg_reload_mtx);
 		pthread_mutex_unlock(&cfg_reload_mtx);
-		msg_warn ("(reload_thread) reloading...");
+		msg_warn ("reload_thread: reloading...");
 		/* lock for writing */
 		CFG_WLOCK();
 		f = fopen (cfg->cfg_name, "r");
@@ -172,7 +172,7 @@ main(int argc, char *argv[])
     }
 
     openlog("rmilter", LOG_PID, LOG_MAIL);
-    msg_warn ("(main) starting...");
+    msg_warn ("main: starting rmilter version %s", MVERSION);
 	
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {

@@ -289,7 +289,12 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			}
 
 			if (datalen != params[i].bufsize) {
+#ifndef FREEBSD_LEGACY
 				memc_log (ctx, __LINE__, "memc_read: user's buffer is too small: %zd, %zd required", params[i].bufsize, datalen);
+#else
+				memc_log (ctx, __LINE__, "memc_read: user's buffer is too small: %ld, %ld required", (long int)params[i].bufsize, 
+																									 (long int)datalen);
+#endif
 				return WRONG_LENGTH;
 			}
 
@@ -389,7 +394,11 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			header.req_id = ctx->count;
 		}
 
+#ifndef FREEBSD_LEGACY
 		r = snprintf (read_buf, READ_BUFSIZ, "%s %s 0 %d %zu" CRLF, cmd, params[i].key, expire, params[i].bufsize);
+#else
+		r = snprintf (read_buf, READ_BUFSIZ, "%s %s 0 %d %lu" CRLF, cmd, params[i].key, expire, (unsigned long int)params[i].bufsize);
+#endif
 		memc_log (ctx, __LINE__, "memc_write: send write request to memcached: %s", read_buf);
 		/* Set socket blocking */
 		ofl = fcntl(ctx->sock, F_GETFL, 0);
