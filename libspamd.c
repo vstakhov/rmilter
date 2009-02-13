@@ -194,7 +194,12 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
     fcntl(s, F_SETFL, ofl & (~O_NONBLOCK));
 
 	r = snprintf (buf, sizeof (buf), "SYMBOLS SPAMC/1.2\r\nContent-length: %ld\r\n\r\n", (long int)sb.st_size);
-	write (s, buf, r);
+	if (write (s, buf, r) == -1) {
+		msg_warn("spamd: write (%s), %d: %m", srv->name, errno);
+		close(fd);
+		close(s);
+		return -1;
+	}
 
 #if defined(FREEBSD) || defined(HAVE_SENDFILE)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {

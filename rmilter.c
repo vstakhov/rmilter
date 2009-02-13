@@ -484,7 +484,7 @@ check_greylisting (struct mlfi_priv *priv)
 		}	
 		/* Greylisting record exists, checking time */
 		else if (r == OK) {
-			if (tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
+			if ((unsigned int)tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
 				/* Client comes too early */
 				memc_close_ctx_mirror (mctx, 2);
 				upstream_ok (&selected->up, tm.tv_sec);
@@ -598,6 +598,12 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 
 #ifdef SENDMAIL
 	strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
+	if (hostname) {
+		strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
+	}
+	else {
+		strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+	}
 	if ((addr == NULL) || (&(((struct sockaddr_in *)(addr))->sin_addr) == NULL)) {
 		msg_warn ("mlfi_connect: hostaddr is NULL");
 	}
@@ -631,7 +637,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char *tmpfrom;
 	struct mlfi_priv *priv;
 	struct rule *act;
-	int i;
+	unsigned int i;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -991,7 +997,7 @@ mlfi_eom(SMFICTX * ctx)
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
-    else if (cfg->sizelimit != 0 && sb.st_size > cfg->sizelimit) {
+    else if (cfg->sizelimit != 0 && sb.st_size > (off_t)cfg->sizelimit) {
 #ifndef FREEBSD_LEGACY
 		msg_warn ("mlfi_eom: %s: message size(%zd) exceeds limit(%zd), not scanned, %s", priv->mlfi_id, (size_t)sb.st_size, cfg->sizelimit, priv->file);
 #else

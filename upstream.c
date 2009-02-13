@@ -154,7 +154,7 @@ upstream_ok (struct upstream *up, time_t now)
 void
 revive_all_upstreams (void *ups, size_t members, size_t msize) 
 {
-	int i;
+	size_t i;
 	struct upstream *cur;
 	u_char *p;
 
@@ -179,7 +179,7 @@ revive_all_upstreams (void *ups, size_t members, size_t msize)
 static int
 rescan_upstreams (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
 {	
-	int i, alive;
+	size_t i, alive;
 	struct upstream *cur;
 	u_char *p;
 	
@@ -201,7 +201,7 @@ rescan_upstreams (void *ups, size_t members, size_t msize, time_t now, time_t er
 
 	msg_debug ("rescan_upstreams: %d upstreams alive", alive);
 	
-	return alive;
+	return (int)alive;
 
 }
 
@@ -340,7 +340,7 @@ get_upstream_by_hash (void *ups, size_t members, size_t msize, time_t now,
 struct upstream *
 get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
 {
-	int alive, max_weight, i;
+	size_t alive, max_weight, i;
 	struct upstream *cur, *selected = NULL;
 	u_char *p;
 	
@@ -354,7 +354,7 @@ get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, t
 	for (i = 0; i < members; i++) {
 		cur = (struct upstream *)p;
 		if (!cur->dead) {
-			if (max_weight < cur->weight) {
+			if ((int)max_weight < cur->weight) {
 				max_weight = cur->weight;
 				selected = cur;
 			}
@@ -390,7 +390,7 @@ get_upstream_round_robin (void *ups, size_t members, size_t msize, time_t now, t
 struct upstream *
 get_upstream_master_slave (void *ups, size_t members, size_t msize, time_t now, time_t error_timeout, time_t revive_timeout, size_t max_errors)
 {
-	int alive, max_weight, i;
+	size_t alive, max_weight, i;
 	struct upstream *cur, *selected = NULL;
 	u_char *p;
 	
@@ -435,7 +435,7 @@ upstream_ketama_add (struct upstream *up, char *up_key, size_t keylen, size_t ke
 {
 	uint32_t h = 0;
 	char tmp[4];
-	int i;
+	size_t i;
 
 	/* Allocate ketama points array */
 	if (up->ketama_points == NULL) {
@@ -471,7 +471,7 @@ get_upstream_by_hash_ketama (void *ups, size_t members, size_t msize, time_t now
 						time_t error_timeout, time_t revive_timeout, size_t max_errors,
 						char *key, size_t keylen)
 {
-	int alive, i;
+	size_t alive, i;
 	uint32_t h = 0, step, middle, d, min_diff = UINT_MAX;
 	char *p;
 	struct upstream *cur = NULL, *nearest = NULL;
@@ -495,7 +495,7 @@ get_upstream_by_hash_ketama (void *ups, size_t members, size_t msize, time_t now
 			middle = step;
 			while (step != 1) {
 				d = cur->ketama_points[middle] - h;
-				if (abs (d) < min_diff) {
+				if (abs (d) < (int)min_diff) {
 					min_diff = abs (d);
 					nearest = cur;
 				}

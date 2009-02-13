@@ -496,7 +496,7 @@ init_defaults (struct config_file *cfg)
 void
 free_config (struct config_file *cfg)
 {
-	int i;
+	unsigned int i;
 	struct rule *cur, *tmp_rule;
 	struct condition *cond, *tmp_cond;
 	struct addr_list_entry *addr_cur, *addr_tmp;

@@ -218,7 +218,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 {
 	char read_buf[READ_BUFSIZ];
 	char *p;
-	int i, retries;
+	unsigned int i, retries;
 	ssize_t r, sum = 0, written = 0;
 	size_t datalen;
 	struct memc_udp_header header;
@@ -239,10 +239,16 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			iov[0].iov_len = sizeof (struct memc_udp_header);
 			iov[1].iov_base = read_buf;
 			iov[1].iov_len = r;
-			writev (ctx->sock, iov, 2);
+			if (writev (ctx->sock, iov, 2) == -1) {
+				memc_log (ctx, __LINE__, "memc_read: writev failed, %d, %m", errno);
+				return SERVER_ERROR;
+			}
 		}
 		else {
-			write (ctx->sock, read_buf, r);
+			if (write (ctx->sock, read_buf, r) == -1) {
+				memc_log (ctx, __LINE__, "memc_read: write failed, %d, %m", errno);
+				return SERVER_ERROR;
+			}
 		}
 
 		/* Read reply from server */
@@ -301,7 +307,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 			/* Subtract from sum parsed header's length */
 			sum -= p - read_buf;
 			/* Check if we already have all data in buffer */
-			if (sum >= datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
+			if ((size_t)sum >= datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
 				/* Store all data in param's buffer */
 				memcpy (params[i].buf, p, datalen);
 				/* Increment count */
@@ -321,7 +327,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 		/* Read data from multiply datagrams */
 		p = read_buf;
 
-		while (sum < datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
+		while ((size_t)sum < datalen + sizeof (END_TRAILER) + sizeof (CRLF) - 2) {
 			retries = 0;
 			while (ctx->protocol == UDP_TEXT) {
 				if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
@@ -362,7 +368,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				if (strncmp (p, END_TRAILER, sizeof (END_TRAILER) - 1) == 0) {
 					break;
 				}
-				if (written < datalen) {
+				if ((size_t)written < datalen) {
 					params[i].buf[written++] = *p++;
 				}
 			}
@@ -381,7 +387,7 @@ memc_error_t
 memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, size_t *nelem, int expire)
 {
 	char read_buf[READ_BUFSIZ];
-	int i, retries, ofl;
+	unsigned int i, retries, ofl;
 	ssize_t r;
 	struct memc_udp_header header;
 	struct iovec iov[4];
@@ -413,7 +419,10 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			iov[2].iov_len = params[i].bufsize;
 			iov[3].iov_base = CRLF;
 			iov[3].iov_len = sizeof (CRLF) - 1;
-			writev (ctx->sock, iov, 4);
+			if (writev (ctx->sock, iov, 4) == -1) {
+				memc_log (ctx, __LINE__, "memc_write: writev failed, %d, %m", errno);
+				return SERVER_ERROR;
+			}
 		}
 		else {
 			iov[0].iov_base = read_buf;
@@ -422,7 +431,10 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 			iov[1].iov_len = params[i].bufsize;
 			iov[2].iov_base = CRLF;
 			iov[2].iov_len = sizeof (CRLF) - 1;
-			writev (ctx->sock, iov, 3);	
+			if (writev (ctx->sock, iov, 3) == -1) {
+				memc_log (ctx, __LINE__, "memc_write: writev failed, %d, %m", errno);
+				return SERVER_ERROR;
+			}
 		}
 		
 		/* Restore socket mode */
@@ -486,7 +498,7 @@ memc_error_t
 memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 {
 	char read_buf[READ_BUFSIZ];
-	int i, retries;
+	unsigned int i, retries;
 	ssize_t r;
 	struct memc_udp_header header;
 	struct iovec iov[2];
@@ -506,10 +518,16 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 			iov[0].iov_len = sizeof (struct memc_udp_header);
 			iov[1].iov_base = read_buf;
 			iov[1].iov_len = r;
-			writev (ctx->sock, iov, 2);
+			if (writev (ctx->sock, iov, 2) == -1) {
+				memc_log (ctx, __LINE__, "memc_delete: writev failed, %d, %m", errno);
+				return SERVER_ERROR;
+			}
 		}
 		else {
-			write (ctx->sock, read_buf, r);
+			if (write (ctx->sock, read_buf, r) == -1) {
+				memc_log (ctx, __LINE__, "memc_delete: write failed, %d, %m", errno);
+				return SERVER_ERROR;
+			}
 		}
 
 		/* Read reply from server */

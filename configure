@@ -19,7 +19,7 @@ LEX_OUTPUT="cfg_lex.c"
 
 SOURCES="upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ratelimit.c memcached.c main.c radix.c awl.c libspamd.c ${LEX_OUTPUT} ${YACC_OUTPUT}"
 
-CFLAGS="$CFLAGS -W -Wall -Wpointer-arith"
+CFLAGS="$CFLAGS -Wall -Wpointer-arith"
 CFLAGS="$CFLAGS -ggdb -I${LOCALBASE}/include"
 CFLAGS="$CFLAGS -DHASH_COMPAT"
 LDFLAGS="$LDFLAGS -L${LOCALBASE}/lib"
@@ -246,6 +246,7 @@ check_include()
 	if [ $? -eq 0 ] ; then
 		echo "-> OK (cached)"
 		echo "-> OK (cached)" >> config.log
+		_CFLAG=`echo "$_INCLUDE" | sed -e 's/[./]/_/g' | tr '[:lower:]' '[:upper:]'`
 		CFLAGS="$CFLAGS -DHAVE_$_CFLAG"
 		return 0
 	fi
