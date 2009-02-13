@@ -461,7 +461,6 @@ void
 init_defaults (struct config_file *cfg)
 {
 	LIST_INIT (&cfg->rules);
-	LIST_INIT (&cfg->whitelist_ip);
 	LIST_INIT (&cfg->whitelist_rcpt);
 	LIST_INIT (&cfg->bounce_addrs);
 
@@ -487,6 +486,7 @@ init_defaults (struct config_file *cfg)
 	cfg->memcached_protocol = UDP_TEXT;
 	
 	cfg->grey_whitelist_tree = radix_tree_create ();
+	cfg->limit_whitelist_tree = radix_tree_create ();
 	cfg->spamd_whitelist = radix_tree_create ();
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
@@ -499,7 +499,6 @@ free_config (struct config_file *cfg)
 	int i;
 	struct rule *cur, *tmp_rule;
 	struct condition *cond, *tmp_cond;
-	struct ip_list_entry *ip_cur, *ip_tmp;
 	struct addr_list_entry *addr_cur, *addr_tmp;
 
 	if (cfg->pid_file) {
@@ -555,10 +554,6 @@ free_config (struct config_file *cfg)
 		free (cur);
 	}
 	/* Free whitelists and bounce list*/
-	LIST_FOREACH_SAFE (ip_cur, &cfg->whitelist_ip, next, ip_tmp) {
-		LIST_REMOVE (ip_cur, next);
-		free (ip_cur);
-	}
 	LIST_FOREACH_SAFE (addr_cur, &cfg->whitelist_rcpt, next, addr_tmp) {
 		if (addr_cur->addr) {
 			free (addr_cur->addr);
@@ -579,6 +574,9 @@ free_config (struct config_file *cfg)
 	
 	radix_tree_free (cfg->spamd_whitelist);
 	free (cfg->spamd_whitelist);
+
+	radix_tree_free (cfg->limit_whitelist_tree);
+	free (cfg->limit_whitelist_tree);
 	
 	if (cfg->spamd_reject_message) {
 		free (cfg->spamd_reject_message);

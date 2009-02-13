@@ -226,7 +226,6 @@ struct config_file {
 	bucket_t limit_bounce_to;
 	bucket_t limit_bounce_to_ip;
 
-	LIST_HEAD (whitelistipset, ip_list_entry) whitelist_ip;
 	LIST_HEAD (whitelistaddrset, addr_list_entry) whitelist_rcpt;
 	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
 	
@@ -237,6 +236,7 @@ struct config_file {
 	char *grey_prefix;
 	char *white_prefix;
 	radix_tree_t *grey_whitelist_tree;
+	radix_tree_t *limit_whitelist_tree;
 	/* Autowhitelist section */
 	u_char awl_enable;
 	awl_hash_t *awl_hash;

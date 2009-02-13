@@ -49,7 +49,7 @@ uint8_t cur_flags = 0;
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
-%token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST_IP LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
+%token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX
 
 %type	<string>	STRING
@@ -867,7 +867,7 @@ limitcmd:
 	limit_to
 	| limit_to_ip
 	| limit_to_ip_from
-	| limit_whitelist_ip
+	| limit_whitelist
 	| limit_whitelist_rcpt
 	| limit_bounce_addrs
 	| limit_bounce_to
@@ -892,27 +892,19 @@ limit_to_ip_from:
 		cfg->limit_to_ip_from.rate = $3.rate;
 	}
 	;
-limit_whitelist_ip:
-	LIMIT_WHITELIST_IP EQSIGN whitelist_ip_list
+limit_whitelist:
+	LIMIT_WHITELIST EQSIGN whitelist_ip_list
 	;
 whitelist_ip_list:
-	IPADDR {
-		struct ip_list_entry *t;
-		t = (struct ip_list_entry *)malloc (sizeof (struct ip_list_entry));
-		if (inet_aton ($1, &t->addr) == 0) {
-			yyerror ("yyparse: invalid ip address: %s", $1);
+	ip_net {
+		if (add_ip_radix (cfg->limit_whitelist_tree, $1) == 0) {
 			YYERROR;
 		}
-		LIST_INSERT_HEAD (&cfg->whitelist_ip, t, next);
 	}
-	| whitelist_ip_list COMMA IPADDR {
-		struct ip_list_entry *t;
-		t = (struct ip_list_entry *)malloc (sizeof (struct ip_list_entry));
-		if (inet_aton ($3, &t->addr) == 0) {
-			yyerror ("yyparse: invalid ip address: %s", $3);
+	| whitelist_ip_list COMMA ip_net {
+		if (add_ip_radix (cfg->limit_whitelist_tree, $3) == 0) {
 			YYERROR;
 		}
-		LIST_INSERT_HEAD (&cfg->whitelist_ip, t, next);
 	}
 	;
 	

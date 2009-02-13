@@ -23,6 +23,7 @@
 #include <math.h>
 #include <ctype.h>
 
+#include "radix.h"
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "memcached.h"
@@ -79,7 +80,6 @@ is_whitelisted (struct in_addr *addr, char *rcpt, struct config_file *cfg)
 {
 	size_t user_part_len;
 	struct addr_list_entry *cur_addr;
-	struct ip_list_entry *cur_ip;
 
 	user_part_len = extract_user_part (rcpt);
 	LIST_FOREACH (cur_addr, &cfg->whitelist_rcpt, next) {
@@ -88,12 +88,9 @@ is_whitelisted (struct in_addr *addr, char *rcpt, struct config_file *cfg)
 			return 1;
 		}
 	}
-
-	LIST_FOREACH (cur_ip, &cfg->whitelist_ip, next) {
-		if (memcmp (&cur_ip->addr, addr, sizeof (struct in_addr)) == 0) {
-			/* Whitelist ip */
-			return 2;
-		}
+	
+	if (radix32tree_find (cfg->limit_whitelist_tree, ntohl((uint32_t)addr->s_addr)) != RADIX_NO_VALUE) {
+		return 2;
 	}
 
 	return 0;

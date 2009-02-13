@@ -179,7 +179,7 @@ limits							return LIMITS;
 limit_to						return LIMIT_TO;
 limit_to_ip						return LIMIT_TO_IP;
 limit_to_ip_from				return LIMIT_TO_IP_FROM;
-limit_whitelist_ip				return LIMIT_WHITELIST_IP;
+limit_whitelist					return LIMIT_WHITELIST;
 limit_whitelist_rcpt			return LIMIT_WHITELIST_RCPT;
 limit_bounce_addrs				return LIMIT_BOUNCE_ADDRS;
 limit_bounce_to					return LIMIT_BOUNCE_TO;

@@ -19,9 +19,8 @@ LEX_OUTPUT="cfg_lex.c"
 
 SOURCES="upstream.c regexp.c spf.c rmilter.c libclamc.c cfg_file.c ratelimit.c memcached.c main.c radix.c awl.c libspamd.c ${LEX_OUTPUT} ${YACC_OUTPUT}"
 
-CFLAGS="$CFLAGS -W -Wall -Wpointer-arith -Wno-unused-parameter"
-CFLAGS="$CFLAGS -Wno-unused-function -Wunused-variable -Wno-sign-compare"
-CFLAGS="$CFLAGS -Wunused-value -ggdb -I${LOCALBASE}/include"
+CFLAGS="$CFLAGS -W -Wall -Wpointer-arith"
+CFLAGS="$CFLAGS -ggdb -I${LOCALBASE}/include"
 CFLAGS="$CFLAGS -DHASH_COMPAT"
 LDFLAGS="$LDFLAGS -L${LOCALBASE}/lib"
 PTHREAD_CFLAGS="-D_THREAD_SAFE"
@@ -388,7 +387,7 @@ check_os()
 				case `uname -r` in
 				4.*)
 					CFLAGS="$CFLAGS -DFREEBSD_LEGACY"
-					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-lc_r" ;;
+					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-pthread" ;;
 				5.*)
 					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-lpthread" ;;
 				*)

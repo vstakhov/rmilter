@@ -170,8 +170,8 @@ use_dcc = yes;
 
 # limits section
 limits {
-	# Whitelisted ip
-	limit_whitelist_ip = 194.67.45.4;
+	# Whitelisted ip or networks
+	limit_whitelist = 194.67.45.4/32;
 	# Whitelisted recipients
 	limit_whitelist_rcpt =  postmaster, mailer-daemon;
 	# Addrs for bounce checks

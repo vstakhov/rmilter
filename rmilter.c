@@ -43,10 +43,13 @@
 #include "ratelimit.h"
 
 #ifndef HAVE_STDBOOL_H
-# ifndef true
 #  ifndef bool
+#   ifndef __bool_true_false_are_defined
 typedef int bool;
-#  endif
+#    define __bool_true_false_are_defined   1
+#   endif /* ! __bool_true_false_are_defined */
+#  endif /* bool */
+# ifndef true
 #define false	0
 #define true	1
 # endif				/* ! true */
