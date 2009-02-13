@@ -23,6 +23,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include "md5.h"
+#ifdef HAVE_STDBOOL_H
+#include <stdbool.h>
+#endif
 
 /* XXX hack to work on FreeBSD < 7 */
 #include <libmilter/mfapi.h>
@@ -39,11 +42,15 @@
 #endif
 #include "ratelimit.h"
 
-#ifndef true
+#ifndef HAVE_STDBOOL_H
+# ifndef true
+#  ifndef bool
 typedef int bool;
+#  endif
 #define false	0
 #define true	1
-#endif				/* ! true */
+# endif				/* ! true */
+#endif
 
 #define MD5_SIZE 16
 
@@ -130,6 +137,43 @@ set_reply (SMFICTX *ctx, const struct action *act)
 	}
 
 	return result;
+}
+
+static inline int
+create_temp_file (struct mlfi_priv *priv)
+{
+#ifdef HAVE_PATH_MAX
+	char buf[PATH_MAX];
+#elif defined(HAVE_MAXPATHLEN)
+	char buf[MAXPATHLEN];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
+    int fd;
+
+	snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
+	strlcpy (priv->file, buf, sizeof (priv->file));
+	/* mkstemp is based on arc4random (3) and is not reentrable
+	 * so acquire mutex for it
+	 */
+	pthread_mutex_lock (&mkstemp_mtx);
+	fd = mkstemp (priv->file);
+	pthread_mutex_unlock (&mkstemp_mtx);
+
+	if (fd == -1) {
+		msg_warn ("create_temp_file: %s: mkstemp failed, %d: %m", priv->mlfi_id, errno);
+		return -1;
+	}
+	priv->fileh = fdopen(fd, "w");
+
+	if (!priv->fileh) {
+		msg_warn ("create_temp_file: %s: can't open tempfile, %d: %m", priv->mlfi_id, errno);
+		return -1;
+	}
+	fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\r\n",
+			 priv->priv_helo, priv->priv_hostname, priv->priv_ip); 
+
+	return 0;
 }
 
 static inline int
@@ -758,14 +802,6 @@ static sfsistat
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
     struct mlfi_priv *priv;
-#ifdef HAVE_PATH_MAX
-	char buf[PATH_MAX];
-#elif defined(HAVE_MAXPATHLEN)
-	char buf[MAXPATHLEN];
-#else
-#error "neither PATH_MAX nor MAXPATHEN defined"
-#endif
-    int fd;
 	struct rule *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -786,32 +822,13 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 
 	CFG_RLOCK();
     if (!priv->fileh) {
-		snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
-		strlcpy (priv->file, buf, sizeof (priv->file));
-		/* mkstemp is based on arc4random (3) and is not reentrable
-		 * so acquire mutex for it
-		 */
-		pthread_mutex_lock (&mkstemp_mtx);
-		fd = mkstemp (priv->file);
-		pthread_mutex_unlock (&mkstemp_mtx);
-
-		if (fd == -1) {
-	    	msg_warn ("mlfi_header: %s: mkstemp failed, %d: %m", priv->mlfi_id, errno);
+		if (create_temp_file (priv) == -1) {
+			msg_err ("mlfi_eoh: cannot create temp file");
+			(void)mlfi_cleanup (ctx, false);
 			CFG_UNLOCK();
-	    	(void)mlfi_cleanup (ctx, false);
-	    	return SMFIS_TEMPFAIL;
+			return SMFIS_TEMPFAIL;
 		}
-		priv->fileh = fdopen(fd, "w");
-
-		if (!priv->fileh) {
-	    	msg_warn ("mlfi_header: %s: can't open tempfile, %d: %m", priv->mlfi_id, errno);
-			CFG_UNLOCK();
-	    	(void)mlfi_cleanup(ctx, false);
-	    	return SMFIS_TEMPFAIL;
-		}
-		fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\n",
-				 priv->priv_helo, priv->priv_hostname, priv->priv_ip); 
-    }
+	}
 
     /*
      * Write header line to temporary file.
@@ -841,10 +858,21 @@ mlfi_eoh(SMFICTX * ctx)
 		return SMFIS_TEMPFAIL;
 	}
 	
-	if (!priv->has_return_path) {
+    if (!priv->fileh) {
+		if (create_temp_file (priv) == -1) {
+			msg_err ("mlfi_eoh: cannot create temp file");
+			(void)mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+		}
+	}
+
+	if (!priv->has_return_path && priv->fileh) {
 		fprintf (priv->fileh, "Return-Path: <%s>\r\n", priv->priv_from);
 	}
-    fprintf (priv->fileh, "\r\n");
+	if (priv->fileh) {
+    	fprintf (priv->fileh, "\r\n");
+	}
+
     return SMFIS_CONTINUE;
 }
 
@@ -1113,6 +1141,15 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
+
+    if (!priv->fileh) {
+		if (create_temp_file (priv) == -1) {
+			msg_err ("mlfi_eoh: cannot create temp file");
+			(void)mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+		}
+	}
+
 
     if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
 		msg_warn ("mlfi_body: %s: file write error, %d: %m", priv->mlfi_id, errno);

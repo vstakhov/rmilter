@@ -1,3 +1,6 @@
+VERSION=1.5.18
+CFLAGS+="-DMVERSION=\"$(VERSION)\""
+
 all: $(TARGETS)
 
 .SUFFIXES:
@@ -27,6 +30,7 @@ clean:
 
 dist-clean: clean
 	rm -f Makefile
+	rm -f config.cache
 	rm -f config.log
 
 creategroup:

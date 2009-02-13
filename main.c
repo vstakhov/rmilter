@@ -115,7 +115,16 @@ reload_thread (void *unused)
 		fclose (f);
 		new_cfg->cfg_name = tmp->cfg_name;
 		new_cfg->serial = tmp->serial + 1;
+		
+		/* Strictly set temp dir */
+		if (!cfg->temp_dir) {
+			msg_warn ("tempdir is not set, trying to use $TMPDIR");
+			cfg->temp_dir = getenv("TMPDIR");
 
+			if (!cfg->temp_dir) {
+				cfg->temp_dir = strdup("/tmp");
+			}
+		}
 		/* Sort spf domains array */
 		qsort ((void *)cfg->spf_domains, cfg->spf_domains_num, sizeof (char *), my_strcmp);
 		/* Init awl */
