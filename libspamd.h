@@ -9,9 +9,12 @@
 #include <inttypes.h>
 #endif
 
+#include <libmilter/mfapi.h>
+
 
 struct config_file;
+struct mlfi_priv;
 
-int spamdscan(const char *file, struct config_file *cfg, double spam_mark[2]);
+int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2]);
 
 #endif

@@ -50,7 +50,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
-%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX
+%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX TYPE SPAMASSASSIN RSPAMD RSPAMD_METRIC
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -376,6 +376,8 @@ spamdcmd:
 	| spamd_maxerrors
 	| spamd_reject_message
 	| spamd_whitelist
+	| spamd_type
+	| spamd_rspamd_metric
 	;
 
 spamd_servers:
@@ -479,6 +481,42 @@ spamd_ip:
 		if (add_ip_radix (cfg->spamd_whitelist, $1) == 0) {
 			YYERROR;
 		}
+	}
+	;
+
+spamd_type:
+	TYPE EQSIGN SPAMASSASSIN {
+		cfg->spamd_type = SPAMD_SPAMASSASSIN;
+	}
+	| TYPE EQSIGN RSPAMD {
+		cfg->spamd_type = SPAMD_RSPAMD;
+	}
+	;
+spamd_rspamd_metric:
+	RSPAMD_METRIC EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (c[len - 1] == '"') {
+			len--;
+		}
+		
+		if (cfg->rspamd_metric) {
+			free (cfg->rspamd_metric);
+		}
+		cfg->rspamd_metric = (char *)malloc (len + 1);
+		if (!cfg->rspamd_metric) {
+			yyerror ("yyparse: malloc failed");
+			YYERROR;
+		}
+		strlcpy (cfg->rspamd_metric, c, len + 1);
+
+		free ($3);
 	}
 	;
 

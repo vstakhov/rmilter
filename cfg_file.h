@@ -51,6 +51,7 @@
 /* Spamd timeouts */
 #define DEFAULT_SPAMD_CONNECT_TIMEOUT 1000
 #define DEFAULT_SPAMD_RESULTS_TIMEOUT 20000
+#define DEFAULT_RSPAMD_METRIC "default"
 /* Memcached timeouts */
 #define DEFAULT_MEMCACHED_CONNECT_TIMEOUT 1000
 /* Upstream timeouts */
@@ -90,6 +91,11 @@ enum action_type {
 	ACTION_QUARANTINE, 
 	ACTION_DISCARD, 
 	ACTION_ACCEPT 
+};
+
+enum spamd_type {
+	SPAMD_SPAMASSASSIN = 0,
+	SPAMD_RSPAMD
 };
 
 typedef struct bucket_s {
@@ -196,6 +202,8 @@ struct config_file {
 	unsigned int spamd_results_timeout;
 	radix_tree_t *spamd_whitelist;
 	char *spamd_reject_message;
+	char *rspamd_metric;
+	enum spamd_type spamd_type;
 
 	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;

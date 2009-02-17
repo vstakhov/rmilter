@@ -479,6 +479,7 @@ init_defaults (struct config_file *cfg)
 	cfg->spamd_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->spamd_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
 	cfg->spamd_reject_message = strdup (DEFAUL_SPAMD_REJECT);
+	cfg->rspamd_metric = strdup (DEFAULT_RSPAMD_METRIC);
 
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
@@ -580,6 +581,9 @@ free_config (struct config_file *cfg)
 	
 	if (cfg->spamd_reject_message) {
 		free (cfg->spamd_reject_message);
+	}
+	if (cfg->rspamd_metric) {
+		free (cfg->rspamd_metric);
 	}
 	if (cfg->id_prefix) {
 		free (cfg->id_prefix);
