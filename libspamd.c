@@ -300,7 +300,8 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	/*
 	 * ok, we got result; test what we got
 	 */
-	while ((line = strtok_r (buf, "\r\n", &tok_ptr)) != NULL) {
+	line = strtok_r (buf, "\r\n", &tok_ptr);
+	while (line != NULL) {
 		if ((c = strstr (line, cfg->rspamd_metric)) != NULL) {
 			/* Check specified metric */
 			if (strstr (line, "True") != NULL || strstr (line, "False") != NULL) {
@@ -385,7 +386,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 			}
 
 		}
-		
+		line = strtok_r (NULL, "\r\n", &tok_ptr);
 	}
 	
 	if (spam_mark[0] > spam_mark[1]) {
