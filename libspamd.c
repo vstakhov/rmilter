@@ -593,7 +593,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 int 
 spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2])
 {
-	int retry = 5, r = -2;
+	int retry = 5, r = -2, r1;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
@@ -612,7 +612,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 			return -1;
 		}
 		
-		if (cfg->spamd_type == SPAMD_SPAMASSASSIN) {
+		if (selected->type == SPAMD_SPAMASSASSIN) {
 			r = spamdscan_socket (priv->file, selected, spam_mark, cfg, &symbols);
 		}
 		else {
@@ -659,6 +659,54 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 			free (symbols);
 		}
 	}
+	symbols = NULL;
+	/* try to scan extra servers */
+	if (cfg->extra_spamd_servers_num > 0) {
+		selected = (struct spamd_server *) get_random_upstream ((void *)cfg->extra_spamd_servers,
+											cfg->extra_spamd_servers_num, sizeof (struct spamd_server),
+											t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
+		if (selected == NULL) {
+			msg_err ("spamdscan: upstream get error, %s", priv->file);
+		}
+		else {
+			if (selected->type == SPAMD_SPAMASSASSIN) {
+				r1 = spamdscan_socket (priv->file, selected, spam_mark, cfg, &symbols);
+			}
+			else {
+				r1 = rspamdscan_socket (ctx, priv, selected, spam_mark, cfg, &symbols);
+			}
+			gettimeofday(&t, NULL);
+			tf = t.tv_sec + t.tv_usec / 1000000.0;
+			if (r1 == 0 || r1 == 1) {
+				upstream_ok (&selected->up, t.tv_sec);
+				if (r1 == 1) {
+					msg_info("spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
+								selected->name, 
+								spam_mark[0], spam_mark[1],
+								(symbols != NULL) ? symbols : "no symbols", priv->file);
+					if (symbols != NULL) {
+						free (symbols);
+					}
+				}
+				else {
+					msg_info("spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
+								selected->name,
+								spam_mark[0], spam_mark[1], 
+								(symbols != NULL) ? symbols : "no symbols", priv->file);
+					if (symbols != NULL) {
+						free (symbols);
+					}
+				}
+			}
+			else {
+				upstream_fail (&selected->up, t.tv_sec);
+				if (r1 == -2) {
+					msg_warn("spamdscan: unexpected problem, %s, %s", selected->name, priv->file);
+				}
+			}
+		}
+	}
+
 
 	return r;
 }

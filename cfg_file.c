@@ -264,7 +264,7 @@ add_clamav_server (struct config_file *cf, char *str)
 }
 
 int
-add_spamd_server (struct config_file *cf, char *str)
+add_spamd_server (struct config_file *cf, char *str, int is_extra)
 {
 	char *cur_tok, *err_str;
 	struct spamd_server *srv;
@@ -273,24 +273,50 @@ add_spamd_server (struct config_file *cf, char *str)
 
 	if (str == NULL) return 0;
 	
+	if (is_extra) {
+		if (cf->extra_spamd_servers_num == MAX_SPAMD_SERVERS) {
+			yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+			return -1;
+		}
+	}
+	else {
+		if (cf->spamd_servers_num == MAX_SPAMD_SERVERS) {
+			yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+			return -1;
+		}
+	}
+
+	if (is_extra) {
+		srv = &cf->extra_spamd_servers[cf->extra_spamd_servers_num];
+	}
+	else {
+		srv = &cf->spamd_servers[cf->spamd_servers_num];
+	}
+
+	if (*str == 'r' && *(str + 1) == ':') {
+		srv->type = SPAMD_RSPAMD;
+		str += 2;
+	}
+	else {
+		srv->type = SPAMD_SPAMASSASSIN;
+	}
+
+
 	cur_tok = strsep (&str, ":");
 	
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
-
-	if (cf->spamd_servers_num == MAX_SPAMD_SERVERS) {
-		yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
-	}
-
-	srv = &cf->spamd_servers[cf->spamd_servers_num];
-
-	if (srv == NULL) return 0;
 
 	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
 		srv->sock.unix_path = strdup (cur_tok);
 		srv->sock_type = AF_UNIX;
 		srv->name = srv->sock.unix_path;
 
-		cf->spamd_servers_num++;
+		if (is_extra) {
+			cf->extra_spamd_servers_num++;
+		}
+		else {
+			cf->spamd_servers_num++;
+		}
 		return 1;
 
 	} else {
@@ -318,7 +344,12 @@ add_spamd_server (struct config_file *cf, char *str)
 		}
 
 		srv->sock_type = AF_INET;
-		cf->spamd_servers_num++;
+		if (is_extra) {
+			cf->extra_spamd_servers_num++;
+		}
+		else {
+			cf->spamd_servers_num++;
+		}
 		return 1;
 	}
 

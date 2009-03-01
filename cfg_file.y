@@ -50,7 +50,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
-%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX TYPE SPAMASSASSIN RSPAMD RSPAMD_METRIC
+%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -376,7 +376,7 @@ spamdcmd:
 	| spamd_maxerrors
 	| spamd_reject_message
 	| spamd_whitelist
-	| spamd_type
+	| extra_spamd_servers
 	| spamd_rspamd_metric
 	;
 
@@ -391,13 +391,33 @@ spamd_server:
 
 spamd_params:
 	spamd_addr	{
-		if (!add_spamd_server (cfg, $1)) {
+		if (!add_spamd_server (cfg, $1, 0)) {
 			yyerror ("yyparse: add_spamd_server");
 			YYERROR;
 		}
 		free ($1);
 	}
 	;
+
+extra_spamd_servers:
+	ALSO_CHECK EQSIGN extra_spamd_server
+	;
+
+extra_spamd_server:
+	extra_spamd_params
+	| extra_spamd_server COMMA extra_spamd_params
+	;
+
+extra_spamd_params:
+	spamd_addr	{
+		if (!add_spamd_server (cfg, $1, 1)) {
+			yyerror ("yyparse: add_spamd_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+
 spamd_addr:
 	STRING {
 		$$ = $1;
@@ -484,14 +504,6 @@ spamd_ip:
 	}
 	;
 
-spamd_type:
-	TYPE EQSIGN SPAMASSASSIN {
-		cfg->spamd_type = SPAMD_SPAMASSASSIN;
-	}
-	| TYPE EQSIGN RSPAMD {
-		cfg->spamd_type = SPAMD_RSPAMD;
-	}
-	;
 spamd_rspamd_metric:
 	RSPAMD_METRIC EQSIGN QUOTEDSTRING {
 		size_t len = strlen ($3);

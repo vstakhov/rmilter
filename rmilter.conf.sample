@@ -49,8 +49,13 @@ spamd {
 	# /path/to/file
 	# host[:port]
 	# sockets are separated by ','
+	# is server name is prefixed with r: it is rspamd server
 	# Default: empty
 	servers = clam5.rambler.ru, clam6.rambler.ru, clam8.rambler.ru;
+
+	# also_check - extra spamd servers to check
+	#also_check = r:clam10.rambler.ru;
+
 	# connect_timeout - timeout in miliseconds for connecting to spamd
 	# Default: 1s
 	connect_timeout = 1s;
@@ -79,10 +84,6 @@ spamd {
 	# whitelist - list of ips or nets that should be not checked with spamd
 	# Default: empty
 	whitelist = 127.0.0.1/32, 192.168.0.0/16;
-
-	# type - type of spamd servers, valid values are spamassassin or rspamd
-	# Default: spamassassin
-	type = spamassassin;
 
 	# rspamd_metric - metric for using with rspamd
 	# Default: "default"

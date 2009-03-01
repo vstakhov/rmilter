@@ -144,9 +144,7 @@ pidfile							return PIDFILE;
 rule							return RULE;
 clamav							return CLAMAV;
 spamd							return SPAMD;
-type							return TYPE;
-spamassassin					return SPAMASSASSIN;
-rspamd							return RSPAMD;
+also_check						return ALSO_CHECK;
 rspamd_metric					return RSPAMD_METRIC;
 reject_message					return REJECT_MESSAGE;
 servers							return SERVERS;
@@ -225,8 +223,8 @@ inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
 \/[^/\n]+\/						yylval.string=strdup(yytext); return REGEXP;
 [a-zA-Z<][a-zA-Z@+>_-]*			yylval.string=strdup(yytext); return STRING;
 [a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
-[a-zA-Z0-9.-]+:[0-9]{1,5}		yylval.string=strdup(yytext); return HOSTPORT;
-[a-zA-Z0-9\/.-]+				yylval.string=strdup(yytext); return FILENAME;
+r?:?[a-zA-Z0-9.-]+:[0-9]{1,5}	yylval.string=strdup(yytext); return HOSTPORT;
+r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 <incl>[ \t]*      				/* eat the whitespace */
 <incl>[^ \t\n]+   { 
 		/* got the include file name */

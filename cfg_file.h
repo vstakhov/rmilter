@@ -145,6 +145,8 @@ struct spamd_server {
 	struct upstream up;
 	int sock_type;
 
+	enum spamd_type type;
+
 	union {
 		char *unix_path;
 		struct {
@@ -195,6 +197,8 @@ struct config_file {
 
 	struct spamd_server spamd_servers[MAX_SPAMD_SERVERS];
 	size_t spamd_servers_num;
+	struct spamd_server extra_spamd_servers[MAX_SPAMD_SERVERS];
+	size_t extra_spamd_servers_num;
 	unsigned int spamd_error_time;
 	unsigned int spamd_dead_time;
 	unsigned int spamd_maxerrors;
@@ -203,7 +207,6 @@ struct config_file {
 	radix_tree_t *spamd_whitelist;
 	char *spamd_reject_message;
 	char *rspamd_metric;
-	enum spamd_type spamd_type;
 
 	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;
@@ -258,7 +261,7 @@ struct config_file {
 
 int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
-int add_spamd_server (struct config_file *cf, char *str);
+int add_spamd_server (struct config_file *cf, char *str, int is_extra);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 int add_spf_domain (struct config_file *cfg, char *domain);
