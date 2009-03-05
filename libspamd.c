@@ -61,13 +61,15 @@ static int re_initialized = 0;
 static void
 prepare_proto_re ()
 {
+	int err;
+	const char *err_str;
 	/* May be race here */
 	if (!re_initialized) {
 		pthread_mutex_lock (&mx_spamd_write);
 		if (!re_initialized) {
-			re_metric = pcre_compile (sym_metric, 0, NULL, NULL, NULL);
-			re_symbol = pcre_compile (sym_symbol, 0, NULL, NULL, NULL);
-			re_url = pcre_compile (sym_url, 0, NULL, NULL, NULL);
+			re_metric = pcre_compile (sym_metric, 0, &err_str, &err, NULL);
+			re_symbol = pcre_compile (sym_symbol, 0, &err_str, &err, NULL);
+			re_url = pcre_compile (sym_url, 0, &err_str, &err, NULL);
 			re_initialized = 1;
 		}
 		pthread_mutex_unlock (&mx_spamd_write);
@@ -161,10 +163,10 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
 	char headername[40], tmpbuf[40];
-	char *c;
+	char *c, *str = NULL, *tok_ptr;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
-	int s, r, fd, ofl, selected_metric, offset = 0;
+	int s, r, fd, ofl, selected_metric, do_token = 1, size = 0;
 	struct stat sb;
 	double metric_mark[2];
 	int ovector[30];
@@ -328,75 +330,94 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	close(s);
 	
 	/* Find metrics */
-	while ((r = pcre_exec (re_metric, NULL, buf, r, offset, 0, ovector, sizeof (ovector) / sizeof (ovector[0]))) >= 0) {
-		offset = ovector[1];
-		/* In matched pattern we have metric name in $1, spam flag in $2 and marks in $3 and $4 */
-		/* Get metric name */
-		c = buf + ovector[2];
-		s = ovector[3] - ovector[2];
-		if (s >= sizeof (headername)) {
-			msg_warn ("rspamd: metric name is too long: %d", s);
-			return -1;
+	tok_ptr = buf;
+
+	while (tok_ptr) { 
+		if (do_token) {
+			str = strsep (&tok_ptr, "\r\n");
+			size = strlen (str);
 		}
-		memcpy (tmpbuf, c, s);
-		tmpbuf[s] = '\0';
-		if (strcmp (tmpbuf, cfg->rspamd_metric) == 0) {
-			selected_metric = 1;
+		do_token = 1;
+		if (size == 0) {
+			/* Skip empty tokens */
+			continue;
 		}
-		else {
-			selected_metric = 0;
-		}
-		/* Metric name in tmpbuf, now process marks */
-		c = buf + ovector[6];
-		if (selected_metric) {
-			spam_mark[0] = strtod (c, NULL);
-		}
-		else {
-			metric_mark[0] = strtod (c, NULL);
-		}
-		c = buf + ovector[8];
-		if (selected_metric) {
-			spam_mark[1] = strtod (c, NULL);
-		}
-		else {
-			metric_mark[1] = strtod (c, NULL);
-		}
-		/* Now form header for this metric */
-		if (!selected_metric) {
-			snprintf (headername, sizeof (headername), "X-Rspamd-%s", tmpbuf);
-			snprintf (headerbuf, sizeof (headerbuf), "%s ; %.2f / %.2f", 
-						(metric_mark[0] > metric_mark[1]) ? "Spam" : "Ham",
-						metric_mark[0], metric_mark[1]);
-			smfi_addheader (ctx, headername, headerbuf);
-		}
-		/* Now try to extract all symbols */
-		ofl = 0;
-		for (;;) {
-			int start_offset = ovector[1];
-			r = pcre_exec (re_symbol, NULL, buf, r, start_offset, 0, ovector, sizeof (ovector) / sizeof (ovector[0]));
-			if (r < 0) {
-				headerbuf[ofl - 1] = '\0';
-				break;
-			}
-			/* In this match $1 is symbol name and $2... are symbol strings */
-			/* At this moment we only extract symbol name */
+		if ((r = pcre_exec (re_metric, NULL, str, size, 0, 0, ovector, sizeof (ovector) / sizeof (ovector[0]))) >= 0) {
+			/* In matched pattern we have metric name in $1, spam flag in $2 and marks in $3 and $4 */
+			/* Get metric name */
 			c = buf + ovector[2];
 			s = ovector[3] - ovector[2];
-			if (s >= sizeof (tmpbuf)) {
-				msg_warn ("rspamd: symbol name is too long: %d", s);
+			if (s >= sizeof (headername)) {
+				msg_warn ("rspamd: metric name is too long: %d", s);
 				return -1;
 			}
 			memcpy (tmpbuf, c, s);
 			tmpbuf[s] = '\0';
-			ofl += snprintf (headerbuf + ofl, sizeof (headerbuf) - ofl, "%s,", tmpbuf);
-		}
-		if (!selected_metric) {
-			s = strlen (headername);
-			snprintf (headername + s, sizeof (headername) - s, "-Symbols");
-			smfi_addheader (ctx, headername, headerbuf);
-		}
-		else {
-			*symbols = strdup (headerbuf);
+			if (strcmp (tmpbuf, cfg->rspamd_metric) == 0) {
+				selected_metric = 1;
+			}
+			else {
+				selected_metric = 0;
+			}
+			/* Metric name in tmpbuf, now process marks */
+			c = buf + ovector[6];
+			if (selected_metric) {
+				spam_mark[0] = strtod (c, NULL);
+			}
+			else {
+				metric_mark[0] = strtod (c, NULL);
+			}
+			c = buf + ovector[8];
+			if (selected_metric) {
+				spam_mark[1] = strtod (c, NULL);
+			}
+			else {
+				metric_mark[1] = strtod (c, NULL);
+			}
+			/* Now form header for this metric */
+			if (!selected_metric) {
+				snprintf (headername, sizeof (headername), "X-Rspamd-%s", tmpbuf);
+				snprintf (headerbuf, sizeof (headerbuf), "%s ; %.2f / %.2f", 
+							(metric_mark[0] > metric_mark[1]) ? "Spam" : "Ham",
+							metric_mark[0], metric_mark[1]);
+				smfi_addheader (ctx, headername, headerbuf);
+			}
+			/* Now try to extract all symbols */
+			ofl = 0;
+			while (tok_ptr) {
+				str = strsep (&tok_ptr, "\r\n");
+				size = strlen (str);
+				if (size == 0) {
+					/* Skip empty tokens */
+					continue;
+				}
+				r = pcre_exec (re_symbol, NULL, str, size, 0, 0, ovector, sizeof (ovector) / sizeof (ovector[0]));
+				if (r < 0) {
+					headerbuf[ofl - 1] = '\0';
+					/* Break on first non-symbol line, but save it for future use */
+					do_token = 0;
+					break;
+				}
+				/* In this match $1 is symbol name and $2... are symbol strings */
+				/* At this moment we only extract symbol name */
+				c = buf + ovector[2];
+				s = ovector[3] - ovector[2];
+				if (s >= sizeof (tmpbuf)) {
+					msg_warn ("rspamd: symbol name is too long: %d", s);
+					return -1;
+				}
+				memcpy (tmpbuf, c, s);
+				tmpbuf[s] = '\0';
+				ofl += snprintf (headerbuf + ofl, sizeof (headerbuf) - ofl, "%s,", tmpbuf);
+			}
+			if (!selected_metric) {
+				s = strlen (headername);
+				snprintf (headername + s, sizeof (headername) - s, "-Symbols");
+				smfi_addheader (ctx, headername, headerbuf);
+			}
+			else {
+				*symbols = strdup (headerbuf);
+			}
 		}
 	}
 		
