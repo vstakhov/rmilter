@@ -394,7 +394,9 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				}
 				r = pcre_exec (re_symbol, NULL, str, size, 0, 0, ovector, sizeof (ovector) / sizeof (ovector[0]));
 				if (r < 0) {
-					headerbuf[ofl - 1] = '\0';
+					if (ofl > 0) {
+						headerbuf[ofl - 1] = '\0';
+					}
 					/* Break on first non-symbol line, but save it for future use */
 					do_token = 0;
 					break;
@@ -411,12 +413,12 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				tmpbuf[s] = '\0';
 				ofl += snprintf (headerbuf + ofl, sizeof (headerbuf) - ofl, "%s,", tmpbuf);
 			}
-			if (!selected_metric) {
+			if (!selected_metric && ofl > 0) {
 				s = strlen (headername);
 				snprintf (headername + s, sizeof (headername) - s, "-Symbols");
 				smfi_addheader (ctx, headername, headerbuf);
 			}
-			else {
+			else if (ofl > 0) {
 				*symbols = strdup (headerbuf);
 			}
 		}
@@ -676,7 +678,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
 
 	if (r == 1) {
-		msg_info("spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
+		msg_info("%spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", 
+					selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
+					tf - ts,
 					selected->name, 
 					spam_mark[0], spam_mark[1],
 					(symbols != NULL) ? symbols : "no symbols", priv->file);
@@ -685,7 +689,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		}
 	}
 	else {
-		msg_info("spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
+		msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
+					selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
+					tf -ts, 
 					selected->name,
 					spam_mark[0], spam_mark[1], 
 					(symbols != NULL) ? symbols : "no symbols", priv->file);
@@ -714,7 +720,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 			if (r1 == 0 || r1 == 1) {
 				upstream_ok (&selected->up, t.tv_sec);
 				if (r1 == 1) {
-					msg_info("spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
+					msg_info("%spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", 
+								selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
+								tf - ts,
 								selected->name, 
 								extra_mark[0], extra_mark[1],
 								(symbols != NULL) ? symbols : "no symbols", priv->file);
@@ -723,7 +731,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 					}
 				}
 				else {
-					msg_info("spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
+					msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
+								selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
+								tf -ts, 
 								selected->name,
 								extra_mark[0], extra_mark[1], 
 								(symbols != NULL) ? symbols : "no symbols", priv->file);
