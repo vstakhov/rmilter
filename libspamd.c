@@ -631,6 +631,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 	double ts, tf;
 	struct spamd_server *selected = NULL;
 	char *symbols = NULL;
+	double extra_mark[2];
 
 	gettimeofday(&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -703,10 +704,10 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		}
 		else {
 			if (selected->type == SPAMD_SPAMASSASSIN) {
-				r1 = spamdscan_socket (priv->file, selected, spam_mark, cfg, &symbols);
+				r1 = spamdscan_socket (priv->file, selected, extra_mark, cfg, &symbols);
 			}
 			else {
-				r1 = rspamdscan_socket (ctx, priv, selected, spam_mark, cfg, &symbols);
+				r1 = rspamdscan_socket (ctx, priv, selected, extra_mark, cfg, &symbols);
 			}
 			gettimeofday(&t, NULL);
 			tf = t.tv_sec + t.tv_usec / 1000000.0;
@@ -715,7 +716,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 				if (r1 == 1) {
 					msg_info("spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", tf - ts,
 								selected->name, 
-								spam_mark[0], spam_mark[1],
+								extra_mark[0], extra_mark[1],
 								(symbols != NULL) ? symbols : "no symbols", priv->file);
 					if (symbols != NULL) {
 						free (symbols);
@@ -724,7 +725,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 				else {
 					msg_info("spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", tf -ts, 
 								selected->name,
-								spam_mark[0], spam_mark[1], 
+								extra_mark[0], extra_mark[1], 
 								(symbols != NULL) ? symbols : "no symbols", priv->file);
 					if (symbols != NULL) {
 						free (symbols);
