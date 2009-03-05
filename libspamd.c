@@ -52,7 +52,7 @@ static pcre* re_metric = NULL;
 static pcre* re_symbol = NULL;
 static pcre* re_url = NULL;
 static const char* sym_metric = "^Metric: ([^;]+); (True|False); (\\d+\\.?\\d*) / (\\d+\\.?\\d*)$";
-static const char* sym_symbol = "^Symbol: ([^;]+); ((\\w+),)*(\\w+)?$";
+static const char* sym_symbol = "^Symbol: ([^;]+); ((\\S+),)*(\\S+)?$";
 static const char* sym_url = "^Urls: (([^,]+),)*([^,]+)?$";
 static int re_initialized = 0;
 
@@ -316,6 +316,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	 */
 
 	buf[0] = 0;
+	*symbols = NULL;
 
 	while ((r = read(s, buf, sizeof (buf))) > 0) {
 		buf[r] = 0;
@@ -345,7 +346,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		if ((r = pcre_exec (re_metric, NULL, str, size, 0, 0, ovector, sizeof (ovector) / sizeof (ovector[0]))) >= 0) {
 			/* In matched pattern we have metric name in $1, spam flag in $2 and marks in $3 and $4 */
 			/* Get metric name */
-			c = buf + ovector[2];
+			c = str + ovector[2];
 			s = ovector[3] - ovector[2];
 			if (s >= sizeof (headername)) {
 				msg_warn ("rspamd: metric name is too long: %d", s);
@@ -360,14 +361,14 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				selected_metric = 0;
 			}
 			/* Metric name in tmpbuf, now process marks */
-			c = buf + ovector[6];
+			c = str + ovector[6];
 			if (selected_metric) {
 				spam_mark[0] = strtod (c, NULL);
 			}
 			else {
 				metric_mark[0] = strtod (c, NULL);
 			}
-			c = buf + ovector[8];
+			c = str + ovector[8];
 			if (selected_metric) {
 				spam_mark[1] = strtod (c, NULL);
 			}
@@ -400,7 +401,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				}
 				/* In this match $1 is symbol name and $2... are symbol strings */
 				/* At this moment we only extract symbol name */
-				c = buf + ovector[2];
+				c = str + ovector[2];
 				s = ovector[3] - ovector[2];
 				if (s >= sizeof (tmpbuf)) {
 					msg_warn ("rspamd: symbol name is too long: %d", s);
