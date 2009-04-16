@@ -52,7 +52,7 @@ static pcre* re_metric = NULL;
 static pcre* re_symbol = NULL;
 static pcre* re_url = NULL;
 static const char* sym_metric = "^Metric: ([^;]+); (True|False); (\\d+\\.?\\d*) / (\\d+\\.?\\d*)$";
-static const char* sym_symbol = "^Symbol: ([^;]+); ((\\S+),)*(\\S+)?$";
+static const char* sym_symbol = "^Symbol: ([^;]+);?.*$";
 static const char* sym_url = "^Urls: (([^,]+),)*([^,]+)?$";
 static int re_initialized = 0;
 
