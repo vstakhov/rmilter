@@ -267,6 +267,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		fd = open(file, O_RDONLY);
 		if (fstat (fd, &sb) == -1) {
 			msg_warn ("clamav: stat failed: %m");
+			close(sw);
 	    	close(s);
 			return -1;
 		}
@@ -278,6 +279,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		#if defined(FREEBSD) || defined(HAVE_SENDFILE)
 		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
 			msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
+			close(sw);
 			close(fd);
 			close(s);
 			return -1;
@@ -286,6 +288,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		off_t off = 0;
 		if (sendfile(sw, fd, &off, sb.st_size) == -1) {
 			msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
+			close(sw);
 			close(fd);
 			close(s);
 			return -1;		
@@ -296,9 +299,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		}
 		#endif
 		close(fd);
-		shutdown(sw, SHUT_RDWR);
 		close(sw);
-
     }
 
     /* wait for reply */
