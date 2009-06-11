@@ -310,11 +310,12 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	 */
 
 	buf[0] = 0;
+	size = 0;
 	*symbols = NULL;
 	
 	/* XXX: in fact here should be some FSM to parse reply and this one just skip long replies */
-	if ((r = read(s, buf, sizeof (buf) - 1)) > 0) {
-		buf[r] = 0;
+	while ((r = read(s, buf + size, sizeof (buf) - size - 1)) > 0 && size < sizeof (buf) - 1) {
+		size += r;
 	}
 
 	if (r < 0) {
@@ -322,7 +323,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		close(s);
 		return -1;
 	}
-
+	buf[size] = '\0';
 	close(s);
 	
 	/* Find metrics */
@@ -418,8 +419,9 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 			}
 		}
 	}
-		
-	if (spam_mark[0] > spam_mark[1]) {
+	
+	/* Compare marks with some delta */
+	if (spam_mark[0] - spam_mark[1] > -0.0001) {
 		return 1;
 	}
 
