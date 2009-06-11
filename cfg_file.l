@@ -145,6 +145,7 @@ rule							return RULE;
 clamav							return CLAMAV;
 spamd							return SPAMD;
 also_check						return ALSO_CHECK;
+diff_dir						return DIFF_DIR;
 rspamd_metric					return RSPAMD_METRIC;
 reject_message					return REJECT_MESSAGE;
 servers							return SERVERS;

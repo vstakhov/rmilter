@@ -50,7 +50,7 @@ uint8_t cur_flags = 0;
 %token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
-%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK
+%token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -378,8 +378,25 @@ spamdcmd:
 	| spamd_whitelist
 	| extra_spamd_servers
 	| spamd_rspamd_metric
+	| diff_dir
 	;
 
+diff_dir :
+	DIFF_DIR EQSIGN FILENAME {
+		struct stat st;
+		
+		if (stat ($3, &st) == -1) {
+			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno)); 
+			YYERROR;
+		}
+		if (!S_ISDIR (st.st_mode)) {
+			yyerror ("yyparse: \"%s\" is not a directory", $3); 
+			YYERROR;
+		}
+
+		cfg->diff_dir = $3;
+	}
+	;
 spamd_servers:
 	SERVERS EQSIGN spamd_server
 	;
