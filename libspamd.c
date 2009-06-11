@@ -155,13 +155,7 @@ static int
 rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv, 
 					double spam_mark[2], struct config_file *cfg, char **symbols)
 {
-#ifdef HAVE_PATH_MAX
-	char buf[PATH_MAX + 10], headerbuf[PATH_MAX + 10];
-#elif defined(HAVE_MAXPATHLEN)
-	char buf[MAXPATHLEN + 10], headerbuf[MAXPATHLEN + 10];
-#else
-#error "neither PATH_MAX nor MAXPATHEN defined"
-#endif
+	char buf[16384], headerbuf[BUFSIZ];
 	char headername[40], tmpbuf[40];
 	char *c, *str = NULL, *tok_ptr;
 	struct sockaddr_un server_un;
@@ -317,8 +311,9 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 
 	buf[0] = 0;
 	*symbols = NULL;
-
-	while ((r = read(s, buf, sizeof (buf))) > 0) {
+	
+	/* XXX: in fact here should be some FSM to parse reply and this one just skip long replies */
+	if ((r = read(s, buf, sizeof (buf) - 1)) > 0) {
 		buf[r] = 0;
 	}
 
