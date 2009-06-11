@@ -628,7 +628,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 int 
 spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2])
 {
-	int retry = 5, r = -2, r1, cfd;
+	int retry = 5, r = -2, r1, cfd, rfd;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
@@ -752,18 +752,24 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 				if (r1 != r && cfg->diff_dir != NULL) {
 					snprintf (copyfile, sizeof (copyfile), "%s/%s", cfg->diff_dir, priv->mlfi_id);
 					msg_info ("spamdscan: results from check servers are different, saving to %s", copyfile);
-					cfd = open (copyfile, O_WRONLY | O_TRUNC | O_CREAT, 0);
+					cfd = open (copyfile, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
 					if (cfd == -1) {
 						msg_warn ("spamdscan: cannot create file %s, %m", copyfile);
 					}
 					else {
 						/* XXX: should check for return values */
-						lseek (priv->filed, 0, SEEK_SET); 
-						while ((r1 = read (priv->filed, rbuf, sizeof (rbuf))) > 0) {
-							if (write (cfd, rbuf, r1) == -1) {
-								msg_warn ("spamdscan: write error while writing to %s: %m", copyfile);
-								break;
+						rfd = open(priv->file, O_RDONLY);
+						if (rfd == -1) {
+							msg_warn ("spamdscan: cannot open file %s, %m", priv->file);
+						}
+						else {
+							while ((r1 = read (rfd, rbuf, sizeof (rbuf))) > 0) {
+								if (write (cfd, rbuf, r1) == -1) {
+									msg_warn ("spamdscan: write error while writing to %s: %m", copyfile);
+									break;
+								}
 							}
+							close (rfd);
 						}
 						close (cfd);
 					}
