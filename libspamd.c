@@ -639,6 +639,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 	#error "neither PATH_MAX nor MAXPATHEN defined"
 	#endif
 	char rbuf[BUFSIZ];
+	char *prefix = "s";
 
 	gettimeofday(&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -654,9 +655,11 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		}
 		
 		if (selected->type == SPAMD_SPAMASSASSIN) {
+			prefix = "s";
 			r = spamdscan_socket (priv->file, selected, spam_mark, cfg, &symbols);
 		}
 		else {
+			prefix = "rs";
 			r = rspamdscan_socket (ctx, priv, selected, spam_mark, cfg, &symbols);
 		}
 		if (r == 0 || r == 1) {
@@ -665,14 +668,14 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-			msg_warn("spamdscan: unexpected problem, %s, %s", selected->name, priv->file);
+			msg_warn("%spamdscan: unexpected problem, %s, %s", prefix, selected->name, priv->file);
 			break;
 		}
 		if (--retry < 1) {
-			msg_warn("spamdscan: retry limit exceeded, %s, %s", selected->name, priv->file);
+			msg_warn("%spamdscan: retry limit exceeded, %s, %s", prefix, selected->name, priv->file);
 			break;
 		}
-		msg_warn("spamdscan: failed to scan, retry, %s, %s", selected->name, priv->file);
+		msg_warn("%spamdscan: failed to scan, retry, %s, %s", prefix, selected->name, priv->file);
 		sleep(1);
 	}
 
@@ -684,7 +687,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 
 	if (r == 1) {
 		msg_info("%spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", 
-					selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
+					prefix,
 					tf - ts,
 					selected->name, 
 					spam_mark[0], spam_mark[1],
@@ -695,7 +698,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 	}
 	else {
 		msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
-					selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
+					prefix,
 					tf -ts, 
 					selected->name,
 					spam_mark[0], spam_mark[1], 
