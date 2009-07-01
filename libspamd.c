@@ -24,6 +24,7 @@
 #include <netdb.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 
 #ifdef LINUX
 #include <sys/sendfile.h>
@@ -418,6 +419,12 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				*symbols = strdup (headerbuf);
 			}
 		}
+	}
+	
+	/* We find result with marks 0/0 so something goes wrong */
+	if (fabs (spam_mark[0]) < 0.0001 && fabs (spam_mark[1]) < 0.0001) {
+		msg_warn ("rspamd: invalid reply from rspamd, cannot parse");
+		return -1;
 	}
 	
 	/* Compare marks with some delta */
