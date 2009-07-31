@@ -142,6 +142,34 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 	return r;
 }
 
+static int
+check_symbols (char *symbols_got, char *symbols_check)
+{
+	char *p, *s, t;
+
+	p = symbols_check;
+	s = p;
+
+	while (*p) {
+		if (*p == ' ' || *p == ',') {
+			/* Try to find this symbol */
+			t = *p;
+			*p = '\0';
+			if (strstr (symbols_got, p) != NULL) {
+				*p = t;
+				return 1;
+			}
+			*p = t;
+			while (*p == ' ' || *p == ',') {
+				p ++;
+			}
+			s = p;
+		}
+		p ++;
+	}
+
+	return 0;
+}
 
 /*
  * rspamdscan_socket() - send file to specified host. See spamdscan() for
@@ -779,6 +807,33 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 							close (rfd);
 						}
 						close (cfd);
+					}
+				}
+				if (symbols && cfg->check_symbols != NULL && cfg->symbols_dir != NULL) {
+					if (check_symbols (symbols, cfg->check_symbols)) {
+						snprintf (copyfile, sizeof (copyfile), "%s/%s", cfg->symbols_dir, priv->mlfi_id);
+						msg_info ("spamdscan: found symbols from list, saving to %s", copyfile);
+						cfd = open (copyfile, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
+						if (cfd == -1) {
+							msg_warn ("spamdscan: cannot create file %s, %m", copyfile);
+						}
+						else {
+							/* XXX: should check for return values */
+							rfd = open(priv->file, O_RDONLY);
+							if (rfd == -1) {
+								msg_warn ("spamdscan: cannot open file %s, %m", priv->file);
+							}
+							else {
+								while ((r1 = read (rfd, rbuf, sizeof (rbuf))) > 0) {
+									if (write (cfd, rbuf, r1) == -1) {
+										msg_warn ("spamdscan: write error while writing to %s: %m", copyfile);
+										break;
+									}
+								}
+								close (rfd);
+							}
+							close (cfd);
+						}
 					}
 				}
 			}

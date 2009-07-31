@@ -208,6 +208,8 @@ struct config_file {
 	char *spamd_reject_message;
 	char *rspamd_metric;
 	char *diff_dir;
+	char *check_symbols;
+	char *symbols_dir;
 
 	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;
