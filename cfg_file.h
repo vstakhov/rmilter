@@ -27,6 +27,7 @@
 #include "pcre.h"
 #include "upstream.h"
 #include "memcached.h"
+#include "beanstalk.h"
 #include "radix.h"
 #include "awl.h"
 
@@ -41,9 +42,12 @@
 #define MAX_CLAMAV_SERVERS 48
 #define MAX_SPAMD_SERVERS 48
 #define MAX_MEMCACHED_SERVERS 48
+#define MAX_BEANSTALK_SERVERS 48
 #define DEFAULT_MEMCACHED_PORT 11211
 #define DEFAULT_CLAMAV_PORT 3310
 #define DEFAULT_SPAMD_PORT 783
+#define DEFAULT_BEANSTALK_PORT 11300
+#define DEFAULT_BEANSTALK_LIFETIME 172800
 /* Clamav timeouts */
 #define DEFAULT_CLAMAV_CONNECT_TIMEOUT 1000
 #define DEFAULT_CLAMAV_PORT_TIMEOUT 3000
@@ -166,6 +170,14 @@ struct memcached_server {
 	short int num;
 };
 
+struct beanstalk_server {
+	struct upstream up;
+	struct in_addr addr;
+	uint16_t port;
+
+	char *name;
+};
+
 struct ip_list_entry {
 	struct in_addr addr;
 	LIST_ENTRY (ip_list_entry) next;
@@ -211,6 +223,8 @@ struct config_file {
 	char *check_symbols;
 	char *symbols_dir;
 
+	pcre* special_mid_re;
+
 	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;
 	struct memcached_server memcached_servers_grey[MAX_MEMCACHED_SERVERS];
@@ -224,6 +238,15 @@ struct config_file {
 	unsigned int memcached_dead_time;
 	unsigned int memcached_maxerrors;
 	unsigned int memcached_connect_timeout;
+
+	struct beanstalk_server beanstalk_servers[MAX_BEANSTALK_SERVERS];
+	size_t beanstalk_servers_num;
+	memc_proto_t beanstalk_protocol;
+	unsigned int beanstalk_error_time;
+	unsigned int beanstalk_dead_time;
+	unsigned int beanstalk_maxerrors;
+	unsigned int beanstalk_connect_timeout;
+	unsigned int beanstalk_lifetime;
 
 	LIST_HEAD (ruleset, rule) rules;
 	
@@ -265,6 +288,7 @@ struct config_file {
 int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
 int add_spamd_server (struct config_file *cf, char *str, int is_extra);
+int add_beanstalk_server (struct config_file *cf, char *str);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 int add_spf_domain (struct config_file *cfg, char *domain);

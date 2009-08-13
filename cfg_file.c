@@ -356,6 +356,55 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 	return 0;
 }
 
+int
+add_beanstalk_server (struct config_file *cf, char *str)
+{
+	char *cur_tok, *err_str;
+	struct beanstalk_server *srv;
+	struct hostent *he;
+	size_t s;
+
+	if (str == NULL) return 0;
+	
+	cur_tok = strsep (&str, ":");
+	
+	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+
+	if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
+		yywarn ("yyparse: maximum number of beanstalk servers is reached %d", MAX_BEANSTALK_SERVERS);
+	}
+
+	srv = &cf->beanstalk_servers[cf->beanstalk_servers_num];
+
+	if (srv == NULL) return 0;
+
+	if (str == '\0') {
+		srv->port = htons (DEFAULT_BEANSTALK_PORT);
+	}
+	else {
+		srv->port = htons ((uint16_t)strtoul (str, &err_str, 10));
+		if (*err_str != '\0') {
+			return 0;
+		}
+	}
+
+	if (!inet_aton (cur_tok, &srv->addr)) {
+		/* Try to call gethostbyname */
+		he = gethostbyname (cur_tok);
+		if (he == NULL) {
+			return 0;
+		}
+		else {
+			srv->name = strdup (cur_tok);
+			memcpy((char *)&srv->addr, he->h_addr, sizeof(struct in_addr));
+			s = strlen (cur_tok) + 1;
+		}
+		return 1;
+	}
+
+
+	return 0;
+}
 
 struct action *
 create_action (enum action_type type, const char *message)
@@ -499,6 +548,7 @@ init_defaults (struct config_file *cfg)
 	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
 	cfg->clamav_results_timeout = DEFAULT_CLAMAV_RESULTS_TIMEOUT;
 	cfg->memcached_connect_timeout = DEFAULT_MEMCACHED_CONNECT_TIMEOUT;
+	cfg->beanstalk_connect_timeout = DEFAULT_MEMCACHED_CONNECT_TIMEOUT;
 	cfg->spamd_connect_timeout = DEFAULT_SPAMD_CONNECT_TIMEOUT;
 	cfg->spamd_results_timeout = DEFAULT_SPAMD_RESULTS_TIMEOUT;
 
@@ -516,6 +566,12 @@ init_defaults (struct config_file *cfg)
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->memcached_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
 	cfg->memcached_protocol = UDP_TEXT;
+
+	cfg->beanstalk_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
+	cfg->beanstalk_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
+	cfg->beanstalk_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
+	cfg->beanstalk_protocol = BEANSTALK_TCP_TEXT;
+	cfg->beanstalk_lifetime = DEFAULT_BEANSTALK_LIFETIME;
 	
 	cfg->grey_whitelist_tree = radix_tree_create ();
 	cfg->limit_whitelist_tree = radix_tree_create ();
@@ -548,6 +604,10 @@ free_config (struct config_file *cfg)
 			free (cfg->spf_domains[i]);
 		}
 		free (cfg->spf_domains);
+	}
+
+	if (cfg->special_mid_re) {
+		pcre_free (cfg->special_mid_re);
 	}
 	
 	for (i = 0; i < cfg->clamav_servers_num; i++) {

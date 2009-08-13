@@ -51,6 +51,7 @@ uint8_t cur_flags = 0;
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
+%token  BEANSTALK ID_REGEXP LIFETIME
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -59,7 +60,7 @@ uint8_t cur_flags = 0;
 %type   <string>  	SOCKCRED
 %type	<string>	IPADDR IPNETWORK
 %type	<string>	HOSTPORT
-%type 	<string>	ip_net memcached_hosts clamav_addr spamd_addr
+%type 	<string>	ip_net memcached_hosts beanstalk_hosts clamav_addr spamd_addr
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN
@@ -85,6 +86,7 @@ command	:
 	| maxsize
 	| usedcc
 	| memcached
+	| beanstalk
 	| limits
 	| greylisting
 	;
@@ -967,6 +969,130 @@ memcached_white_prefix:
 		strlcpy (cfg->white_prefix, c, len + 1);
 
 		free ($3);
+	}
+	;
+
+beanstalk:
+	BEANSTALK OBRACE beanstalkbody EBRACE
+	;
+
+beanstalkbody:
+	beanstalkcmd SEMICOLON
+	| beanstalkbody beanstalkcmd SEMICOLON
+	;
+
+beanstalkcmd:
+	beanstalk_servers
+	| beanstalk_connect_timeout
+	| beanstalk_error_time
+	| beanstalk_dead_time
+	| beanstalk_maxerrors
+	| beanstalk_protocol
+	| beanstalk_id_regexp
+	| beanstalk_lifetime
+	;
+
+beanstalk_servers:
+	SERVERS EQSIGN beanstalk_server
+	;
+
+beanstalk_server:
+	beanstalk_params
+	| beanstalk_server COMMA beanstalk_params
+	;
+
+beanstalk_params:
+	beanstalk_hosts {
+		if (add_beanstalk_server (cfg, $1)) {
+			yyerror ("yyparse: add_beanstalk_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+
+beanstalk_hosts:
+	STRING
+	| IPADDR
+	| DOMAIN
+	| HOSTPORT
+	;
+
+beanstalk_error_time:
+	ERROR_TIME EQSIGN NUMBER {
+		cfg->beanstalk_error_time = $3;
+	}
+	;
+beanstalk_dead_time:
+	DEAD_TIME EQSIGN NUMBER {
+		cfg->beanstalk_dead_time = $3;
+	}
+	;
+beanstalk_maxerrors:
+	MAXERRORS EQSIGN NUMBER {
+		cfg->beanstalk_maxerrors = $3;
+	}
+	;
+beanstalk_connect_timeout:
+	CONNECT_TIMEOUT EQSIGN SECONDS {
+		cfg->beanstalk_connect_timeout = $3;
+	}
+	;
+
+beanstalk_protocol:
+	PROTOCOL EQSIGN STRING {
+		if (strncasecmp ($3, "udp", sizeof ("udp") - 1) == 0) {
+			cfg->beanstalk_protocol = BEANSTALK_UDP_TEXT;
+		}
+		else if (strncasecmp ($3, "tcp", sizeof ("tcp") - 1) == 0) {
+			cfg->beanstalk_protocol = BEANSTALK_TCP_TEXT;
+		}
+		else {
+			yyerror ("yyparse: cannot recognize protocol: %s", $3);
+			YYERROR;
+		}
+	}
+	;
+beanstalk_id_regexp:
+	ID_REGEXP EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+		int offset;
+		const char *read_err;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (*c == '/') {
+			c ++;
+			len --;
+		}
+		if (c[len - 1] == '"') {
+			c[len - 1] = '\0';
+			len --;
+		}
+		if (c[len - 1] == '/') {
+			c[len - 1] = '\0';
+			len --;	
+		}
+		
+		if (cfg->special_mid_re) {
+			pcre_free (cfg->special_mid_re);
+		}
+		cfg->special_mid_re = pcre_compile (c, 0, &read_err, &offset, NULL);
+		if (cfg->special_mid_re == NULL) {
+			yyerror ("yyparse: pcre_compile failed: %s", read_err);
+			YYERROR;
+		}
+
+		free ($3);
+	}
+	;
+beanstalk_lifetime:
+	LIFETIME EQSIGN NUMBER {
+		cfg->beanstalk_lifetime = $3;
 	}
 	;
 

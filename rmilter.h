@@ -95,9 +95,11 @@ struct mlfi_priv {
 	struct timeval conn_tm;
 	struct rule* matched_rules[STAGE_MAX];
 	short int strict;
+	long eoh_pos;
 	/* Config serial */
 	short int serial;
 	short int has_return_path;
+	short int complete_to_beanstalk;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

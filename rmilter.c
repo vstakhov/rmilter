@@ -9,6 +9,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,6 +75,7 @@ static sfsistat mlfi_close(SMFICTX *);
 static sfsistat mlfi_abort(SMFICTX *);
 static sfsistat mlfi_cleanup(SMFICTX *, bool);
 static int check_clamscan(const char *, char *, size_t);
+static void send_beanstalk (const struct mlfi_priv *);
 #ifdef HAVE_DCC
 static int check_dcc(const struct mlfi_priv *);
 #endif
@@ -203,8 +205,15 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
 	int r;
-	size_t s = 1;
-	
+	size_t s = strlen (header);
+
+	/* First of all do regexp check of message to determine special message id */
+	if (cfg->special_mid_re) {
+		if ((r = pcre_exec (cfg->special_mid_re, NULL, header, s, 0, 0, NULL, 0)) >= 0) {
+			priv->complete_to_beanstalk = 1;	
+		}
+	}
+
 	if (cfg->memcached_servers_id_num == 0) {
 		return;
 	}
@@ -217,7 +226,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	MD5Init(&mdctx);
 	/* Check reply message id in memcached */
 	/* Make hash from message id */
-	MD5Update(&mdctx, (const u_char *)header, strlen(header));
+	MD5Update(&mdctx, (const u_char *)header, s);
 	MD5Final(final, &mdctx);
 
 	/* Format md5 output */
@@ -565,12 +574,88 @@ check_greylisting (struct mlfi_priv *priv)
 		}
 		/* Error getting greylisting record */
 		else {
-				upstream_fail (&selected->up, tm.tv_sec);
+			upstream_fail (&selected->up, tm.tv_sec);
 		}
 		memc_close_ctx_mirror (mctx, 2);
 	}
 
 	return GREY_WHITELISTED;
+}
+
+static void 
+send_beanstalk (const struct mlfi_priv *priv)
+{
+	struct beanstalk_server *selected;
+	beanstalk_ctx_t bctx;
+	beanstalk_param_t bp;
+	size_t s;
+	int r, fd;
+	void *map;
+
+	selected = (struct beanstalk_server *) get_random_upstream ((void *)cfg->beanstalk_servers,
+											cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
+											priv->conn_tm.tv_sec, cfg->beanstalk_error_time, 
+											cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors);
+	if (selected == NULL) {
+		msg_err ("send_beanstalk: upstream get error, %s", priv->file);
+		return;
+	}
+
+	/* Open and mmap file */
+	if (!*priv->file || priv->eoh_pos == 0) {
+		return;
+	}
+
+	fd = open (priv->file, O_RDONLY);
+
+	if (fd == -1) {
+		msg_warn ("send_beanstalk: %s: data file open(): %s", priv->mlfi_id, strerror (errno));
+		return;
+	}
+
+	if ((map = mmap (NULL, priv->eoh_pos, PROT_READ, 0, fd, 0)) == MAP_FAILED) {
+		msg_err ("send_beanstalk: cannot mmap file %s, %s", priv->file, strerror (errno));
+		close (fd);
+		return;
+	}
+
+	close (fd);
+
+	bctx.protocol = cfg->beanstalk_protocol;
+	memcpy(&bctx.addr, &selected->addr, sizeof (struct in_addr));
+	bctx.port = selected->port;
+	bctx.timeout = cfg->beanstalk_connect_timeout;
+
+	r = bean_init_ctx (&bctx);
+	if (r == -1) {
+		msg_warn ("send_beanstalk: cannot connect to beanstalk upstream: %s", inet_ntoa (selected->addr));
+		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
+		munmap (map, priv->eoh_pos);
+		return;
+	}
+
+	bp.buf = (u_char *)map;
+	bp.bufsize = priv->eoh_pos;
+	bp.len = bp.bufsize;
+	bp.priority = 1025;
+	s = 1;
+
+	r = bean_put (&bctx, &bp, &s, cfg->beanstalk_lifetime, 0);
+
+	munmap (map, priv->eoh_pos);
+	if (r == BEANSTALK_OK) {
+		bean_close_ctx (&bctx);
+		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
+		return;
+	}
+	else {
+		msg_info ("send_beanstalk: cannot put data to beanstalk: %s", bean_strerror (r));
+		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
+		bean_close_ctx (&bctx);
+		return;
+	}
+	bean_close_ctx (&bctx);
+
 }
 
 /* Milter callbacks */
@@ -880,6 +965,7 @@ mlfi_eoh(SMFICTX * ctx)
 	}
 	if (priv->fileh) {
     	fprintf (priv->fileh, "\r\n");
+		priv->eoh_pos = ftell (priv->fileh);
 	}
 
     return SMFIS_CONTINUE;
@@ -989,6 +1075,11 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 
+	if (priv->complete_to_beanstalk) {
+		/* Set actual pos to send all message to beanstalk */
+		priv->eoh_pos = ftell (priv->fileh);	
+	}
+
     fflush (priv->fileh);
 
     /* check file size */
@@ -1081,6 +1172,8 @@ mlfi_eom(SMFICTX * ctx)
 	rate_check (priv, cfg, 1);
 
 	CFG_UNLOCK();
+	/* Write message to beanstalk */
+	send_beanstalk (priv);
     return mlfi_cleanup (ctx, true);
 }
 
