@@ -399,7 +399,13 @@ add_beanstalk_server (struct config_file *cf, char *str)
 			memcpy((char *)&srv->addr, he->h_addr, sizeof(struct in_addr));
 			s = strlen (cur_tok) + 1;
 		}
+		cf->beanstalk_servers_num ++;
 		return 1;
+	}
+	else {
+		srv->name = strdup (cur_tok);
+		cf->beanstalk_servers_num ++;
+		return 1;	
 	}
 
 

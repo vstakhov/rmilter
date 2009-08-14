@@ -1003,7 +1003,7 @@ beanstalk_server:
 
 beanstalk_params:
 	beanstalk_hosts {
-		if (add_beanstalk_server (cfg, $1)) {
+		if (!add_beanstalk_server (cfg, $1)) {
 			yyerror ("yyparse: add_beanstalk_server");
 			YYERROR;
 		}

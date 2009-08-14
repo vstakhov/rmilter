@@ -163,6 +163,7 @@ port_timeout					return PORT_TIMEOUT;
 results_timeout					return RESULTS_TIMEOUT;
 id_prefix						return ID_PREFIX;
 id_regexp						return ID_REGEXP;
+lifetime						return LIFETIME;
 grey_prefix						return GREY_PREFIX;
 white_prefix					return WHITE_PREFIX;
 memcached						return MEMCACHED;

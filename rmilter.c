@@ -1173,7 +1173,9 @@ mlfi_eom(SMFICTX * ctx)
 
 	CFG_UNLOCK();
 	/* Write message to beanstalk */
-	send_beanstalk (priv);
+	if (cfg->beanstalk_servers_num > 0) {
+		send_beanstalk (priv);
+	}
     return mlfi_cleanup (ctx, true);
 }
 
