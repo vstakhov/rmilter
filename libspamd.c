@@ -251,7 +251,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	ofl = fcntl(s, F_GETFL, 0);
 	fcntl(s, F_SETFL, ofl & (~O_NONBLOCK));
 
-	r = snprintf (buf, sizeof (buf), "SYMBOLS RSPAMC/1.1\r\nContent-length: %ld\r\n", (long int)sb.st_size);
+	r = snprintf (buf, sizeof (buf), "SYMBOLS RSPAMC/1.0\r\nContent-length: %ld\r\n", (long int)sb.st_size);
 	if (write (s, buf, r) == -1) {
 		msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
 		close(fd);
