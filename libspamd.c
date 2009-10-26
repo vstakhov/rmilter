@@ -186,7 +186,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 {
 	char buf[16384], headerbuf[BUFSIZ];
 	char headername[40], tmpbuf[40];
-	char *c, *str = NULL, *tok_ptr;
+	char *c, *str = NULL, *tok_ptr, *err_str = NULL;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
 	int s, r, fd, ofl, selected_metric, do_token = 1, size = 0;
@@ -386,20 +386,41 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				selected_metric = 0;
 			}
 			/* Metric name in tmpbuf, now process marks */
+            errno = 0;
 			c = str + ovector[6];
 			if (selected_metric) {
-				spam_mark[0] = strtod (c, NULL);
+				spam_mark[0] = strtod (c, &err_str);
 			}
 			else {
-				metric_mark[0] = strtod (c, NULL);
+				metric_mark[0] = strtod (c, &err_str);
 			}
+            if (err_str != NULL && *err_str != ' ' && *err_str != '\0') {
+                msg_info ("rspamd: cannot convert %s to double: %s", err_str, strerror (errno));
+                if (selected_metric) {
+					spam_mark[0] = 0;
+				}
+				else {
+					metric_mark[0] = 0;
+				}
+            }
 			c = str + ovector[8];
 			if (selected_metric) {
-				spam_mark[1] = strtod (c, NULL);
+				spam_mark[1] = strtod (c, &err_str);
 			}
 			else {
-				metric_mark[1] = strtod (c, NULL);
+				metric_mark[1] = strtod (c, &err_str);
 			}
+
+            if (err_str != NULL && *err_str != ' ' && *err_str != '\0') {
+                msg_info ("rspamd: cannot convert %s to double: %s", err_str, strerror (errno));
+                if (selected_metric) {
+					spam_mark[1] = 0;
+				}
+				else {
+					metric_mark[1] = 0;
+				}
+            }
+
 			/* Now form header for this metric */
 			if (!selected_metric) {
 				snprintf (headername, sizeof (headername), "X-Rspamd-%s", tmpbuf);
