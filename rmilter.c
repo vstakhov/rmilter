@@ -582,6 +582,81 @@ check_greylisting (struct mlfi_priv *priv)
 	return GREY_WHITELISTED;
 }
 
+/* 
+ * Send copy of message to beanstalk
+ * XXX: too many copy&paste
+ */
+static void
+send_beanstalk_copy (const struct mlfi_priv *priv)
+{
+	beanstalk_ctx_t bctx;
+	beanstalk_param_t bp;
+	size_t s;
+	int r, fd;
+	void *map;
+	struct stat st;
+	
+	/* Open and mmap file */
+	if (!*priv->file) {
+		return;
+	}
+
+	if (stat (priv->file, &st) == -1) {
+		msg_warn ("send_beanstalk_copy: %s: data file stat(): %s", priv->mlfi_id, strerror (errno));
+		return;
+	}
+
+	fd = open (priv->file, O_RDONLY);
+
+	if (fd == -1) {
+		msg_warn ("send_beanstalk_copy: %s: data file open(): %s", priv->mlfi_id, strerror (errno));
+		return;
+	}
+
+	if ((map = mmap (NULL, st.st_size, PROT_READ, 0, fd, 0)) == MAP_FAILED) {
+		msg_err ("send_beanstalk_copy: cannot mmap file %s, %s", priv->file, strerror (errno));
+		close (fd);
+		return;
+	}
+
+	close (fd);
+	bctx.protocol = cfg->beanstalk_protocol;
+	memcpy (&bctx.addr, &cfg->copy_server->addr, sizeof (struct in_addr));
+	bctx.port = cfg->copy_server->port;
+	bctx.timeout = cfg->beanstalk_connect_timeout;
+
+	r = bean_init_ctx (&bctx);
+	if (r == -1) {
+		munmap (map, st.st_size);
+		msg_warn ("send_beanstalk_copy: cannot connect to beanstalk upstream: %s", inet_ntoa (cfg->copy_server->addr));
+		upstream_fail (&cfg->copy_server->up, priv->conn_tm.tv_sec);
+		return;
+	}
+
+	bp.buf = (u_char *)map;
+	bp.bufsize = st.st_size;
+	bp.len = bp.bufsize;
+	bp.priority = 1025;
+	s = 1;
+
+	r = bean_put (&bctx, &bp, &s, cfg->beanstalk_lifetime, 0);
+
+	munmap (map, st.st_size);
+	if (r == BEANSTALK_OK) {
+		bean_close_ctx (&bctx);
+		upstream_ok (&cfg->copy_server->up, priv->conn_tm.tv_sec);
+		return;
+	}
+	else {
+		msg_info ("send_beanstalk_copy: cannot put data to beanstalk: %s", bean_strerror (r));
+		upstream_fail (&cfg->copy_server->up, priv->conn_tm.tv_sec);
+		bean_close_ctx (&bctx);
+		return;
+	}
+	bean_close_ctx (&bctx);
+
+}
+
 static void 
 send_beanstalk (const struct mlfi_priv *priv)
 {
@@ -591,6 +666,10 @@ send_beanstalk (const struct mlfi_priv *priv)
 	size_t s;
 	int r, fd;
 	void *map;
+
+	if (cfg->copy_server) {
+		send_beanstalk_copy (priv);
+	}
 
 	selected = (struct beanstalk_server *) get_random_upstream ((void *)cfg->beanstalk_servers,
 											cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),

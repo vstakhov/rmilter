@@ -51,7 +51,7 @@ uint8_t cur_flags = 0;
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
-%token  BEANSTALK ID_REGEXP LIFETIME
+%token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -983,6 +983,7 @@ beanstalkbody:
 
 beanstalkcmd:
 	beanstalk_servers
+	| beanstalk_copy_server
 	| beanstalk_connect_timeout
 	| beanstalk_error_time
 	| beanstalk_dead_time
@@ -1003,11 +1004,21 @@ beanstalk_server:
 
 beanstalk_params:
 	beanstalk_hosts {
-		if (!add_beanstalk_server (cfg, $1)) {
+		if (!add_beanstalk_server (cfg, $1, 0)) {
 			yyerror ("yyparse: add_beanstalk_server");
 			YYERROR;
 		}
 		free ($1);
+	}
+	;
+
+beanstalk_copy_server:
+	COPY_SERVER EQSIGN beanstalk_hosts {
+		if (!add_beanstalk_server (cfg, $3, 1)) {
+			yyerror ("yyparse: add_beanstalk_server");
+			YYERROR;
+		}
+		free ($3);
 	}
 	;
 

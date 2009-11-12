@@ -241,6 +241,8 @@ struct config_file {
 
 	struct beanstalk_server beanstalk_servers[MAX_BEANSTALK_SERVERS];
 	size_t beanstalk_servers_num;
+	struct beanstalk_server *copy_server;
+
 	memc_proto_t beanstalk_protocol;
 	unsigned int beanstalk_error_time;
 	unsigned int beanstalk_dead_time;
@@ -288,7 +290,7 @@ struct config_file {
 int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
 int add_spamd_server (struct config_file *cf, char *str, int is_extra);
-int add_beanstalk_server (struct config_file *cf, char *str);
+int add_beanstalk_server (struct config_file *cf, char *str, int is_copy);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 int add_spf_domain (struct config_file *cfg, char *domain);

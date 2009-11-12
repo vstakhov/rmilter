@@ -155,6 +155,7 @@ servers_limits					return SERVERS_LIMITS;
 servers_grey					return SERVERS_GREY;
 servers_white					return SERVERS_WHITE;
 servers_id						return SERVERS_ID;
+copy_server						return COPY_SERVER;
 error_time						return ERROR_TIME;
 dead_time						return DEAD_TIME;
 maxerrors						return MAXERRORS;

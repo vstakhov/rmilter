@@ -357,7 +357,7 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 }
 
 int
-add_beanstalk_server (struct config_file *cf, char *str)
+add_beanstalk_server (struct config_file *cf, char *str, int is_copy)
 {
 	char *cur_tok, *err_str;
 	struct beanstalk_server *srv;
@@ -369,12 +369,18 @@ add_beanstalk_server (struct config_file *cf, char *str)
 	cur_tok = strsep (&str, ":");
 	
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
-
-	if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
-		yywarn ("yyparse: maximum number of beanstalk servers is reached %d", MAX_BEANSTALK_SERVERS);
+	
+	if (is_copy) {
+		cf->copy_server = malloc (sizeof (struct beanstalk_server));
+		srv = cf->copy_server;
 	}
+	else {
+		if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
+			yywarn ("yyparse: maximum number of beanstalk servers is reached %d", MAX_BEANSTALK_SERVERS);
+		}
 
-	srv = &cf->beanstalk_servers[cf->beanstalk_servers_num];
+		srv = &cf->beanstalk_servers[cf->beanstalk_servers_num];
+	}
 
 	if (srv == NULL) return 0;
 
@@ -399,12 +405,16 @@ add_beanstalk_server (struct config_file *cf, char *str)
 			memcpy((char *)&srv->addr, he->h_addr, sizeof(struct in_addr));
 			s = strlen (cur_tok) + 1;
 		}
-		cf->beanstalk_servers_num ++;
+		if (!is_copy) {
+			cf->beanstalk_servers_num ++;
+		}
 		return 1;
 	}
 	else {
 		srv->name = strdup (cur_tok);
-		cf->beanstalk_servers_num ++;
+		if (!is_copy) {
+			cf->beanstalk_servers_num ++;
+		}
 		return 1;	
 	}
 
@@ -578,6 +588,7 @@ init_defaults (struct config_file *cfg)
 	cfg->beanstalk_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
 	cfg->beanstalk_protocol = BEANSTALK_TCP_TEXT;
 	cfg->beanstalk_lifetime = DEFAULT_BEANSTALK_LIFETIME;
+	cfg->copy_server = NULL;
 	
 	cfg->grey_whitelist_tree = radix_tree_create ();
 	cfg->limit_whitelist_tree = radix_tree_create ();
@@ -690,6 +701,9 @@ free_config (struct config_file *cfg)
 	}
 	if (cfg->white_prefix) {
 		free (cfg->white_prefix);
+	}
+	if (cfg->copy_server) {
+		free (cfg->copy_server);
 	}
 
 	if (cfg->awl_enable && cfg->awl_hash != NULL) {
