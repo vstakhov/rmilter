@@ -1230,6 +1230,10 @@ mlfi_eom(SMFICTX * ctx)
 			return SMFIS_REJECT;
     	}
 	}
+	/* Write message to beanstalk */
+	if (cfg->beanstalk_servers_num > 0) {
+		send_beanstalk (priv);
+	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
@@ -1251,10 +1255,6 @@ mlfi_eom(SMFICTX * ctx)
 	rate_check (priv, cfg, 1);
 
 	CFG_UNLOCK();
-	/* Write message to beanstalk */
-	if (cfg->beanstalk_servers_num > 0) {
-		send_beanstalk (priv);
-	}
     return mlfi_cleanup (ctx, true);
 }
 
