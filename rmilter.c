@@ -30,12 +30,16 @@
 
 /* XXX hack to work on FreeBSD < 7 */
 #include <libmilter/mfapi.h>
+
+#ifndef DISABLE_SPF
 #include "spf2/spf.h"
+#include "spf.h"
+#endif
+
 
 #include "libclamc.h"
 #include "libspamd.h"
 #include "cfg_file.h"
-#include "spf.h"
 #include "rmilter.h"
 #include "regexp.h"
 #ifdef HAVE_DCC
@@ -1128,6 +1132,7 @@ mlfi_eom(SMFICTX * ctx)
 	else {
 		msg_warn ("mlfi_eom: %s: config was reloaded, not checking rules", priv->mlfi_id);
 	}
+#ifndef DISABLE_SPF
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
@@ -1153,6 +1158,7 @@ mlfi_eom(SMFICTX * ctx)
 				break;
 		}
 	}
+#endif
 
 	if (priv->complete_to_beanstalk) {
 		/* Set actual pos to send all message to beanstalk */
