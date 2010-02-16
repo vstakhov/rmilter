@@ -358,11 +358,32 @@ check_lib()
 	fi
 	echo "#include <stdlib.h>" >> autotest.c
 	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
-	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c" >>config.log
-	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
-	if [ $? -eq 0 ] ; then 
+	# Now try to search for a library
+	_found="no"
+	_add_path=""
+	for _path in "" "$PREFIX/lib/lib$LIB" "$PREFIX/lib/$LIB" ; do
+		if [ "F$_path" != "F" ] ; then  
+			echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -L$_path -l$LIB $PTHREAD_LDFLAGS autotest.c" >>config.log
+			$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -L$_path -l$LIB $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
+		else
+			echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c" >>config.log
+			$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
+		fi
+		if [ $? -eq 0 ] ; then
+			_found="yes"
+			if [ "F$_path" != "F" ] ; then
+				_add_path=$_path
+			fi
+			break
+		fi
+	done
+	if [ $_found = "yes" ] ; then 
 		echo "found"
-		LIBS="$LIBS -l$LIB"
+		if [ "F$_add_path" != "F" ] ; then 
+			LIBS="$LIBS -L$_add_path -l$LIB"
+		else
+			LIBS="$LIBS -l$LIB"
+		fi
 		echo "-> OK" >> config.log
 		write_cache "lib" "$LIB" "yes" ""
 		cleanup

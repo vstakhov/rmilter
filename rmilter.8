@@ -196,15 +196,19 @@ Spamd section:
 .Bl -dash
 .It 
 .Sy servers
-- spamd socket definitions in format:
+- spamd (or rspamd) socket definitions in format:
 .Bl -enum -compact
 .It
 /path/to/file
 .It
 host[:port]
+.It
+r:/path/to/file - for rspamd protocol
+.It
+r:host[:port] - for rspamd protocol
 .El
 .Dl sockets are separated by Ql ,
-.Dl Em Default: Li empty
+.Dl Em Default: Li empty (spam checks disabled)
 .It 
 .Sy connect_timeout
 - timeout in miliseconds for connecting to spamd
@@ -229,6 +233,10 @@ host[:port]
 .Sy reject_message
 - reject message for spam (quoted string)
 .Dl Em Default: Dq Spam message rejected; If this is not spam contact abuse team
+.It 
+.Sy rspamd_metric
+- rspamd metric that would define whether we reject message as spam or not (quoted string)
+.Dl Em Default: Dq default
 .It 
 .Sy whitelist
 - list of ips or nets that should be not checked with spamd
@@ -314,9 +322,13 @@ now this regexp checks only In-Reply-To headers
 Greylisting section:
 .Bl -dash
 .It
-.Sy timeout
+.Sy timeout (required)
 - time during which we mark message greylisted
 .Dl Em Default: Li 300s
+.It	
+.Sy expire (required)
+- time during which we save a greylisting record
+.Dl Em Default: Li empty (greylisting disabled)
 .It	
 .Sy whitelist
 - list of ip addresses or networks that should be whitelisted from greylisting

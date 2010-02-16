@@ -593,6 +593,7 @@ init_defaults (struct config_file *cfg)
 	cfg->grey_whitelist_tree = radix_tree_create ();
 	cfg->limit_whitelist_tree = radix_tree_create ();
 	cfg->spamd_whitelist = radix_tree_create ();
+	cfg->greylisted_message = strdup (DEFAULT_GREYLISTED_MESSAGE);
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	cfg->awl_enable = 0;
@@ -704,6 +705,9 @@ free_config (struct config_file *cfg)
 	}
 	if (cfg->copy_server) {
 		free (cfg->copy_server);
+	}
+	if (cfg->greylisted_message) {
+		free (cfg->greylisted_message);
 	}
 
 	if (cfg->awl_enable && cfg->awl_hash != NULL) {

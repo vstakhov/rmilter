@@ -69,6 +69,7 @@
 #define MEMCACHED_SERVER_ID 3
 
 #define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
+#define DEFAULT_GREYLISTED_MESSAGE "Try again later"
 
 #define yyerror parse_err
 #define yywarn parse_warn
@@ -274,6 +275,7 @@ struct config_file {
 	char *id_prefix;
 	char *grey_prefix;
 	char *white_prefix;
+	char *greylisted_message;
 	radix_tree_t *grey_whitelist_tree;
 	radix_tree_t *limit_whitelist_tree;
 	/* Autowhitelist section */

@@ -179,6 +179,7 @@ whitelist						return WHITELIST;
 timeout							return TIMEOUT;
 expire_white					return EXPIRE_WHITE;
 expire							return EXPIRE;
+greylisted_message				return GREYLISTED_MESSAGE;
 awl_enable						return AWL_ENABLE;
 awl_hits						return AWL_HITS;
 awl_ttl							return AWL_TTL;

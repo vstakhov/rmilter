@@ -51,7 +51,7 @@ uint8_t cur_flags = 0;
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
-%token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER
+%token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -654,6 +654,7 @@ greylistingcmd:
 	| greylisting_timeout
 	| greylisting_expire
 	| greylisting_whitelist_expire
+	| greylisted_message
 	| awl_enable
 	| awl_hits
 	| awl_pool
@@ -723,6 +724,34 @@ awl_ttl:
 	AWL_TTL EQSIGN SECONDS {
 		/* Time is in seconds */
 		cfg->awl_ttl = $3 / 1000;
+	}
+	;
+
+greylisted_message:
+	GREYLISTED_MESSAGE EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (c[len - 1] == '"') {
+			len--;
+		}
+		
+		if (cfg->greylisted_message) {
+			free (cfg->greylisted_message);
+		}
+		cfg->greylisted_message = (char *)malloc (len + 1);
+		if (!cfg->greylisted_message) {
+			yyerror ("yyparse: malloc failed");
+			YYERROR;
+		}
+		strlcpy (cfg->greylisted_message, c, len + 1);
+
+		free ($3);
 	}
 	;
 

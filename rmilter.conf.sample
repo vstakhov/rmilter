@@ -3,7 +3,7 @@
 #
 
 # .include - directive to include other config file
-.include ./rmilter-grey.conf
+#.include ./rmilter-grey.conf
 
 # pidfile - path to pid file
 # Default: pidfile = /var/run/rmilter.pid
@@ -210,6 +210,18 @@ beanstalk {
 	# Regexp that define for which messages we should put the whole message to beanstalk
 	# now only In-Reply-To headers are checked
 	id_regexp = "/^SomeID.*$/";
+};
+
+greylisting {
+	timeout = 300s;
+	expire = 3d;
+	whitelist = 127.0.0.1, 
+				192.168.1.1,
+				192.168.2.0/24;
+	awl_enable = yes;
+	awl_pool = 10M;
+	awl_hits = 10;
+	awl_ttl = 3600s;
 };
 
 # Order of checks at EOM:
