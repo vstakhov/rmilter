@@ -465,6 +465,9 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 				smfi_addheader (ctx, headername, headerbuf);
 			}
 			else if (ofl > 0) {
+				if (*symbols != NULL) {
+					free (*symbols);
+				}
 				*symbols = strdup (headerbuf);
 			}
 		}
@@ -658,6 +661,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 		if (err != NULL) {
 			*err = '\0';
 		}
+
+		if (*symbols != NULL) {
+			free (*symbols);
+		}
 		*symbols = strdup (c);
 	}
 
@@ -679,13 +686,12 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
  */
 
 int 
-spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2])
+spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2], char **symbols)
 {
 	int retry = 5, r = -2, r1, cfd, rfd;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
-	char *symbols = NULL;
 	double extra_mark[2];
 	#ifdef HAVE_PATH_MAX
 	char copyfile[PATH_MAX];
@@ -712,11 +718,11 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		
 		if (selected->type == SPAMD_SPAMASSASSIN) {
 			prefix = "s";
-			r = spamdscan_socket (priv->file, selected, spam_mark, cfg, &symbols);
+			r = spamdscan_socket (priv->file, selected, spam_mark, cfg, symbols);
 		}
 		else {
 			prefix = "rs";
-			r = rspamdscan_socket (ctx, priv, selected, spam_mark, cfg, &symbols);
+			r = rspamdscan_socket (ctx, priv, selected, spam_mark, cfg, symbols);
 		}
 		if (r == 0 || r == 1) {
 			upstream_ok (&selected->up, t.tv_sec);
@@ -747,10 +753,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 					tf - ts,
 					selected->name, 
 					spam_mark[0], spam_mark[1],
-					(symbols != NULL) ? symbols : "no symbols", priv->file);
-		if (symbols != NULL) {
-			free (symbols);
-		}
+					(*symbols != NULL) ? *symbols : "no symbols", priv->file);
 	}
 	else {
 		msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
@@ -758,10 +761,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 					tf -ts, 
 					selected->name,
 					spam_mark[0], spam_mark[1], 
-					(symbols != NULL) ? symbols : "no symbols", priv->file);
-		if (symbols != NULL) {
-			free (symbols);
-		}
+					(*symbols != NULL) ? *symbols : "no symbols", priv->file);
 	}
 	symbols = NULL;
 	/* try to scan extra servers */
@@ -774,10 +774,10 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		}
 		else {
 			if (selected->type == SPAMD_SPAMASSASSIN) {
-				r1 = spamdscan_socket (priv->file, selected, extra_mark, cfg, &symbols);
+				r1 = spamdscan_socket (priv->file, selected, extra_mark, cfg, symbols);
 			}
 			else {
-				r1 = rspamdscan_socket (ctx, priv, selected, extra_mark, cfg, &symbols);
+				r1 = rspamdscan_socket (ctx, priv, selected, extra_mark, cfg, symbols);
 			}
 			gettimeofday(&t, NULL);
 			tf = t.tv_sec + t.tv_usec / 1000000.0;
@@ -789,10 +789,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 								tf - ts,
 								selected->name, 
 								extra_mark[0], extra_mark[1],
-								(symbols != NULL) ? symbols : "no symbols", priv->file);
-					if (symbols != NULL) {
-						free (symbols);
-					}
+								(*symbols != NULL) ? *symbols : "no symbols", priv->file);
 				}
 				else {
 					msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
@@ -800,10 +797,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 								tf -ts, 
 								selected->name,
 								extra_mark[0], extra_mark[1], 
-								(symbols != NULL) ? symbols : "no symbols", priv->file);
-					if (symbols != NULL) {
-						free (symbols);
-					}
+								(*symbols != NULL) ? *symbols : "no symbols", priv->file);
 				}
 				if (r1 != r && cfg->diff_dir != NULL) {
 					snprintf (copyfile, sizeof (copyfile), "%s/%s", cfg->diff_dir, priv->mlfi_id);
@@ -830,8 +824,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 						close (cfd);
 					}
 				}
-				if (symbols && cfg->check_symbols != NULL && cfg->symbols_dir != NULL) {
-					if (check_symbols (symbols, cfg->check_symbols)) {
+
+				if (*symbols && cfg->check_symbols != NULL && cfg->symbols_dir != NULL) {
+					if (check_symbols (*symbols, cfg->check_symbols)) {
 						snprintf (copyfile, sizeof (copyfile), "%s/%s", cfg->symbols_dir, priv->mlfi_id);
 						msg_info ("spamdscan: found symbols from list, saving to %s", copyfile);
 						cfd = open (copyfile, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);

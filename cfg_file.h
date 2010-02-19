@@ -223,6 +223,7 @@ struct config_file {
 	char *diff_dir;
 	char *check_symbols;
 	char *symbols_dir;
+	short int spamd_soft_fail;
 
 	pcre* special_mid_re;
 

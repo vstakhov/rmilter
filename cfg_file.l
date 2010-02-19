@@ -149,6 +149,7 @@ diff_dir						return DIFF_DIR;
 check_symbols					return CHECK_SYMBOLS;
 symbols_dir						return SYMBOLS_DIR;
 rspamd_metric					return RSPAMD_METRIC;
+spamd_soft_fail					return SPAMD_SOFT_FAIL;
 reject_message					return REJECT_MESSAGE;
 servers							return SERVERS;
 servers_limits					return SERVERS_LIMITS;

@@ -15,6 +15,6 @@
 struct config_file;
 struct mlfi_priv;
 
-int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2]);
+int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2], char **symbols);
 
 #endif
