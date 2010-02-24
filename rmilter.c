@@ -66,6 +66,8 @@ typedef int bool;
 #define GREY_WHITELISTED 2
 #define GREY_ERROR -1
 
+#define SPAM_SUBJECT "***SPAM***"
+
 static sfsistat mlfi_connect(SMFICTX *, char *, _SOCK_ADDR *);
 static sfsistat mlfi_helo(SMFICTX *, char *);
 static sfsistat mlfi_envfrom(SMFICTX *, char **);
@@ -1040,10 +1042,10 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	priv->priv_cur_header.header_name = headerf;
 	priv->priv_cur_header.header_value = headerv;
 	if (strcasecmp (headerf, "Subject") == 0) {
-		len = sizeof ("*** SPAM *** ") + strlen (headerv);
+		len = sizeof (SPAM_SUBJECT) + strlen (headerv);
 		priv->priv_subject = malloc (len);
 		if (priv->priv_subject) {
-			snprintf (priv->priv_subject, len, "*** SPAM *** %s", headerv);
+			snprintf (priv->priv_subject, len, SPAM_SUBJECT " %s", headerv);
 		}
 	}
 	act = regexp_check (cfg, priv, STAGE_HEADER);
@@ -1295,12 +1297,18 @@ mlfi_eom(SMFICTX * ctx)
 			else {
 				msg_warn ("mlfi_eom: %s: rewriting spam subject [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, symbols);
-				smfi_addheader (ctx, "X-Spam", strres);
+				/* 
+				 * X-Spam-Flag - indicate what message is spam 
+				 * X-Spam-Symbols - contain symbols
+				*/
+				smfi_addheader (ctx, "X-Spam-Symbols", symbols);
+				smfi_addheader (ctx, "X-Spam-Flag", "yes");
+
 				if (priv->priv_subject) {
 					smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
 				}
 				else {
-					smfi_chgheader (ctx, "Subject", 1, "*** SPAM ***");
+					smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
 				}
 				CFG_UNLOCK();
 			}
