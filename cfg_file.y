@@ -52,6 +52,7 @@ uint8_t cur_flags = 0;
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
 %token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
+%token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -1022,6 +1023,7 @@ beanstalkbody:
 beanstalkcmd:
 	beanstalk_servers
 	| beanstalk_copy_server
+	| beanstalk_spam_server
 	| beanstalk_connect_timeout
 	| beanstalk_error_time
 	| beanstalk_dead_time
@@ -1029,6 +1031,9 @@ beanstalkcmd:
 	| beanstalk_protocol
 	| beanstalk_id_regexp
 	| beanstalk_lifetime
+	| send_beanstalk_headers
+	| send_beanstalk_spam
+	| send_beanstalk_copy
 	;
 
 beanstalk_servers:
@@ -1053,6 +1058,15 @@ beanstalk_params:
 beanstalk_copy_server:
 	COPY_SERVER EQSIGN beanstalk_hosts {
 		if (!add_beanstalk_server (cfg, $3, 1)) {
+			yyerror ("yyparse: add_beanstalk_server");
+			YYERROR;
+		}
+		free ($3);
+	}
+	;
+beanstalk_spam_server:
+	SPAM_SERVER EQSIGN beanstalk_hosts {
+		if (!add_beanstalk_server (cfg, $3, 2)) {
 			yyerror ("yyparse: add_beanstalk_server");
 			YYERROR;
 		}
@@ -1142,6 +1156,37 @@ beanstalk_id_regexp:
 beanstalk_lifetime:
 	LIFETIME EQSIGN NUMBER {
 		cfg->beanstalk_lifetime = $3;
+	}
+	;
+
+send_beanstalk_headers:
+	SEND_BEANSTALK_HEADERS EQSIGN FLAG {
+		if ($3) {
+			cfg->send_beanstalk_headers = 1;
+		}
+		else {
+			cfg->send_beanstalk_headers = 0;
+		}
+	}
+	;
+send_beanstalk_copy:
+	SEND_BEANSTALK_COPY EQSIGN FLAG {
+		if ($3) {
+			cfg->send_beanstalk_copy = 1;
+		}
+		else {
+			cfg->send_beanstalk_copy = 0;
+		}
+	}
+	;
+send_beanstalk_spam:
+	SEND_BEANSTALK_SPAM EQSIGN FLAG {
+		if ($3) {
+			cfg->send_beanstalk_spam = 1;
+		}
+		else {
+			cfg->send_beanstalk_spam = 0;
+		}
 	}
 	;
 

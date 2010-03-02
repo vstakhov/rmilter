@@ -244,6 +244,10 @@ struct config_file {
 	struct beanstalk_server beanstalk_servers[MAX_BEANSTALK_SERVERS];
 	size_t beanstalk_servers_num;
 	struct beanstalk_server *copy_server;
+	struct beanstalk_server *spam_server;
+	char send_beanstalk_copy;
+	char send_beanstalk_spam;
+	char send_beanstalk_headers;
 
 	memc_proto_t beanstalk_protocol;
 	unsigned int beanstalk_error_time;

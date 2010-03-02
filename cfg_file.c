@@ -357,7 +357,7 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 }
 
 int
-add_beanstalk_server (struct config_file *cf, char *str, int is_copy)
+add_beanstalk_server (struct config_file *cf, char *str, int type)
 {
 	char *cur_tok, *err_str;
 	struct beanstalk_server *srv;
@@ -370,8 +370,12 @@ add_beanstalk_server (struct config_file *cf, char *str, int is_copy)
 	
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
 	
-	if (is_copy) {
+	if (type == 1) {
 		cf->copy_server = malloc (sizeof (struct beanstalk_server));
+		srv = cf->copy_server;
+	}
+	else if (type == 2) {
+		cf->spam_server = malloc (sizeof (struct beanstalk_server));
 		srv = cf->copy_server;
 	}
 	else {
@@ -405,14 +409,14 @@ add_beanstalk_server (struct config_file *cf, char *str, int is_copy)
 			memcpy((char *)&srv->addr, he->h_addr, sizeof(struct in_addr));
 			s = strlen (cur_tok) + 1;
 		}
-		if (!is_copy) {
+		if (type == 0) {
 			cf->beanstalk_servers_num ++;
 		}
 		return 1;
 	}
 	else {
 		srv->name = strdup (cur_tok);
-		if (!is_copy) {
+		if (type == 0) {
 			cf->beanstalk_servers_num ++;
 		}
 		return 1;	
@@ -589,6 +593,7 @@ init_defaults (struct config_file *cfg)
 	cfg->beanstalk_protocol = BEANSTALK_TCP_TEXT;
 	cfg->beanstalk_lifetime = DEFAULT_BEANSTALK_LIFETIME;
 	cfg->copy_server = NULL;
+	cfg->spam_server = NULL;
 	
 	cfg->grey_whitelist_tree = radix_tree_create ();
 	cfg->limit_whitelist_tree = radix_tree_create ();
@@ -705,6 +710,9 @@ free_config (struct config_file *cfg)
 	}
 	if (cfg->copy_server) {
 		free (cfg->copy_server);
+	}
+	if (cfg->spam_server) {
+		free (cfg->spam_server);
 	}
 	if (cfg->greylisted_message) {
 		free (cfg->greylisted_message);

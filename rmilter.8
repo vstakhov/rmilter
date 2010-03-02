@@ -292,6 +292,14 @@ Beanstalk section:
 .Dl host Bo :port Bc Bo , host Bo :port Bc Bc
 .Dl Em Default: Li empty
 .It
+.Sy copy_server
+- address of server to which rmilter should send all messages copies
+.Dl Em Default: Li empty
+.It 
+.Sy spam_server
+- address of server to which rmilter should send spam messages copies
+.Dl Em Default: Li empty
+.It 
 .Sy connect_timeout
 - timeout in miliseconds for connecting to beanstalk
 .Dl Em Default: Li 1s
@@ -312,6 +320,18 @@ Beanstalk section:
 - regexp that defines for which messages we should put the whole message to beanstalk, not only headers,
 now this regexp checks only In-Reply-To headers
 .Dl Em Default: Li empty
+.It 
+.Sy send_beanstalk_headers
+- defines whether we should send headers to beanstalk servers (from servers option)
+.Dl Em Default: Li no
+.It 
+.Sy send_beanstalk_copy
+- defines whether we should send copy of messages to beanstalk server (from copy_server option)
+.Dl Em Default: Li no
+.It 
+.Sy send_beanstalk_spam
+- defines whether we should send copy of spam messages to beanstalk server (from spam_server option)
+.Dl Em Default: Li no
 .It 
 .Sy protocol
 - protocol that is using for connecting to beanstalk (tcp or udp)

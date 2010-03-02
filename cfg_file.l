@@ -170,6 +170,10 @@ grey_prefix						return GREY_PREFIX;
 white_prefix					return WHITE_PREFIX;
 memcached						return MEMCACHED;
 beanstalk						return BEANSTALK;
+send_beanstalk_copy				return SEND_BEANSTALK_COPY;
+send_beanstalk_headers			return SEND_BEANSTALK_HEADERS;
+send_beanstalk_spam				return SEND_BEANSTALK_SPAM;
+
 protocol						return PROTOCOL;
 spf_domains						return SPF;
 bind_socket						return BINDSOCK;

@@ -593,7 +593,7 @@ check_greylisting (struct mlfi_priv *priv)
  * XXX: too many copy&paste
  */
 static void
-send_beanstalk_copy (const struct mlfi_priv *priv)
+send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 {
 	beanstalk_ctx_t bctx;
 	beanstalk_param_t bp;
@@ -627,15 +627,15 @@ send_beanstalk_copy (const struct mlfi_priv *priv)
 
 	close (fd);
 	bctx.protocol = cfg->beanstalk_protocol;
-	memcpy (&bctx.addr, &cfg->copy_server->addr, sizeof (struct in_addr));
-	bctx.port = cfg->copy_server->port;
+	memcpy (&bctx.addr, &srv->addr, sizeof (struct in_addr));
+	bctx.port = srv->port;
 	bctx.timeout = cfg->beanstalk_connect_timeout;
 
 	r = bean_init_ctx (&bctx);
 	if (r == -1) {
 		munmap (map, st.st_size);
-		msg_warn ("send_beanstalk_copy: cannot connect to beanstalk upstream: %s", inet_ntoa (cfg->copy_server->addr));
-		upstream_fail (&cfg->copy_server->up, priv->conn_tm.tv_sec);
+		msg_warn ("send_beanstalk_copy: cannot connect to beanstalk upstream: %s", inet_ntoa (srv->addr));
+		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
 		return;
 	}
 
@@ -650,12 +650,12 @@ send_beanstalk_copy (const struct mlfi_priv *priv)
 	munmap (map, st.st_size);
 	if (r == BEANSTALK_OK) {
 		bean_close_ctx (&bctx);
-		upstream_ok (&cfg->copy_server->up, priv->conn_tm.tv_sec);
+		upstream_ok (&srv->up, priv->conn_tm.tv_sec);
 		return;
 	}
 	else {
 		msg_info ("send_beanstalk_copy: cannot put data to beanstalk: %s", bean_strerror (r));
-		upstream_fail (&cfg->copy_server->up, priv->conn_tm.tv_sec);
+		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
 		bean_close_ctx (&bctx);
 		return;
 	}
@@ -673,9 +673,6 @@ send_beanstalk (const struct mlfi_priv *priv)
 	int r, fd;
 	void *map;
 
-	if (cfg->copy_server) {
-		send_beanstalk_copy (priv);
-	}
 
 	selected = (struct beanstalk_server *) get_random_upstream ((void *)cfg->beanstalk_servers,
 											cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
@@ -1271,8 +1268,12 @@ mlfi_eom(SMFICTX * ctx)
     	}
 	}
 	/* Write message to beanstalk */
-	if (cfg->beanstalk_servers_num > 0) {
+	if (cfg->beanstalk_servers_num > 0 && cfg->send_beanstalk_headers) {
 		send_beanstalk (priv);
+	}
+	/* Maybe write its copy */
+	if (cfg->copy_server && cfg->send_beanstalk_copy) {
+		send_beanstalk_copy (priv, cfg->copy_server);
 	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict
@@ -1283,6 +1284,9 @@ mlfi_eom(SMFICTX * ctx)
 			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
 		}
 		else if (r == 1) {
+			if (cfg->spam_server && cfg->send_beanstalk_spam) {
+				send_beanstalk_copy (priv, cfg->spam_server);
+			}
 			if (! cfg->spamd_soft_fail) {
 				msg_warn ("mlfi_eom: %s: rejecting spam [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, symbols);
