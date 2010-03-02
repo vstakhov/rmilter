@@ -376,7 +376,7 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 	}
 	else if (type == 2) {
 		cf->spam_server = malloc (sizeof (struct beanstalk_server));
-		srv = cf->copy_server;
+		srv = cf->spam_server;
 	}
 	else {
 		if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
