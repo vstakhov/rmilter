@@ -1089,8 +1089,6 @@ mlfi_eom(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
     int r;
-	double spamd_marks[2];
-	char *symbols = NULL;
 #ifdef HAVE_PATH_MAX
 	char strres[PATH_MAX], buf[PATH_MAX];
 #elif defined(HAVE_MAXPATHLEN)
@@ -1279,7 +1277,7 @@ mlfi_eom(SMFICTX * ctx)
 	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
-		r = spamdscan (ctx, priv, cfg, spamd_marks, &symbols);
+		r = spamdscan (ctx, priv, cfg);
 		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
 		}
@@ -1288,24 +1286,20 @@ mlfi_eom(SMFICTX * ctx)
 				send_beanstalk_copy (priv, cfg->spam_server);
 			}
 			if (! cfg->spamd_soft_fail) {
-				msg_warn ("mlfi_eom: %s: rejecting spam [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
-				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, symbols);
+				msg_warn ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
+				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
 				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
 				CFG_UNLOCK();
-				if (symbols != NULL) {
-					free (symbols);
-				}
 				mlfi_cleanup (ctx, false);
 				return SMFIS_REJECT;
 			}
 			else {
-				msg_warn ("mlfi_eom: %s: rewriting spam subject [%f/%f]", priv->mlfi_id, spamd_marks[0], spamd_marks[1]);
-				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, symbols);
+				msg_warn ("mlfi_eom: %s: rewriting spam subject", priv->mlfi_id);
+				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
 				/* 
 				 * X-Spam-Flag - indicate what message is spam 
 				 * X-Spam-Symbols - contain symbols
 				*/
-				smfi_addheader (ctx, "X-Spam-Symbols", symbols);
 				smfi_addheader (ctx, "X-Spam-Flag", "yes");
 
 				if (priv->priv_subject) {
@@ -1316,9 +1310,6 @@ mlfi_eom(SMFICTX * ctx)
 				}
 				CFG_UNLOCK();
 			}
-		}
-		if (symbols != NULL) {
-			free (symbols);
 		}
 	}
 	/* Update rate limits for message */

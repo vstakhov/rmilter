@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sysexits.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -181,18 +182,17 @@ check_symbols (char *symbols_got, char *symbols_check)
  */
 
 static int 
-rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv, 
-					double spam_mark[2], struct config_file *cfg, char **symbols)
+rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv, struct config_file *cfg, rspamd_result_t *res)
 {
-	char buf[16384], headerbuf[BUFSIZ];
-	char headername[40], tmpbuf[40];
-	char *c, *str = NULL, *tok_ptr, *err_str = NULL;
+	char buf[16384];
+	char *c, *p, *err_str;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
-	int s, r, fd, ofl, selected_metric, do_token = 1, size = 0;
+	int s, r, fd, ofl, size = 0, to_write, written, state, next_state, toklen;
+	int remain;
 	struct stat sb;
-	double metric_mark[2];
-	int ovector[30];
+	struct rspamd_metric_result *cur = NULL;
+	struct rspamd_symbol *cur_symbol;
 
 	/* somebody doesn't need reply... */
 	if (!srv)
@@ -250,52 +250,74 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	/* Set blocking again */
 	ofl = fcntl(s, F_GETFL, 0);
 	fcntl(s, F_SETFL, ofl & (~O_NONBLOCK));
-
-	r = snprintf (buf, sizeof (buf), "SYMBOLS RSPAMC/1.0\r\nContent-length: %ld\r\n", (long int)sb.st_size);
-	if (write (s, buf, r) == -1) {
-		msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
+	
+	r = 0;
+	to_write = sizeof (buf) - r;
+	written = snprintf (buf + r, to_write, "SYMBOLS RSPAMC/1.0\r\nContent-length: %ld\r\n", (long int)sb.st_size);
+	if (written > to_write) {
+		msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 		close(fd);
 		close(s);
 		return -1;
 	}
+	r += written;
+
 	if (priv->priv_rcpt[0] != '\0') {
-		r = snprintf (buf, sizeof (buf), "Rcpt: %s\r\n", priv->priv_rcpt);
-		if (write (s, buf, r) == -1) {
-			msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
+		to_write = sizeof (buf) - r;
+		written = snprintf (buf + r, to_write, "Rcpt: %s\r\n", priv->priv_rcpt);
+		if (written > to_write) {
+			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 			close(fd);
 			close(s);
 			return -1;
 		}
+		r += written;
 	}
 	if (priv->priv_from[0] != '\0') {
-		r = snprintf (buf, sizeof (buf), "From: %s\r\n", priv->priv_from);
-		if (write (s, buf, r) == -1) {
-			msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
+		to_write = sizeof (buf) - r;
+		written = snprintf (buf + r, to_write, "From: %s\r\n", priv->priv_from);
+		if (written > to_write) {
+			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 			close(fd);
 			close(s);
 			return -1;
 		}
+		r += written;
 	}
 	if (priv->priv_helo[0] != '\0') {
-		r = snprintf (buf, sizeof (buf), "Helo: %s\r\n", priv->priv_helo);
-		if (write (s, buf, r) == -1) {
-			msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
+		to_write = sizeof (buf) - r;
+		written = snprintf (buf + r, to_write, "Helo: %s\r\n", priv->priv_helo);
+		if (written > to_write) {
+			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 			close(fd);
 			close(s);
 			return -1;
 		}
+		r += written;
 	}
 	if (priv->priv_ip[0] != '\0') {
-		r = snprintf (buf, sizeof (buf), "IP: %s\r\n", priv->priv_ip);
-		if (write (s, buf, r) == -1) {
-			msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
+		to_write = sizeof (buf) - r;
+		written = snprintf (buf + r, to_write, "IP: %s\r\n", priv->priv_ip);
+		if (written > to_write) {
+			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 			close(fd);
 			close(s);
 			return -1;
 		}
+		r += written;
 	}
 
-	if (write (s, "\r\n", 2) == -1) {
+	to_write = sizeof (buf) - r;
+	written = snprintf (buf + r, to_write, "Queue-ID: %s\r\n\r\n", priv->mlfi_id);
+	if (written > to_write) {
+		msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
+		close(fd);
+		close(s);
+		return -1;
+	}
+	r += written;
+
+	if (write (s, buf, r) == -1) {
 		msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
 		close(fd);
 		close(s);
@@ -340,7 +362,6 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 
 	buf[0] = 0;
 	size = 0;
-	*symbols = NULL;
 	
 	/* XXX: in fact here should be some FSM to parse reply and this one just skip long replies */
 	while ((r = read(s, buf + size, sizeof (buf) - size - 1)) > 0 && size < sizeof (buf) - 1) {
@@ -354,138 +375,242 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	}
 	buf[size] = '\0';
 	close(s);
-	
-	/* Find metrics */
-	tok_ptr = buf;
 
-	while (tok_ptr) { 
-		if (do_token) {
-			str = strsep (&tok_ptr, "\r\n");
-			size = strlen (str);
-		}
-		do_token = 1;
-		if (size == 0) {
-			/* Skip empty tokens */
-			continue;
-		}
-		if ((r = pcre_exec (re_metric, NULL, str, size, 0, 0, ovector, sizeof (ovector) / sizeof (ovector[0]))) >= 0) {
-			/* In matched pattern we have metric name in $1, spam flag in $2 and marks in $3 and $4 */
-			/* Get metric name */
-			c = str + ovector[2];
-			s = ovector[3] - ovector[2];
-			if (s >= sizeof (headername)) {
-				msg_warn ("rspamd: metric name is too long: %d", s);
-				return -1;
-			}
-			memcpy (tmpbuf, c, s);
-			tmpbuf[s] = '\0';
-			if (strcmp (tmpbuf, cfg->rspamd_metric) == 0) {
-				selected_metric = 1;
-			}
-			else {
-				selected_metric = 0;
-			}
-			/* Metric name in tmpbuf, now process marks */
-            errno = 0;
-			c = str + ovector[6];
-			if (selected_metric) {
-				spam_mark[0] = strtod (c, &err_str);
-			}
-			else {
-				metric_mark[0] = strtod (c, &err_str);
-			}
-            if (err_str != NULL && *err_str != ' ' && *err_str != '\0') {
-                msg_info ("rspamd: cannot convert %s to double: %s", err_str, strerror (errno));
-                if (selected_metric) {
-					spam_mark[0] = 0;
-				}
-				else {
-					metric_mark[0] = 0;
-				}
-            }
-			c = str + ovector[8];
-			if (selected_metric) {
-				spam_mark[1] = strtod (c, &err_str);
-			}
-			else {
-				metric_mark[1] = strtod (c, &err_str);
-			}
+#define TEST_WORD(x)																\
+do {																				\
+	if (remain < sizeof ((x)) - 1 || memcmp (p, (x), sizeof ((x)) - 1) != 0) {		\
+		msg_warn ("invalid reply from server %s at state %d, expected: %s, got %*s", srv->name, state, ((x)), (int)sizeof((x)), p);				\
+		return -1;																	\
+	}																				\
+	p += sizeof((x)) - 1;															\
+	remain -= sizeof((x)) - 1;														\
+} while (0)
 
-            if (err_str != NULL && *err_str != ' ' && *err_str != '\0') {
-                msg_info ("rspamd: cannot convert %s to double: %s", err_str, strerror (errno));
-                if (selected_metric) {
-					spam_mark[1] = 0;
-				}
-				else {
-					metric_mark[1] = 0;
-				}
-            }
 
-			/* Now form header for this metric */
-			if (!selected_metric) {
-				snprintf (headername, sizeof (headername), "X-Rspamd-%s", tmpbuf);
-				snprintf (headerbuf, sizeof (headerbuf), "%s ; %.2f / %.2f", 
-							(metric_mark[0] > metric_mark[1]) ? "Spam" : "Ham",
-							metric_mark[0], metric_mark[1]);
-				smfi_addheader (ctx, headername, headerbuf);
-			}
-			/* Now try to extract all symbols */
-			ofl = 0;
-			while (tok_ptr) {
-				str = strsep (&tok_ptr, "\r\n");
-				size = strlen (str);
-				if (size == 0) {
-					/* Skip empty tokens */
-					continue;
-				}
-				r = pcre_exec (re_symbol, NULL, str, size, 0, 0, ovector, sizeof (ovector) / sizeof (ovector[0]));
-				if (r < 0) {
-					if (ofl > 0) {
-						headerbuf[ofl - 1] = '\0';
-					}
-					/* Break on first non-symbol line, but save it for future use */
-					do_token = 0;
-					break;
-				}
-				/* In this match $1 is symbol name and $2... are symbol strings */
-				/* At this moment we only extract symbol name */
-				c = str + ovector[2];
-				s = ovector[3] - ovector[2];
-				if (s >= sizeof (tmpbuf)) {
-					msg_warn ("rspamd: symbol name is too long: %d", s);
+	c = buf;
+	p = buf;
+	remain = size - 1;
+	state = 0;
+	next_state = 100;
+
+	while (remain > 0) {
+		switch (state) {
+			case 0:
+				/*
+				 * Expect first reply line:
+				 * RSPAMD/{VERSION} {ERROR_CODE} {DESCR} CRLF
+				 */
+				TEST_WORD("RSPAMD/");
+				if ((c = strchr (p, ' ')) == NULL) {
+					msg_warn ("invalid reply from server %s on state %d", srv->name, state);
 					return -1;
 				}
-				memcpy (tmpbuf, c, s);
-				tmpbuf[s] = '\0';
-				ofl += snprintf (headerbuf + ofl, sizeof (headerbuf) - ofl, "%s,", tmpbuf);
-			}
-			if (!selected_metric && ofl > 0) {
-				s = strlen (headername);
-				snprintf (headername + s, sizeof (headername) - s, "-Symbols");
-				smfi_addheader (ctx, headername, headerbuf);
-			}
-			else if (ofl > 0) {
-				if (*symbols != NULL) {
-					free (*symbols);
+				/* Well now in c we have space symbol, skip all */
+				while (remain > 0 && isspace (*c)) {
+					c ++;
 				}
-				*symbols = strdup (headerbuf);
-			}
+				/* Now check code */
+				if (*c != '0') {
+					msg_warn ("invalid reply from server %s on state %d, code: %c", srv->name, state, *c);
+					return -1;
+				}
+				/* Now skip everything till \n */
+				if ((c = strchr (c, '\n')) == NULL) {
+					msg_warn ("invalid reply from server %s on state %d", srv->name, state);
+					return -1;
+				}
+				c ++;
+				remain -= c - p;
+				p = c;
+				next_state = 2;
+				state = 99;
+				break;
+			case 2:
+				/*
+				 * In this state we compare begin of line with Metric:
+				 */
+				TEST_WORD("Metric:");
+				cur = malloc (sizeof (struct rspamd_metric_result));
+				if (cur == NULL) {
+					msg_err ("malloc failed: %s", strerror (errno));
+					return -1;
+				}
+				TAILQ_INIT(&cur->symbols);
+				next_state = 3;
+				state = 99;
+				break;
+			case 3:
+				/* 
+				 * In this state we parse metric line 
+				 * Typical line looks as name; result; score1 / score2[ / score3] and we are interested in:
+				 * name, result, score1 and score2
+				 */
+				if ((c = strchr (p, ';')) == NULL) {
+					msg_warn ("invalid reply from server %s on state %d, at position: %s", srv->name, state, p);
+					return -1;
+				}
+				/* Now in c we have end of name and in p - begin of name, so copy this data to temp buffer */
+				cur->metric_name = malloc (c - p + 1);
+				if (cur->metric_name == NULL) {
+					msg_err ("malloc failed: %s", strerror (errno));
+					return -1;
+				}
+				strlcpy (cur->metric_name, p, c - p + 1);
+				remain -= c - p + 1;
+				p = c + 1;
+				/* Now skip result from rspamd, just extract 2 numbers */
+				if ((c = strchr (p, ';')) == NULL) {
+					msg_warn ("invalid reply from server %s on state %d, at position: %s", srv->name, state, p);
+					return -1;
+				}
+				remain -= c - p + 1;
+				p = c + 1;
+				/* Now skip spaces */
+				while (isspace (*p) && remain > 0) {
+					p ++;
+					remain --;
+				}
+				/* Try to read first mark */
+				cur->score = strtod (p, &err_str);
+				if (err_str != NULL && (*err_str != ' ' && *err_str != '/')) {
+					msg_warn ("invalid reply from server %s on state %d, error converting score number: %s", srv->name, state, err_str);
+					return -1;
+				}
+				remain -= err_str - p;
+				p = err_str;
+				while (remain > 0 && (*p == ' ' || *p == '/')) {
+					remain --;
+					p ++;
+				}
+				/* Try to read second mark */
+				cur->required_score = strtod (p, &err_str);
+				if (err_str != NULL && (*err_str != ' ' && *err_str != '/' && *err_str != '\r')) {
+					msg_warn ("invalid reply from server %s on state %d, error converting required score number: %s", srv->name, state, err_str);
+					return -1;
+				}
+				remain -= err_str - p;
+				p = err_str;
+				while (remain > 0 && *p != '\n') {
+					remain --;
+					p ++;
+				}
+				state = 99;
+				next_state = 4;
+				break;
+			case 4:
+				/* Symbol/Action */
+				if (remain >= sizeof ("Symbol:") && memcmp (p, "Symbol:", sizeof ("Symbol:") - 1) == 0) {
+					state = 99;
+					next_state = 5;
+					p += sizeof("Symbol:") - 1;															\
+					remain -= sizeof("Symbol:") - 1;
+				}
+				else if (remain >= sizeof ("Action:") && memcmp (p, "Action:", sizeof ("Action:") - 1) == 0) {
+					state = 99;
+					next_state = 6;
+					p += sizeof("Action:") - 1;															\
+					remain -= sizeof("Action:") - 1;
+				}
+				else if (remain >= sizeof ("Metric:") && memcmp (p, "Metric:", sizeof ("Metric:") - 1) == 0) {
+					state = 99;
+					next_state = 3;
+					p += sizeof("Metric:") - 1;															\
+					remain -= sizeof("Metric:") - 1;
+					TAILQ_INSERT_HEAD(res, cur, entry);
+					cur = malloc (sizeof (struct rspamd_metric_result));
+					if (cur == NULL) {
+						msg_err ("malloc failed: %s", strerror (errno));
+						return -1;
+					}
+					TAILQ_INIT(&cur->symbols);
+				}
+				else {
+					toklen = strcspn (p, "\r\n");
+					if (toklen > remain) {
+						msg_info ("bad symbol name detected");
+						return -1;
+					}
+					remain -= toklen;
+					p += toklen;
+					next_state = 4;
+					state = 99;
+				}
+				break;
+			case 5:
+				/* Parse symbol line */
+				toklen = strcspn (p, ";\r\n");
+				if (toklen == 0 || toklen > remain) {
+					/* Bad symbol name */
+					msg_info ("bad symbol name detected");
+					return -1;
+				}
+				cur_symbol = malloc (sizeof (struct rspamd_symbol));
+				if (cur_symbol == NULL) {
+					msg_err ("malloc failed: %s", strerror (errno));
+					return -1;
+				}
+				cur_symbol->symbol = malloc (toklen + 1);
+				if (cur_symbol->symbol == NULL) {
+					msg_err ("malloc failed: %s", strerror (errno));
+					return -1;
+				}
+				strlcpy (cur_symbol->symbol, p, toklen + 1);
+				TAILQ_INSERT_HEAD (&cur->symbols, cur_symbol, entry);
+				/* Skip to the end of line */
+				toklen = strcspn (p, "\r\n");
+				if (toklen > remain) {
+					msg_info ("bad symbol name detected");
+					return -1;
+				}
+				remain -= toklen;
+				p += toklen;
+				next_state = 4;
+				state = 99;
+				break;
+			case 6:
+				/* Parse action */
+				if (memcmp (p, "reject", sizeof ("reject")) == 0) {
+					cur->action = METRIC_ACTION_REJECT;
+				}
+				else if (memcmp (p, "greylist", sizeof ("greylist")) == 0) {
+					cur->action = METRIC_ACTION_REJECT;
+				}
+				else {
+					cur->action = METRIC_ACTION_NOACTION;
+				}
+				/* Skip to the end of line */
+				toklen = strcspn (p, "\r\n");
+				if (toklen > remain) {
+					msg_info ("bad symbol name detected");
+					return -1;
+				}
+				remain -= toklen;
+				p += toklen;
+				next_state = 4;
+				state = 99;
+				break;
+			case 99:
+				/* Skip spaces */
+				if (isspace (*p)) {
+					p ++;
+					remain --;
+				}
+				else {
+					state = next_state;
+				}
+				break;
+			default:
+				msg_err ("state machine breakage detected, state = %d, p = %s", state, p);
+				return -1;
 		}
 	}
-	
-	/* We find result with marks 0/0 so something goes wrong */
-	if (fabs (spam_mark[0]) < 0.0001 && fabs (spam_mark[1]) < 0.0001) {
-		msg_warn ("rspamd: invalid reply from rspamd, cannot parse");
-		return -1;
-	}
-	
-	/* Compare marks with some delta */
-	if (spam_mark[0] - spam_mark[1] > -0.0001) {
-		return 1;
-	}
 
+	if (cur != NULL) {
+		TAILQ_INSERT_HEAD(res, cur, entry);
+	}
 	return 0;
 }
+#undef TEST_WORD
 /*
  * spamdscan_socket() - send file to specified host. See spamdscan() for
  * load-balanced wrapper.
@@ -496,7 +621,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
  */
 
 static int 
-spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_mark[2], struct config_file *cfg, char **symbols)
+spamdscan_socket(const char *file, const struct spamd_server *srv, struct config_file *cfg, rspamd_result_t *res)
 {
 #ifdef HAVE_PATH_MAX
 	char buf[PATH_MAX + 10];
@@ -508,8 +633,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 	char *c, *err;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
-	int s, r, fd, ofl;
+	int s, r, fd, ofl, size = 0;
 	struct stat sb;
+	struct rspamd_metric_result *cur = NULL;
+	struct rspamd_symbol *cur_symbol;
 
 	/* somebody doesn't need reply... */
 	if (!srv)
@@ -611,9 +738,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 
 	buf[0] = 0;
 
-	while ((r = read(s, buf, sizeof (buf))) > 0) {
-		buf[r] = 0;
+	while ((r = read(s, buf + size, sizeof (buf) - size - 1)) > 0 && size < sizeof (buf) - 1) {
+		size += r;
 	}
+	buf[size] = 0;
 
 	if (r < 0) {
 		msg_warn("spamd: read, %s, %d: %m", srv->name, errno);
@@ -632,20 +760,26 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 		return -2;
 	}
 	else {
+		cur = malloc (sizeof (struct rspamd_metric_result));
+		if (cur == NULL) {
+			msg_err ("malloc falied: %s", strerror (errno));
+			return -1;
+		}
+		bzero (cur, sizeof (struct rspamd_metric_result));
 		/* Find mark */
 		c = strchr (c, ';');
 		if (c != NULL && *c != '\0') {
-			spam_mark[0] = strtod (c + 1, &err);
+			cur->score = strtod (c + 1, &err);
 			if (*err == ' ' && *(err + 1) == '/') {
-				spam_mark[1] = strtod (err + 3, NULL);
+				cur->required_score = strtod (err + 3, NULL);
 			}
 			else {
-				spam_mark[1] = 0;
+				cur->score = 0;
 			}
 		}
 		else {
-			spam_mark[0] = 0;
-			spam_mark[1] = 0;
+			cur->score = 0;
+			cur->required_score = 0;
 		}
 	}
 
@@ -653,19 +787,14 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
 	while (*c && *c++ != '\n');
 	while (*c++ && (*c == '\r' || *c == '\n'));
 	/* Write symbols */
-	if (*c == '\0') {
-		*symbols = NULL;
-	}
-	else {
+	if (*c != '\0') {
 		err = strchr (c, '\r');
 		if (err != NULL) {
 			*err = '\0';
 		}
-
-		if (*symbols != NULL) {
-			free (*symbols);
-		}
-		*symbols = strdup (c);
+		cur_symbol = malloc (sizeof (struct rspamd_symbol));
+		cur_symbol->symbol = strdup (c);
+		TAILQ_INSERT_HEAD(&cur->symbols, cur_symbol, entry);
 	}
 
 	if (strstr(buf, "True") != NULL) {
@@ -680,31 +809,31 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, double spam_m
  * (select one random server, fallback to others in case of errors).
  * 
  * returns 0 if file scanned and spam not found, 
- * 1 if file scanned and spam found , -1 when
- * retry limit exceeded, -2 on unexpected error, e.g. unexpected reply from
+ * 1 if file scanned and spam found ,
+ * 2 if file scanned and this is probably spam,
+ * -1 when retry limit exceeded, -2 on unexpected error, e.g. unexpected reply from
  * server (suppose scanned message killed spamd...)
  */
 
 int 
-spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double spam_mark[2], char **symbols)
+spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 {
-	int retry = 5, r = -2, r1, cfd, rfd;
+	int retry = 5, r = -2;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
-	double extra_mark[2];
-	#ifdef HAVE_PATH_MAX
-	char copyfile[PATH_MAX];
-	#elif defined(HAVE_MAXPATHLEN)
-	char copyfile[MAXPATHLEN ];
-	#else
-	#error "neither PATH_MAX nor MAXPATHEN defined"
-	#endif
 	char rbuf[BUFSIZ];
 	char *prefix = "s";
+	rspamd_result_t res;
+	struct rspamd_metric_result *cur = NULL, *tmp;
+	struct rspamd_symbol *cur_symbol, *tmp_symbol;
+	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
+	
 
 	gettimeofday(&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
+
+	TAILQ_INIT(&res);
 
 	/* try to scan with available servers */
 	while (1) {
@@ -718,11 +847,11 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 		
 		if (selected->type == SPAMD_SPAMASSASSIN) {
 			prefix = "s";
-			r = spamdscan_socket (priv->file, selected, spam_mark, cfg, symbols);
+			r = spamdscan_socket (priv->file, selected, cfg, &res);
 		}
 		else {
 			prefix = "rs";
-			r = rspamdscan_socket (ctx, priv, selected, spam_mark, cfg, symbols);
+			r = rspamdscan_socket (ctx, priv, selected, cfg, &res);
 		}
 		if (r == 0 || r == 1) {
 			upstream_ok (&selected->up, t.tv_sec);
@@ -746,25 +875,68 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 	 */
 	gettimeofday(&t, NULL);
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
-
-	if (r == 1) {
-		msg_info("%spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", 
-					prefix,
+	
+	/* Parse res tailq */
+	cur = TAILQ_FIRST(&res);
+	while (cur) {
+		if (cur->metric_name) {
+			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan <%s>, %f, %s, metric: %s: [%f / %f], symbols: ",
+					priv->mlfi_id,
 					tf - ts,
-					selected->name, 
-					spam_mark[0], spam_mark[1],
-					(*symbols != NULL) ? *symbols : "no symbols", priv->file);
-	}
-	else {
-		msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
-					prefix,
-					tf -ts, 
 					selected->name,
-					spam_mark[0], spam_mark[1], 
-					(*symbols != NULL) ? *symbols : "no symbols", priv->file);
+					cur->metric_name,
+					cur->score,
+					cur->required_score);
+			free (cur->metric_name);
+		}
+		else {
+			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan <%s>, %f, %s, metric: default: [%f / %f], symbols: ",
+					priv->mlfi_id,
+					tf - ts,
+					selected->name,
+					cur->score,
+					cur->required_score);
+		
+		}
+		if (cur->action < res_action) {
+			res_action = cur->action;
+		}
+		/* Write symbols */
+		cur_symbol = TAILQ_FIRST(&cur->symbols);
+		if (cur_symbol == NULL) {
+			r += snprintf (rbuf + r, sizeof (rbuf) - r, "no symbols");
+		}
+		else {
+			while (cur_symbol) {
+				if (cur_symbol->symbol) {
+					if (TAILQ_NEXT (cur_symbol, entry)) {
+						r += snprintf (rbuf + r, sizeof (rbuf) - r, "%s, ", cur_symbol->symbol);
+					}
+					else {
+						r += snprintf (rbuf + r, sizeof (rbuf) - r, "%s", cur_symbol->symbol);
+					}
+					free (cur_symbol->symbol);
+				}
+				tmp_symbol = cur_symbol;
+				cur_symbol = TAILQ_NEXT(cur_symbol, entry);
+				free (tmp_symbol);
+			}
+		}
+		msg_info ("%s", rbuf);
+		tmp = cur;
+		cur = TAILQ_NEXT(cur, entry);
+		free (tmp);
 	}
-	symbols = NULL;
-	/* try to scan extra servers */
+	if (res_action == METRIC_ACTION_REJECT) {
+		return 1;
+	}
+	else if (res_action == METRIC_ACTION_GREYLIST) {
+		return 2;
+	}
+
+	return 0;
+#if 0
+	/* XXX: Enable this functionality some time */
 	if (cfg->extra_spamd_servers_num > 0) {
 		selected = (struct spamd_server *) get_random_upstream ((void *)cfg->extra_spamd_servers,
 											cfg->extra_spamd_servers_num, sizeof (struct spamd_server),
@@ -861,7 +1033,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, double 
 			}
 		}
 	}
-
+#endif
 
 	return r;
 }
