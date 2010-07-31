@@ -182,7 +182,7 @@ check_symbols (char *symbols_got, char *symbols_check)
  */
 
 static int 
-rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv, struct config_file *cfg, rspamd_result_t *res)
+rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv, struct config_file *cfg, rspamd_result_t *res, char **mid)
 {
 	char buf[16384];
 	char *c, *p, *err_str;
@@ -253,7 +253,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	
 	r = 0;
 	to_write = sizeof (buf) - r;
-	written = snprintf (buf + r, to_write, "SYMBOLS RSPAMC/1.0\r\nContent-length: %ld\r\n", (long int)sb.st_size);
+	written = snprintf (buf + r, to_write, "SYMBOLS RSPAMC/1.2\r\nContent-length: %ld\r\n", (long int)sb.st_size);
 	if (written > to_write) {
 		msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 		close(fd);
@@ -524,6 +524,12 @@ do {																				\
 					}
 					TAILQ_INIT(&cur->symbols);
 				}
+				else if (remain >= sizeof ("Message-ID:") && memcmp (p, "Message-ID:", sizeof ("Message-ID:") - 1) == 0) {
+					state = 99;
+					next_state = 7;
+					p += sizeof("Message-ID:") - 1;															\
+					remain -= sizeof("Message-ID:") - 1;
+				}
 				else {
 					toklen = strcspn (p, "\r\n");
 					if (toklen > remain) {
@@ -584,6 +590,16 @@ do {																				\
 					msg_info ("bad symbol name detected");
 					return -1;
 				}
+				remain -= toklen;
+				p += toklen;
+				next_state = 4;
+				state = 99;
+				break;
+			case 7:
+				/* Parse message id */
+				toklen = strcspn (p, "\r\n");
+				*mid = malloc (toklen + 1);
+				strlcpy (*mid, p, toklen + 1);
 				remain -= toklen;
 				p += toklen;
 				next_state = 4;
@@ -823,7 +839,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 	double ts, tf;
 	struct spamd_server *selected = NULL;
 	char rbuf[BUFSIZ];
-	char *prefix = "s";
+	char *prefix = "s", *mid = NULL;
 	rspamd_result_t res;
 	struct rspamd_metric_result *cur = NULL, *tmp;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
@@ -851,7 +867,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		}
 		else {
 			prefix = "rs";
-			r = rspamdscan_socket (ctx, priv, selected, cfg, &res);
+			r = rspamdscan_socket (ctx, priv, selected, cfg, &res, &mid);
 		}
 		if (r == 0 || r == 1) {
 			upstream_ok (&selected->up, t.tv_sec);
@@ -880,8 +896,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 	cur = TAILQ_FIRST(&res);
 	while (cur) {
 		if (cur->metric_name) {
-			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan <%s>, %f, %s, metric: %s: [%f / %f], symbols: ",
+			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan qid: <%s>, mid: <%s>, %f, %s, metric: %s: [%f / %f], symbols: ",
 					priv->mlfi_id,
+					(mid != NULL) ? mid : "undef",
 					tf - ts,
 					selected->name,
 					cur->metric_name,
