@@ -575,10 +575,10 @@ do {																				\
 				break;
 			case 6:
 				/* Parse action */
-				if (memcmp (p, "reject", sizeof ("reject")) == 0) {
+				if (memcmp (p, "reject", sizeof ("reject") - 1) == 0) {
 					cur->action = METRIC_ACTION_REJECT;
 				}
-				else if (memcmp (p, "greylist", sizeof ("greylist")) == 0) {
+				else if (memcmp (p, "greylist", sizeof ("greylist") - 1) == 0) {
 					cur->action = METRIC_ACTION_REJECT;
 				}
 				else {
