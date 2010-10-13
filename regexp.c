@@ -99,15 +99,17 @@ static struct rule *
 check_envrcpt_rule (struct rule *cur, const struct mlfi_priv *priv)
 {
 	struct condition *cond;
+	struct rcpt *rcpt;
 	size_t tlen;
-
-	tlen = strlen (priv->priv_rcpt);
 
 	LIST_FOREACH (cond, cur->conditions, next) {
 		if (cond->type == COND_ENVRCPT) {
 			/* To: */
-			if (check_condition (&cond->args[0], priv->priv_rcpt, tlen)) {
-				return cur;
+			for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+				tlen = strlen (rcpt->r_addr);
+				if (check_condition (&cond->args[0], rcpt->r_addr, tlen)) {
+					return cur;
+				}
 			}
 		}
 	}

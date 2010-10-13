@@ -182,7 +182,8 @@ check_symbols (char *symbols_got, char *symbols_check)
  */
 
 static int 
-rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv, struct config_file *cfg, rspamd_result_t *res, char **mid)
+rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv,
+		struct config_file *cfg, rspamd_result_t *res, char **mid)
 {
 	char buf[16384];
 	char *c, *p, *err_str;
@@ -192,6 +193,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	int remain;
 	struct stat sb;
 	struct rspamd_metric_result *cur = NULL;
+	struct rcpt *rcpt;
 	struct rspamd_symbol *cur_symbol;
 
 	/* somebody doesn't need reply... */
@@ -262,9 +264,9 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	}
 	r += written;
 
-	if (priv->priv_rcpt[0] != '\0') {
+	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
 		to_write = sizeof (buf) - r;
-		written = snprintf (buf + r, to_write, "Rcpt: %s\r\n", priv->priv_rcpt);
+		written = snprintf (buf + r, to_write, "Rcpt: %s\r\n", rcpt->r_addr);
 		if (written > to_write) {
 			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
 			close(fd);
@@ -273,6 +275,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		}
 		r += written;
 	}
+
 	if (priv->priv_from[0] != '\0') {
 		to_write = sizeof (buf) - r;
 		written = snprintf (buf + r, to_write, "From: %s\r\n", priv->priv_from);

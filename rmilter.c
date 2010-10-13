@@ -354,7 +354,7 @@ check_greylisting (struct mlfi_priv *priv)
 		/* Make hash from components: envfrom, ip address, envrcpt */
 		MD5Update(&mdctx, (const u_char *)priv->priv_from, strlen(priv->priv_from));
 		MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
-		MD5Update(&mdctx, (const u_char *)priv->priv_rcpt, strlen(priv->priv_rcpt));
+		MD5Update(&mdctx, (const u_char *)priv->rcpts.lh_first->r_addr, strlen(priv->rcpts.lh_first->r_addr));
 		MD5Final(final, &mdctx);
 		
 		tm.tv_sec = priv->conn_tm.tv_sec;
@@ -363,7 +363,7 @@ check_greylisting (struct mlfi_priv *priv)
 		make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
 
 		msg_debug ("check_greylisting: check from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
+							priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 		s = 1;
 		cur_param.buf = (u_char *)&tm1;
 		cur_param.bufsize = sizeof (tm1);
@@ -420,7 +420,7 @@ check_greylisting (struct mlfi_priv *priv)
 				if (r == OK) {
 					/* Do not check anything if whitelist is found */
 					msg_debug ("check_greylisting: hash is in whitelist from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm1.tv_sec, (long int)tm1.tv_usec);
+							priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm1.tv_sec, (long int)tm1.tv_usec);
 					memc_close_ctx_mirror (mctx_white, 2);
 					upstream_ok (&selected->up, tm.tv_sec);
 					return GREY_WHITELISTED;
@@ -485,7 +485,7 @@ check_greylisting (struct mlfi_priv *priv)
 			cur_param.bufsize = sizeof (tm);
 			r = memc_set_mirror (mctx, 2, &cur_param, &s, cfg->greylisting_expire);
 			msg_debug ("check_greylisting: write hash to grey list from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
+							priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 			copy_alive (selected, mctx);
 			if (r == OK) {
 				upstream_ok (&selected->up, tm.tv_sec);
@@ -564,7 +564,7 @@ check_greylisting (struct mlfi_priv *priv)
 						copy_alive (selected, mctx_white);
 						if (r == OK) {
 							msg_debug ("check_greylisting: write hash to white list from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-								priv->priv_ip, priv->priv_rcpt, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
+								priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 							memc_close_ctx_mirror (mctx_white, 2);
 							upstream_ok (&selected->up, tm.tv_sec);
 						}
@@ -776,6 +776,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		return SMFIS_TEMPFAIL;
     }
     memset(priv, '\0', sizeof (struct mlfi_priv));
+    LIST_INIT (&priv->rcpts);
 	priv->strict = 1;
 	priv->serial = cfg->serial;
 
@@ -872,7 +873,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 #ifndef STRICT_AUTH
 	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
-	if (tmpfrom != NULL) {
+	if (tmpfrom != NULL && ! cfg->strict_auth) {
 		priv->strict = 0;
 		msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
 	}
@@ -905,6 +906,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 {
 	struct mlfi_priv *priv;
 	struct rule *act;
+	struct rcpt *newrcpt;
 	char *tmprcpt;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -918,12 +920,21 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
     if (tmprcpt == NULL || *tmprcpt == '\0') {
 		tmprcpt = "<>";
 	}
-	/* Copy first recipient to priv - this is needed for dcc checking and ratelimits */
-	strlcpy (priv->priv_rcpt, tmprcpt, sizeof (priv->priv_rcpt));
-	msg_debug ("mlfi_envrcpt: got rcpt value: %s", priv->priv_rcpt);
+    newrcpt = malloc (sizeof (struct rcpt));
+    if (newrcpt == NULL) {
+    	msg_err ("malloc failed: %s", strerror (errno));
+    	return SMFIS_TEMPFAIL;
+    }
+    strlcpy (newrcpt->r_addr, tmprcpt, sizeof (newrcpt->r_addr));
+    newrcpt->is_whitelisted = is_whitelisted_rcpt (newrcpt->r_addr);
+    if (newrcpt->is_whitelisted) {
+    	priv->has_whitelisted = 1;
+    }
+    LIST_INSERT_HEAD (&priv->rcpts, newrcpt, r_list);
+
 	CFG_RLOCK();
 	/* Check ratelimit */
-	if (rate_check (priv, cfg, 0) == 0) {
+	if (rate_check (priv, cfg, newrcpt->r_addr, 0) == 0) {
 		/* Rate is more than limit */
 		if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Rate limit exceeded") != MI_SUCCESS) {
 			msg_err("smfi_setreply");
@@ -966,7 +977,7 @@ mlfi_data(SMFICTX *ctx)
 		msg_info ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
 	}
 
-	if (priv->priv_ip[0] != '\0' && *priv->priv_rcpt != '\0' && cfg->memcached_servers_grey_num > 0 &&
+	if (priv->priv_ip[0] != '\0' && cfg->memcached_servers_grey_num > 0 &&
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
@@ -1099,6 +1110,7 @@ mlfi_eom(SMFICTX * ctx)
     char *id;
     struct stat sb;
 	struct action *act;
+	struct rcpt *rcpt;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1120,7 +1132,7 @@ mlfi_eom(SMFICTX * ctx)
 	CFG_RLOCK();
 #if (SMFI_PROT_VERSION < 4)
 	/* Do greylisting here if DATA callback is not available */
-	if (priv->priv_ip[0] != '\0' && *priv->priv_rcpt != '\0' && cfg->memcached_servers_grey_num > 0 &&
+	if (priv->priv_ip[0] != '\0' && cfg->memcached_servers_grey_num > 0 &&
 		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
@@ -1175,11 +1187,11 @@ mlfi_eom(SMFICTX * ctx)
 			case SPF_RESULT_NONE:
 				break;
 			case SPF_RESULT_FAIL:
-				if (*priv->priv_rcpt != '\0' && !is_whitelisted_rcpt (priv->priv_rcpt)) {
-	    			snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
+				if (!priv->has_whitelisted) {
+					snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
 							(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
-							priv->priv_ip, priv->priv_from);
-	    			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
+									priv->priv_ip, priv->priv_from);
+					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 					CFG_UNLOCK();
 					(void)mlfi_cleanup (ctx, false);
 					return SMFIS_REJECT;
@@ -1215,12 +1227,12 @@ mlfi_eom(SMFICTX * ctx)
 	
 	if (!priv->strict) {
 		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; skip dcc, spamd", priv->mlfi_id, 
-				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->priv_rcpt, priv->reply_id);
+				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->rcpts.lh_first->r_addr, priv->reply_id);
 	}
 
 #ifdef HAVE_DCC
  	/* Check dcc */
-	if (cfg->use_dcc == 1 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict) {
+	if (cfg->use_dcc == 1 && !priv->has_whitelisted && priv->strict) {
 		msg_debug ("mlfi_eom: %s: check dcc", priv->mlfi_id);
 		r = check_dcc (priv);
 		switch (r) {
@@ -1274,7 +1286,7 @@ mlfi_eom(SMFICTX * ctx)
 		send_beanstalk_copy (priv, cfg->copy_server);
 	}
 	/* Check spamd */
-	if (cfg->spamd_servers_num != 0 && !is_whitelisted_rcpt (priv->priv_rcpt) && priv->strict
+	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (ctx, priv, cfg);
@@ -1314,7 +1326,11 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Update rate limits for message */
 	msg_debug ("mlfi_eom: %s: updating rate limits", priv->mlfi_id);
-	rate_check (priv, cfg, 1);
+
+	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+		rate_check (priv, cfg, rcpt->r_addr, 1);
+		smfi_addheader (ctx, "X-Rcpt-To", rcpt->r_addr);
+	}
 
 	CFG_UNLOCK();
     return mlfi_cleanup (ctx, true);
@@ -1324,12 +1340,20 @@ static sfsistat
 mlfi_close(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
+    struct rcpt *rcpt, *next;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
 	msg_debug ("mlfi_close: cleanup");
+
+	rcpt = priv->rcpts.lh_first;
+	while (rcpt) {
+		next = rcpt->r_list.le_next;
+		free (rcpt);
+		rcpt = next;
+	}
 
     free(priv);
     smfi_setpriv(ctx, NULL);
@@ -1348,6 +1372,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 {
     sfsistat rstat = SMFIS_CONTINUE;
     struct mlfi_priv *priv;
+    struct rcpt *rcpt, *next;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1370,8 +1395,14 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
 	priv->priv_from[0] = '\0';
-	priv->priv_rcpt[0] = '\0';
 	priv->priv_rcptcount = 0;
+	rcpt = priv->rcpts.lh_first;
+	while (rcpt) {
+		next = rcpt->r_list.le_next;
+		free (rcpt);
+		rcpt = next;
+	}
+	LIST_INIT (&priv->rcpts);
 	if (priv->priv_subject != NULL) {
 		free (priv->priv_subject);
 		priv->priv_subject = NULL;
@@ -1474,7 +1505,7 @@ check_dcc (const struct mlfi_priv *priv)
 	dcc_mk_su (&sup, AF_INET, &priv->priv_addr.sin_addr, 0);
 
 	rcpt.next = rcpts;
-	rcpt.addr = priv->priv_rcpt;
+	rcpt.addr = priv->rcpts.lh_first->r_addr;
 	rcpt.user = "";
 	rcpt.ok = '?';
 	rcpts = &rcpt;

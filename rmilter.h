@@ -62,6 +62,7 @@
 /* Structures and macros used */
 struct rcpt {
 	char r_addr[ADDRLEN + 1];
+	int is_whitelisted;
 	LIST_ENTRY(rcpt) r_list;
 };
 
@@ -71,7 +72,7 @@ struct mlfi_priv {
 	char priv_hostname[ADDRLEN + 1];
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];
-	char priv_rcpt[ADDRLEN + 1];
+	LIST_HEAD (rcptl, rcpt) rcpts;
 	char *priv_subject;
 	int priv_rcptcount;
 	struct {
@@ -101,6 +102,7 @@ struct mlfi_priv {
 	short int serial;
 	short int has_return_path;
 	short int complete_to_beanstalk;
+	short int has_whitelisted;
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

@@ -263,6 +263,7 @@ struct config_file {
 	size_t spf_domains_num;
 
 	char use_dcc;
+	char strict_auth;
 
 	/* limits section */
 	bucket_t limit_to;

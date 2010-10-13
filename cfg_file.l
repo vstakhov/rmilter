@@ -141,6 +141,7 @@ parse_bucket (char *str, bucket_t *bucket)
 .include						BEGIN(incl);
 tempdir							return TEMPDIR;
 pidfile							return PIDFILE;
+strict_auth						return STRICT_AUTH;
 rule							return RULE;
 clamav							return CLAMAV;
 spamd							return SPAMD;

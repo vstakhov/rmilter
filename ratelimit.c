@@ -57,10 +57,10 @@ convert_to_lowercase (char *str, unsigned int size)
 
 /* Return lenth of user part */
 static size_t
-extract_user_part (char *str)
+extract_user_part (const char *str)
 {
 	size_t user_part_len;
-	char *p;
+	const char *p;
 
 	/* Extract user part from rcpt */
 	p = str;
@@ -76,7 +76,7 @@ extract_user_part (char *str)
 }
 
 static int
-is_whitelisted (struct in_addr *addr, char *rcpt, struct config_file *cfg)
+is_whitelisted (struct in_addr *addr, const char *rcpt, struct config_file *cfg)
 {
 	size_t user_part_len;
 	struct addr_list_entry *cur_addr;
@@ -114,34 +114,24 @@ is_bounce (char *from, struct config_file *cfg)
 }
 
 static void
-make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
+make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv, const char *rcpt)
 {
 	int r = 0;
 	switch (type) {
 		case TO:
-			if (!priv->priv_rcpt || *priv->priv_rcpt == '\0') {
-				snprintf (buf, buflen, "%s", "unknown");
-			}
-			else {
-				snprintf (buf, buflen, "%s", priv->priv_rcpt);
-			}
+			snprintf (buf, buflen, "%s", rcpt);
 			break;
 		case TO_IP:
-			r = snprintf (buf, buflen, "%s:%s", priv->priv_rcpt, priv->priv_ip);
+			r = snprintf (buf, buflen, "%s:%s", rcpt, priv->priv_ip);
 			break;
 		case TO_IP_FROM:
-			r = snprintf (buf, buflen, "%s:%s:%s", priv->priv_rcpt, priv->priv_ip, priv->priv_from);
+			r = snprintf (buf, buflen, "%s:%s:%s", rcpt, priv->priv_ip, priv->priv_from);
 			break;
 		case BOUNCE_TO:
-			if (!priv->priv_rcpt || *priv->priv_rcpt == '\0') {
-				snprintf (buf, buflen, "%s:<>", "unknown");
-			}
-			else {
-				snprintf (buf, buflen, "%s:<>", priv->priv_rcpt);
-			}
+				snprintf (buf, buflen, "%s:<>", rcpt);
 			break;
 		case BOUNCE_TO_IP:
-			r = snprintf (buf, buflen, "%s:%s:<>",  priv->priv_rcpt, priv->priv_ip);
+			r = snprintf (buf, buflen, "%s:%s:<>",  rcpt, priv->priv_ip);
 			break;
 	}
 	
@@ -149,7 +139,8 @@ make_key (char *buf, size_t buflen, enum keytype type, struct mlfi_priv *priv)
 }
 
 static int
-check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keytype type, bucket_t *bucket, double tm, int is_update)
+check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg,
+		enum keytype type, bucket_t *bucket, double tm, const char *rcpt, int is_update)
 {
 	struct memcached_server *selected;
 	struct ratelimit_bucket_s b;
@@ -162,7 +153,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 		return 1;
 	}
 	
-	make_key (cur_param.key, sizeof (cur_param.key), type, priv);
+	make_key (cur_param.key, sizeof (cur_param.key), type, priv, rcpt);
 
 	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_limits,
 											cfg->memcached_servers_limits_num, sizeof (struct memcached_server),
@@ -252,13 +243,13 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg, enum keyt
 }
 
 int
-rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
+rate_check (struct mlfi_priv *priv, struct config_file *cfg, const char *rcpt, int is_update)
 {
 	double t;
 	struct timeval tm;
 	int r;
 
-	if (is_whitelisted (&priv->priv_addr.sin_addr, priv->priv_rcpt, cfg) != 0) {
+	if (is_whitelisted (&priv->priv_addr.sin_addr, rcpt, cfg) != 0) {
 		msg_info ("rate_check: address is whitelisted, skipping checks");
 		return 1;
 	}
@@ -270,25 +261,25 @@ rate_check (struct mlfi_priv *priv, struct config_file *cfg, int is_update)
 
 	if (is_bounce (priv->priv_from, cfg) != 0) {
 		msg_debug ("rate_check: bounce address detected, doing special checks: %s", priv->priv_from);
-		r = check_specific_limit (priv, cfg, BOUNCE_TO, &cfg->limit_bounce_to, t, is_update);
+		r = check_specific_limit (priv, cfg, BOUNCE_TO, &cfg->limit_bounce_to, t, rcpt, is_update);
 		if (r != 1) {
 			return r;
 		}
-		r = check_specific_limit (priv, cfg, BOUNCE_TO_IP, &cfg->limit_bounce_to_ip, t, is_update);
+		r = check_specific_limit (priv, cfg, BOUNCE_TO_IP, &cfg->limit_bounce_to_ip, t, rcpt, is_update);
 		if (r != 1) {
 			return r;
 		}
 	}
 	/* Check other limits */
-	r = check_specific_limit (priv, cfg, TO_IP_FROM, &cfg->limit_to_ip_from, t, is_update);
+	r = check_specific_limit (priv, cfg, TO_IP_FROM, &cfg->limit_to_ip_from, t, rcpt, is_update);
 	if (r != 1) {
 		return r;
 	}
-	r = check_specific_limit (priv, cfg, TO_IP, &cfg->limit_to_ip, t, is_update);
+	r = check_specific_limit (priv, cfg, TO_IP, &cfg->limit_to_ip, t, rcpt, is_update);
 	if (r != 1) {
 		return r;
 	}
-	r = check_specific_limit (priv, cfg, TO, &cfg->limit_to, t, is_update);
+	r = check_specific_limit (priv, cfg, TO, &cfg->limit_to, t, rcpt, is_update);
 	if (r != 1) {
 		return r;
 	}
