@@ -1328,7 +1328,6 @@ static sfsistat
 mlfi_close(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
-    struct rcpt *rcpt, *next;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1336,12 +1335,7 @@ mlfi_close(SMFICTX * ctx)
 	}
 	msg_debug ("mlfi_close: cleanup");
 
-	rcpt = priv->rcpts.lh_first;
-	while (rcpt) {
-		next = rcpt->r_list.le_next;
-		free (rcpt);
-		rcpt = next;
-	}
+	mlfi_cleanup (ctx, true);
 
     free(priv);
     smfi_setpriv(ctx, NULL);
