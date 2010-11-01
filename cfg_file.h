@@ -224,6 +224,8 @@ struct config_file {
 	char *check_symbols;
 	char *symbols_dir;
 	short int spamd_soft_fail;
+	char *trace_symbol;
+	char *trace_addr;
 
 	pcre* special_mid_re;
 
@@ -264,6 +266,7 @@ struct config_file {
 
 	char use_dcc;
 	char strict_auth;
+	char weighted_clamav;
 
 	/* limits section */
 	bucket_t limit_to;

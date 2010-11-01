@@ -53,6 +53,7 @@ uint8_t cur_flags = 0;
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
 %token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
+%token	TRACE_SYMBOL TRACE_ADDR
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -392,6 +393,8 @@ spamdcmd:
 	| symbols_dir
 	| check_symbols
 	| spamd_soft_fail
+	| trace_symbol
+	| trace_addr
 	;
 
 diff_dir :
@@ -615,6 +618,65 @@ spamd_soft_fail:
 		}
 	}
 	;
+	
+trace_symbol:
+	TRACE_SYMBOL EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (c[len - 1] == '"') {
+			len--;
+		}
+
+		if (cfg->trace_symbol) {
+			free (cfg->trace_symbol);
+		}
+		cfg->trace_symbol = (char *)malloc (len + 1);
+		if (!cfg->trace_symbol) {
+			yyerror ("yyparse: malloc failed");
+			YYERROR;
+		}
+		strlcpy (cfg->trace_symbol, c, len + 1);
+
+		free ($3);
+
+	}
+	;
+
+trace_addr:
+	TRACE_ADDR EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (c[len - 1] == '"') {
+			len--;
+		}
+
+		if (cfg->trace_addr) {
+			free (cfg->trace_addr);
+		}
+		cfg->trace_addr = (char *)malloc (len + 1);
+		if (!cfg->trace_addr) {
+			yyerror ("yyparse: malloc failed");
+			YYERROR;
+		}
+		strlcpy (cfg->trace_addr, c, len + 1);
+
+		free ($3);
+
+	}
+	;
+	
 
 spf:
 	SPF EQSIGN spf_params 
@@ -1304,6 +1366,8 @@ limit_bounce_to_ip:
 		cfg->limit_bounce_to_ip.rate = $3.rate;
 	}
 	;
+
+
 %%
 /* 
  * vi:ts=4 

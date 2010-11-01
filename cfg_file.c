@@ -34,6 +34,7 @@ parse_err (const char *fmt, ...)
 	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
 
 	va_end (aq);
+	fprintf (stderr,"%s\n", logbuf);
 	syslog (LOG_ERR, "%s", logbuf);
 }
 
@@ -227,6 +228,13 @@ add_clamav_server (struct config_file *cf, char *str)
 		srv->sock.unix_path = strdup (cur_tok);
 		srv->sock_type = AF_UNIX;
 		srv->name = srv->sock.unix_path;
+		if (str != NULL && *str != '\0') {
+			srv->up.priority = strtoul (str, &err_str, 10);
+			if (*err_str != '\0') {
+				return 0;
+			}
+			cf->weighted_clamav = 1;
+		}
 
 		cf->clamav_servers_num++;
 		return 1;
@@ -240,6 +248,7 @@ add_clamav_server (struct config_file *cf, char *str)
 			if (*err_str != '\0') {
 				return 0;
 			}
+
 		}
 
 		if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
@@ -253,6 +262,15 @@ add_clamav_server (struct config_file *cf, char *str)
 				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
 				s = strlen (cur_tok) + 1;
 			}
+		}
+		/* Try to parse priority */
+		cur_tok = strsep (&str, ":");
+		if (str != NULL && *str != '\0') {
+			srv->up.priority = strtoul (str, &err_str, 10);
+			if (*err_str != '\0') {
+				return 0;
+			}
+			cf->weighted_clamav = 1;
 		}
 
 		srv->sock_type = AF_INET;

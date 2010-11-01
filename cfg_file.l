@@ -152,6 +152,8 @@ symbols_dir						return SYMBOLS_DIR;
 rspamd_metric					return RSPAMD_METRIC;
 spamd_soft_fail					return SPAMD_SOFT_FAIL;
 reject_message					return REJECT_MESSAGE;
+trace_symbol					return TRACE_SYMBOL;
+trace_addr						return TRACE_ADDR;
 servers							return SERVERS;
 servers_limits					return SERVERS_LIMITS;
 servers_grey					return SERVERS_GREY;

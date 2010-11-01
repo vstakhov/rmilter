@@ -873,9 +873,11 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 #ifndef STRICT_AUTH
 	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
-	if (tmpfrom != NULL && ! cfg->strict_auth) {
-		priv->strict = 0;
-		msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
+	if (tmpfrom != NULL) {
+		if (!cfg->strict_auth) {
+			msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
+		}
+		strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
 	}
 #endif
 
@@ -1223,7 +1225,8 @@ mlfi_eom(SMFICTX * ctx)
 
 #ifdef HAVE_DCC
  	/* Check dcc */
-	if (cfg->use_dcc == 1 && !priv->has_whitelisted && priv->strict) {
+	if (cfg->use_dcc == 1 && !priv->has_whitelisted && priv->strict &&
+			(!cfg->strict_auth && *priv->priv_user != '\0')) {
 		msg_debug ("mlfi_eom: %s: check dcc", priv->mlfi_id);
 		r = check_dcc (priv);
 		switch (r) {
@@ -1274,7 +1277,8 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict
-		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
+		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
+		(!cfg->strict_auth && *priv->priv_user != '\0')) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (ctx, priv, cfg);
 		if (r < 0) {
@@ -1377,6 +1381,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
 	priv->priv_from[0] = '\0';
+	priv->priv_user[0] = '\0';
 	priv->priv_rcptcount = 0;
 	rcpt = priv->rcpts.lh_first;
 	while (rcpt) {

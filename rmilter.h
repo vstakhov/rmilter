@@ -72,6 +72,7 @@ struct mlfi_priv {
 	char priv_hostname[ADDRLEN + 1];
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];
+	char priv_user[ADDRLEN + 1];
 	LIST_HEAD (rcptl, rcpt) rcpts;
 	char *priv_subject;
 	int priv_rcptcount;

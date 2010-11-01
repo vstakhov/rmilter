@@ -405,9 +405,18 @@ clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_
 
     /* try to scan with available servers */
     while (1) {
-		selected = (struct clamav_server *) get_random_upstream ((void *)cfg->clamav_servers,
-											cfg->clamav_servers_num, sizeof (struct clamav_server),
-											t.tv_sec, cfg->clamav_error_time, cfg->clamav_dead_time, cfg->clamav_maxerrors);
+    	if (cfg->weighted_clamav) {
+    		selected = (struct clamav_server *) get_upstream_master_slave ((void *)cfg->clamav_servers,
+    				cfg->clamav_servers_num, sizeof (struct clamav_server),
+    				t.tv_sec, cfg->clamav_error_time, cfg->clamav_dead_time,
+    				cfg->clamav_maxerrors);
+    	}
+    	else {
+    		selected = (struct clamav_server *) get_random_upstream ((void *)cfg->clamav_servers,
+    				cfg->clamav_servers_num, sizeof (struct clamav_server),
+    				t.tv_sec, cfg->clamav_error_time, cfg->clamav_dead_time,
+    				cfg->clamav_maxerrors);
+    	}
 		if (selected == NULL) {
 			msg_err ("clamscan: upstream get error, %s", file);
 			return -1;

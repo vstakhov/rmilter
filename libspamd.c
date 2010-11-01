@@ -309,7 +309,17 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		}
 		r += written;
 	}
-
+	if (priv->priv_user[0] != '\0') {
+		to_write = sizeof (buf) - r;
+		written = snprintf (buf + r, to_write, "User: %s\r\n", priv->priv_user);
+		if (written > to_write) {
+			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
+			close(fd);
+			close(s);
+			return -1;
+		}
+		r += written;
+	}
 	to_write = sizeof (buf) - r;
 	written = snprintf (buf + r, to_write, "Queue-ID: %s\r\n\r\n", priv->mlfi_id);
 	if (written > to_write) {
@@ -319,6 +329,8 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		return -1;
 	}
 	r += written;
+
+
 
 	if (write (s, buf, r) == -1) {
 		msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
@@ -837,12 +849,12 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 int 
 spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 {
-	int retry = 5, r = -2;
+	int retry = 5, r = -2, to_trace = 0;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
 	char rbuf[BUFSIZ];
-	char *prefix = "s", *mid = NULL;
+	char *prefix = "s", *mid = NULL, *c;
 	rspamd_result_t res;
 	struct rspamd_metric_result *cur = NULL, *tmp;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
@@ -935,6 +947,15 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 					else {
 						r += snprintf (rbuf + r, sizeof (rbuf) - r, "%s", cur_symbol->symbol);
 					}
+					if (cfg->trace_symbol) {
+						c = strchr (cur_symbol->symbol, '(');
+						if (c != NULL) {
+							*c = '\0';
+						}
+						if ( !strcmp (cfg->trace_symbol, cur_symbol->symbol)) {
+							to_trace ++;
+						}
+					}
 					free (cur_symbol->symbol);
 				}
 				tmp_symbol = cur_symbol;
@@ -947,6 +968,11 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		cur = TAILQ_NEXT(cur, entry);
 		free (tmp);
 	}
+	if (to_trace && cfg->trace_addr) {
+		smfi_addrcpt (ctx, cfg->trace_addr );
+		smfi_setpriv (ctx, priv);
+	}
+
 	if (res_action == METRIC_ACTION_REJECT) {
 		return 1;
 	}
