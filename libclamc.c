@@ -34,7 +34,6 @@
 #include <sysexits.h>
 #include <unistd.h>
 #include <syslog.h>
-#include <signal.h>
 
 #include <netinet/in.h>
 #include <sys/un.h>
@@ -58,8 +57,6 @@
 #define MAX_FAILED 5
 /* Maximum inactive timeout (20 min) */
 #define MAX_TIMEOUT 1200.0
-
-#define KAV_PID "/var/run/kav.pid"
 
 
 /* Global mutexes */
@@ -389,28 +386,12 @@ int
 clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_len)
 {
     int retry = 5, r = -2;
-	long unsigned int pid;
     /* struct stat sb; */
     struct timeval t;
     double ts, tf;
     struct clamav_server *selected = NULL;
-	FILE *kav_file;
-	char buf[512], *err;
 
     *strres = '\0';
-	
-	if ((kav_file = fopen (KAV_PID, "r")) != NULL) {
-		if (fgets (buf, sizeof (buf), kav_file) != NULL) {
-			pid = strtoul (buf, &err, 10);
-			if (err == NULL || (*err == '\r' || *err == '\n' || *err == '\0')) {
-				if (kill (pid, 0) != -1) {
-					msg_info ("clamscan: KAV is running at pid %lu, skip clamav check", pid);
-					return 0;
-				}	
-			} 
-		}
-	}
-
     /*
      * Parse sockets to use in balancing.
      */
