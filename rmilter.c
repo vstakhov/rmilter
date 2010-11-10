@@ -965,6 +965,7 @@ mlfi_data(SMFICTX *ctx)
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -991,6 +992,7 @@ mlfi_data(SMFICTX *ctx)
 					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
 				}
 				CFG_UNLOCK();
+				mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
 				break;
 			case GREY_ERROR:
@@ -1018,6 +1020,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -1037,6 +1040,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		if (create_temp_file (priv) == -1) {
 			msg_err ("mlfi_eoh: cannot create temp file");
 			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
 		}
 	}
@@ -1072,12 +1076,14 @@ mlfi_eoh(SMFICTX * ctx)
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 	
     if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
 			msg_err ("mlfi_eoh: cannot create temp file");
+			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
 		}
 	}
@@ -1187,6 +1193,7 @@ mlfi_eom(SMFICTX * ctx)
 									priv->priv_ip, priv->priv_from);
 					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 					CFG_UNLOCK();
+					mlfi_cleanup (ctx, false);
 					return SMFIS_REJECT;
 				}
 				break;
@@ -1236,11 +1243,13 @@ mlfi_eom(SMFICTX * ctx)
 				msg_warn ("mlfi_eom: %s: greylisting by dcc", priv->mlfi_id);
 				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Try again later");
 				CFG_UNLOCK();
+				mlfi_cleanup (ctx, false);
 				return SMFIS_TEMPFAIL;
 			case 'R':
 				msg_warn ("mlfi_eom: %s: rejected by dcc", priv->mlfi_id);
 				smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
 				CFG_UNLOCK();
+				mlfi_cleanup (ctx, false);
 				return SMFIS_REJECT;
 			case 'S': /* XXX - dcc selective reject - not implemented yet */
 			case 'T': /* Temp failure by dcc */
@@ -1257,6 +1266,7 @@ mlfi_eom(SMFICTX * ctx)
     	if (r < 0) {
 			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
 			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
     	}
     	if (*strres) {
@@ -1264,6 +1274,7 @@ mlfi_eom(SMFICTX * ctx)
 			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
     	}
 	}
@@ -1293,6 +1304,7 @@ mlfi_eom(SMFICTX * ctx)
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
 				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
 				CFG_UNLOCK();
+				mlfi_cleanup (ctx, false);
 				return SMFIS_REJECT;
 			}
 			else {
@@ -1380,19 +1392,22 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->strict = 1;
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
-	priv->priv_from[0] = '\0';
-	priv->priv_user[0] = '\0';
-	priv->priv_rcptcount = 0;
-	rcpt = priv->rcpts.lh_first;
-	while (rcpt) {
-		next = rcpt->r_list.le_next;
-		free (rcpt);
-		rcpt = next;
-	}
-	LIST_INIT (&priv->rcpts);
 	if (priv->priv_subject != NULL) {
 		free (priv->priv_subject);
 		priv->priv_subject = NULL;
+	}
+	if (ok) {
+		/* If ok is not true do not clean SMTP data, just reject message */
+		priv->priv_from[0] = '\0';
+		priv->priv_user[0] = '\0';
+		priv->priv_rcptcount = 0;
+		rcpt = priv->rcpts.lh_first;
+		while (rcpt) {
+			next = rcpt->r_list.le_next;
+			free (rcpt);
+			rcpt = next;
+		}
+		LIST_INIT (&priv->rcpts);
 	}
     /* return status */
     return rstat;
@@ -1406,12 +1421,14 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
+		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
 
     if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
 			msg_err ("mlfi_eoh: cannot create temp file");
+			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
 		}
 	}
@@ -1419,6 +1436,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 
     if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
 		msg_warn ("mlfi_body: %s: file write error, %d: %m", priv->mlfi_id, errno);
+		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;;
     }
 	/* Check body with regexp */
