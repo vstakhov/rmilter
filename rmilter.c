@@ -1289,7 +1289,7 @@ mlfi_eom(SMFICTX * ctx)
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
-		(cfg->strict_auth && *priv->priv_user != '\0')) {
+		(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (ctx, priv, cfg);
 		if (r < 0) {
