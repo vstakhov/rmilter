@@ -82,6 +82,23 @@ cleanup()
 	INCLUDE=""
 }
 
+test_binary()
+{
+	path="$PATH:$PREFIX/bin:$LOCALBASE/bin"
+
+	while [ $# -ne 0 ] ; do
+		_binary=$1
+		_tmp_bin=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which ${_binary} 2>/dev/null` 
+		if [ $? -eq 0 ] ; then
+			BIN=$_binary
+			return 0
+		fi
+		shift
+	done
+	
+	return 1
+}
+
 check_compiler()
 {
 	if [ "F${CC}" != "F" ] ; then 
@@ -94,9 +111,10 @@ check_compiler()
 		echo "found(cached) -> $GCC"
 		return 0
 	fi
-
-	GCC=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which ${GCC}`
-	if [ $? -eq 0 -a -x $GCC ] ; then
+	
+	test_binary "gcc" "cc" "pcc" "clang"
+	if [ $? -eq 0 ] ; then
+		GCC=$BIN
 		echo "found -> $GCC"
 		write_cache "compiler" "${GCC}" "yes" "$GCC"
 		return 0
@@ -115,8 +133,10 @@ check_make()
 		echo "found(cached) -> $MAKE"
 		return 0
 	fi
-	MAKE=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which make`
-	if [ -x $MAKE ] ; then
+
+	test_binary "make" "pmake"
+	if [ $? -eq 0 ] ; then
+		MAKE=$BIN
 		echo "found -> $MAKE"
 		write_cache "make" "make" "yes" "$MAKE"
 		return 0
@@ -136,9 +156,10 @@ check_lex()
 		echo "found(cached) -> $LEX"
 		return 0
 	fi
-
-	LEX=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which lex`
-	if [ -x $LEX ] ; then
+	
+	test_binary "lex" "flex"
+	if [ $? -eq 0 ] ; then
+		LEX=$BIN
 		echo "found -> $LEX"
 		write_cache "binary" "lex" "yes" "$LEX"
 		return 0
@@ -159,9 +180,10 @@ check_yacc()
 		return 0
 	fi
 
-	YACC=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which yacc`
 	echo -n "Testing for yacc: "
-	if [ -x $YACC ] ; then
+	test_binary "yacc" "byacc"
+	if [ $? -eq 0 ] ; then
+		YACC=$BIN
 		echo "found -> $YACC"
 		write_cache "binary" "yacc" "yes" "$YACC"
 		return 0
@@ -180,8 +202,9 @@ check_util()
 		echo "found(cached) -> $CACHED"
 		return 0
 	fi
-	UTIL=`PATH="$PATH:$PREFIX/bin:$LOCALBASE/bin" which $1`
-	if [ -x $UTIL ] ; then
+	test_binary "$1"
+	if [ $? -eq 0 ] ; then
+		UTIL=$BIN
 		echo "found -> $UTIL"
 		write_cache "binary" "$1" "yes" "$UTIL"
 		return 0
@@ -195,7 +218,10 @@ check_util()
 check_function()
 {
 	FUNCTION=$1
-	while [ $# -ne 0 -a -n $2 ] ; do 
+	while [ $# -ne 0 ] ; do 
+		if [ ! -n $2 ] ; then
+			break
+		fi
 		shift
 		if [ "F$INCLUDE" = "F" ] ; then
 			INCLUDE="$1"
@@ -555,6 +581,8 @@ do
 		--enable-debug)					 CFLAGS="$CFLAGS -DWITH_DEBUG" OPT_FLAGS=""	;;
 		--enable-opt)                    OPT_FLAGS="-O3 -pipe"						;;
 		--enable-sendmail)               SENDMAIL=yes                               ;;
+		--with-libmilter*)               LIBMILTER=$value                           ;;
+		--with-libspf*)                  LIBSPF=$value                              ;;
 		*=*)																		;;
 		*)
             echo "$0: error: invalid option \"$option\""
@@ -577,6 +605,8 @@ if [ "F$help" = "Fyes" ] ; then
   --disable-spf                      disable spf support
   --user=USER                        set user to use
   --group=GROUP                      set group to use
+  --with-libmilter=PATH              set path to libmilter
+  --with-libspf=PATH                 set path to libspf2
 END
 	exit 1
 fi
@@ -589,8 +619,38 @@ if [ "F$SENDMAIL" = "Fyes" ] ; then
 	fi
 fi
 
+
 CFLAGS="$CFLAGS -I$PREFIX/include"
-LDFLAGS="$LDFLAGS -L$PREFIX/lib"
+LDFLAGS="$LDFLAGS -L$PREFIX/lib -L$PREFIX/lib/libmilter"
+
+if [ "F$LIBMILTER" != "F" ] ; then
+	echo $LIBMILTER | fgrep '/lib/' > /dev/null
+	if [ $? -eq 0 ] ; then
+		LDFLAGS="$LDFLAGS -L$LIBMILTER"
+	else
+		echo $LIBMILTER | fgrep '/include/' > /dev/null
+		if [ $? -eq 0 ] ; then
+			CFLAGS="$CFLAGS -I$LIBMILTER"
+		else
+			LDFLAGS="$LDFLAGS -L$LIBMILTER/lib"
+			CFLAGS="$CFLAGS -I$LIBMILTER/include"
+		fi
+	fi
+fi
+if [ "F$LIBSPF" != "F" ] ; then
+	echo $LIBSPF | fgrep '/lib/' > /dev/null
+	if [ $? -eq 0 ] ; then
+		LDFLAGS="$LDFLAGS -L$LIBSPF"
+	else
+		echo $LIBSPF | fgrep '/include/' > /dev/null
+		if [ $? -eq 0 ] ; then
+			CFLAGS="$CFLAGS -I$LIBSPF"
+		else
+			LDFLAGS="$LDFLAGS -L$LIBSPF/lib"
+			CFLAGS="$CFLAGS -I$LIBSPF/include"
+		fi
+	fi
+fi
 
 echo "Starting configure for rmilter" >config.log
 echo $0 $@ >> config.log
