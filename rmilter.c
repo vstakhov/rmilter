@@ -1329,13 +1329,26 @@ mlfi_eom(SMFICTX * ctx)
 	/* Update rate limits for message */
 	msg_debug ("mlfi_eom: %s: updating rate limits", priv->mlfi_id);
 
+
+#if 0
+	char rcptbuf[8192];
+	int rr = 0;
 	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
 		rate_check (priv, cfg, rcpt->r_addr, 1);
-#if 0
-		smfi_addheader (ctx, "X-Rcpt-To", rcpt->r_addr);
-#endif
+		if (rcpt->r_list.le_next) {
+			rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s, ", rcpt->r_addr);
+		}
+		else {
+			rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s", rcpt->r_addr);
+		}
 	}
+	smfi_addheader (ctx, "X-Rcpt-To", rcptbuf);
+#else
+	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+		rate_check (priv, cfg, rcpt->r_addr, 1);
 
+	}
+#endif
 	CFG_UNLOCK();
     return mlfi_cleanup (ctx, true);
 }
