@@ -871,15 +871,18 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
 #endif
 
-#ifndef STRICT_AUTH
+
 	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
 	if (tmpfrom != NULL) {
+#ifndef STRICT_AUTH
 		if (!cfg->strict_auth) {
 			msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
+			priv->strict = 0;
 		}
+#endif
 		strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
 	}
-#endif
+
 
 	CFG_RLOCK();
 	/* Check connect */
