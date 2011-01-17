@@ -197,7 +197,7 @@ is_whitelisted_rcpt (const char *str)
 		str ++;
 	}
 
-	len = strcspn (str, ">");
+	len = strcspn (str, "@>");
 	if (len > 0) {
 		LIST_FOREACH (cur, &cfg->whitelist_static, next) {
 			if (len == cur->len) {
