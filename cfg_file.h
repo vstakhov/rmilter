@@ -276,6 +276,7 @@ struct config_file {
 	bucket_t limit_bounce_to_ip;
 
 	LIST_HEAD (whitelistaddrset, addr_list_entry) whitelist_rcpt;
+	LIST_HEAD (whiteliststaticset, addr_list_entry) whitelist_static;
 	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
 	
 	unsigned int greylisting_timeout;

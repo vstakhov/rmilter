@@ -190,8 +190,25 @@ create_temp_file (struct mlfi_priv *priv)
 static inline int
 is_whitelisted_rcpt (const char *str)
 {
-	return (strncasecmp (str, "postmaster@", sizeof ("postmaster@") - 1) == 0 ||
-			strncasecmp (str, "abuse@", sizeof ("abuse@") - 1) == 0);
+	int len;
+	struct addr_list_entry *cur;
+
+	if (*str == '<') {
+		str ++;
+	}
+
+	len = strcspn (str, ">");
+	if (len > 0) {
+		LIST_FOREACH (cur, &cfg->whitelist_static, next) {
+			if (len == cur->len) {
+				if (memcmp (str, cur->addr, len) == 0) {
+					return 1;
+				}
+			}
+		}
+	}
+
+	return 0;
 }
 
 static inline void

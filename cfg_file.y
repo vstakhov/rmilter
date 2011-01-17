@@ -53,7 +53,7 @@ uint8_t cur_flags = 0;
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
 %token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
-%token	TRACE_SYMBOL TRACE_ADDR
+%token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -92,6 +92,7 @@ command	:
 	| beanstalk
 	| limits
 	| greylisting
+	| whitelist
 	;
 
 tempdir :
@@ -1367,6 +1368,26 @@ limit_bounce_to_ip:
 	}
 	;
 
+
+whitelist:
+	WHITELIST EQSIGN whitelist_list
+	;
+whitelist_list:
+	STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($1);
+		t->len = strlen (t->addr);
+		LIST_INSERT_HEAD (&cfg->whitelist_static, t, next);
+	}
+	| whitelist_list COMMA STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($3);
+		t->len = strlen (t->addr);
+		LIST_INSERT_HEAD (&cfg->whitelist_static, t, next);
+	}
+	;
 
 %%
 /* 

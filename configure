@@ -354,9 +354,38 @@ check_macro()
 	fi
 }
 
+check_single_lib()
+{
+	_slib=$1
+	_path=$2
+	
+	echo "#include <sys/types.h>" > autotest.c
+	if [ "F$INCLUDE" != "F" ] ; then
+		for inc in $INCLUDE ; do
+			echo "#include \"$inc\"" >> autotest.c
+		done
+	fi
+	echo "#include <stdlib.h>" >> autotest.c
+	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
+	echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -L$_path -l$_slib $PTHREAD_LDFLAGS autotest.c" >>config.log
+	$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -L$_path -l$_slib $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
+	if [ $? -eq 0 ] ; then
+			_found="yes"
+			return 0
+	fi
+	
+	return 1
+}
 
 check_lib()
 {
+	_SEARCH=""
+	echo $1 | grep -- '--search=' > /dev/null
+	if [ $? -eq 0 ] ; then
+		_SEARCH=`echo $1 | sed -e 's/^--search=//'`
+		shift
+	fi
+
 	LIB=$1
 	while [ $# -ne 1 -a -n $1 ] ; do 
 		shift
@@ -371,58 +400,63 @@ check_lib()
 	echo "Testing for lib$LIB: " >> config.log
 	check_cache "lib" "$LIB"
 	if [ $? -eq 0 ] ; then
+		check_cache "libpath" "$LIB"
+		if [ $? -eq 0 ] ; then
+			LIBS="$LIBS -L$CACHED"
+		fi
 		LIBS="$LIBS -l$LIB"
 		echo "-> OK (cached)"
 		echo "-> OK (cached)" >> config.log
 		return 0
 	fi
-	echo "#include <sys/types.h>" > autotest.c
-	if [ "F$INCLUDE" != "F" ] ; then
-		for inc in $INCLUDE ; do
-			echo "#include \"$inc\"" >> autotest.c
-		done
-	fi
-	echo "#include <stdlib.h>" >> autotest.c
-	echo "int main (int argc, char **argv) { return 0; }" >> autotest.c
-	# Now try to search for a library
-	_found="no"
-	_add_path=""
-	for _path in "" "$PREFIX/lib/lib$LIB" "$PREFIX/lib/$LIB" ; do
-		if [ "F$_path" != "F" ] ; then  
-			echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -L$_path -l$LIB $PTHREAD_LDFLAGS autotest.c" >>config.log
-			$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -L$_path -l$LIB $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
-		else
-			echo "$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c" >>config.log
-			$GCC $CFLAGS $PTHREAD_CFLAGS -o autotest $LDFLAGS $LIBS -l$LIB $PTHREAD_LDFLAGS autotest.c >>config.log 2>&1
-		fi
-		if [ $? -eq 0 ] ; then
-			_found="yes"
-			if [ "F$_path" != "F" ] ; then
-				_add_path=$_path
-			fi
-			break
-		fi
-	done
-	if [ $_found = "yes" ] ; then 
-		echo "found"
-		if [ "F$_add_path" != "F" ] ; then 
-			LIBS="$LIBS -L$_add_path -l$LIB"
-		else
+
+	if [ "F$_SEARCH" = "F" ] ; then 
+		check_single_lib "$LIB" "/lib"
+
+		if [ $? -eq 0 ] ; then 
+			echo "found"
 			LIBS="$LIBS -l$LIB"
+			echo "-> OK" >> config.log
+			write_cache "lib" "$LIB" "yes" ""
+			cleanup
+			return 0
+		else
+			echo "not found"
+			echo "-> FAILED" >> config.log
+			echo "Failed program was:" >> config.log
+			cat autotest.c >> config.log
+			write_cache "lib" "$LIB" "no" ""
+			cleanup
+			return 1
 		fi
-		echo "-> OK" >> config.log
-		write_cache "lib" "$LIB" "yes" ""
-		cleanup
-		return 0
 	else
-		echo "not found"
-		echo "-> FAILED" >> config.log
-		echo "Failed program was:" >> config.log
-		cat autotest.c >> config.log
-		write_cache "lib" "$LIB" "no" ""
-		cleanup
-		return 1
+		_saved_ifs=$IFS
+		IFS=":"
+		for _p in $_SEARCH ; do
+			IFS=$_saved_ifs
+			check_single_lib "$LIB" "$_p"
+			if [ $? -eq 0 ] ; then 
+				echo "found"
+				LIBS="$LIBS -L$_p -l$LIB"
+				echo "-> OK" >> config.log
+				write_cache "lib" "$LIB" "yes" ""
+				write_cache "libpath" "$LIB" "yes" "$_p"
+				cleanup
+				IFS=$_saved_ifs
+				return 0
+			fi
+			IFS=":"
+		done
+		IFS=$_saved_ifs
 	fi
+
+	echo "not found"
+	echo "-> FAILED" >> config.log
+	echo "Failed program was:" >> config.log
+	cat autotest.c >> config.log
+	write_cache "lib" "$LIB" "no" ""
+	cleanup
+	return 1
 }
 
 check_os()
@@ -621,7 +655,7 @@ fi
 
 
 CFLAGS="$CFLAGS -I$PREFIX/include"
-LDFLAGS="$LDFLAGS -L$PREFIX/lib -L$PREFIX/lib/libmilter"
+LDFLAGS="$LDFLAGS -L$PREFIX/lib"
 
 if [ "F$LIBMILTER" != "F" ] ; then
 	echo $LIBMILTER | fgrep '/lib/' > /dev/null
@@ -661,7 +695,7 @@ check_lex
 check_yacc
 check_os
 
-check_lib "milter" "libmilter/mfapi.h"
+check_lib "--search=/usr/lib/libmilter:${PREFIX}/lib:${PREFIX}/libmilter" "milter" "libmilter/mfapi.h"
 if [ $? -eq 1 ] ; then
 	echo "Libmilter not found, check config.log for details"
 	exit 1
@@ -671,7 +705,7 @@ if [ "F$spf" = "Fno" ] ; then
 	CFLAGS="$CFLAGS -DDISABLE_SPF"
 else
 	SOURCES="$SOURCES spf.c"
-	check_lib "spf2" "netinet/in.h" "spf2/spf.h"
+	check_lib "--search=/usr/lib/libspf2:${PREFIX}/lib:${PREFIX}/libspf2" "spf2" "netinet/in.h" "spf2/spf.h"
 	if [ $? -eq 1 ] ; then
 		echo "Libspf2 not found, check config.log for details"
 		exit 1
