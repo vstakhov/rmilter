@@ -234,6 +234,18 @@ r:host[:port] - for rspamd protocol
 - reject message for spam (quoted string)
 .Dl Em Default: Dq Spam message rejected; If this is not spam contact abuse team
 .It 
+.Sy spamd_soft_fail
+- if action is not reject use it for other actions (flag)
+.Dl Em Default: Li false
+.It 
+.Sy spamd_greylist
+- greylist message only if action is greylist (flag)
+.Dl Em Default: Li false  
+.It 
+.Sy spam_header
+- add specified header if action is add_header and spamd_soft_fail os turned on
+.Dl Em Default: Dq X-Spam
+.It 
 .Sy rspamd_metric
 - rspamd metric that would define whether we reject message as spam or not (quoted string)
 .Dl Em Default: Dq default

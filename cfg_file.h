@@ -70,6 +70,7 @@
 
 #define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
 #define DEFAULT_GREYLISTED_MESSAGE "Try again later"
+#define DEFAULT_SPAM_HEADER "X-Spam"
 
 #define yyerror parse_err
 #define yywarn parse_warn
@@ -223,9 +224,11 @@ struct config_file {
 	char *diff_dir;
 	char *check_symbols;
 	char *symbols_dir;
-	short int spamd_soft_fail;
+	u_char spamd_soft_fail;
+	u_char spamd_greylist;
 	char *trace_symbol;
 	char *trace_addr;
+	char *spam_header;
 
 	pcre* special_mid_re;
 

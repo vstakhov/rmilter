@@ -24,12 +24,12 @@ int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg);
 
 /* Structure for rspamd results */
 enum rspamd_metric_action {
-	METRIC_ACTION_REJECT = 0,
+	METRIC_ACTION_NOACTION = 0,
+	METRIC_ACTION_REJECT = 1,
 	METRIC_ACTION_SOFT_REJECT,
 	METRIC_ACTION_REWRITE_SUBJECT,
 	METRIC_ACTION_ADD_HEADER,
-	METRIC_ACTION_GREYLIST,
-	METRIC_ACTION_NOACTION
+	METRIC_ACTION_GREYLIST
 };
 
 struct rspamd_symbol {

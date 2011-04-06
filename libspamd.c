@@ -594,7 +594,13 @@ do {																				\
 					cur->action = METRIC_ACTION_REJECT;
 				}
 				else if (memcmp (p, "greylist", sizeof ("greylist") - 1) == 0) {
-					cur->action = METRIC_ACTION_REJECT;
+					cur->action = METRIC_ACTION_GREYLIST;
+				}
+				else if (memcmp (p, "add header", sizeof ("add header") - 1) == 0) {
+					cur->action = METRIC_ACTION_ADD_HEADER;
+				}
+				else if (memcmp (p, "rewrite subject", sizeof ("rewrite subject") - 1) == 0) {
+					cur->action = METRIC_ACTION_REWRITE_SUBJECT;
 				}
 				else {
 					cur->action = METRIC_ACTION_NOACTION;
@@ -791,6 +797,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		return -2;
 	}
 	else {
+
 		cur = malloc (sizeof (struct rspamd_metric_result));
 		if (cur == NULL) {
 			msg_err ("malloc falied: %s", strerror (errno));
@@ -829,7 +836,8 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 	}
 
 	if (strstr(buf, "True") != NULL) {
-			return 1;
+		cur->action = METRIC_ACTION_REJECT;
+		return 1;
 	}
 
 	return 0;
@@ -973,14 +981,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		smfi_setpriv (ctx, priv);
 	}
 
-	if (res_action == METRIC_ACTION_REJECT) {
-		return 1;
-	}
-	else if (res_action == METRIC_ACTION_GREYLIST) {
-		return 2;
-	}
-
-	return 0;
+	return res_action;
 #if 0
 	/* XXX: Enable this functionality some time */
 	if (cfg->extra_spamd_servers_num > 0) {

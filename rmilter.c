@@ -605,6 +605,42 @@ check_greylisting (struct mlfi_priv *priv)
 	return GREY_WHITELISTED;
 }
 
+static sfsistat
+check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
+{
+	int r;
+	CFG_RLOCK();
+
+	if (priv->priv_ip[0] != '\0' && cfg->memcached_servers_grey_num > 0 &&
+			cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
+
+		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
+		r = check_greylisting (priv);
+		switch (r) {
+		case GREY_GREYLISTED:
+			if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, cfg->greylisted_message) != MI_SUCCESS) {
+				msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
+			}
+			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+			break;
+		case GREY_ERROR:
+			if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Service unavailable") != MI_SUCCESS) {
+				msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
+			}
+			CFG_UNLOCK();
+			return SMFIS_TEMPFAIL;
+			break;
+		case GREY_WHITELISTED:
+		default:
+			break;
+		}
+	}
+	CFG_UNLOCK();
+	return SMFIS_CONTINUE;
+}
+
 /* 
  * Send copy of message to beanstalk
  * XXX: too many copy&paste
@@ -976,11 +1012,11 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	return SMFIS_CONTINUE;
 }
 
+
 static sfsistat
 mlfi_data(SMFICTX *ctx)
 {
     struct mlfi_priv *priv;
-	int r;
 	char *id;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -1000,34 +1036,12 @@ mlfi_data(SMFICTX *ctx)
 		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
 		msg_info ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
 	}
+	CFG_UNLOCK();
 
-	if (priv->priv_ip[0] != '\0' && cfg->memcached_servers_grey_num > 0 &&
-		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
-
-		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
-		r = check_greylisting (priv);
-		switch (r) {
-			case GREY_GREYLISTED:
-				if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, cfg->greylisted_message) != MI_SUCCESS) {
-					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
-				}
-				CFG_UNLOCK();
-				mlfi_cleanup (ctx, false);
-				return SMFIS_TEMPFAIL;
-				break;
-			case GREY_ERROR:
-				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Service unavailable") != MI_SUCCESS) {
-					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
-				}
-				CFG_UNLOCK();
-				break;
-			case GREY_WHITELISTED:
-			default:
-				break;
-		}
+	if (!cfg->spamd_greylist) {
+		return check_greylisting_ctx (ctx, priv);
 	}
 
-	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
 }
 
@@ -1152,36 +1166,15 @@ mlfi_eom(SMFICTX * ctx)
 		msg_info ("mlfi_eom: cannot get queue id, set to 'NOQUEUE'");
 	}
 
-	CFG_RLOCK();
+
 #if (SMFI_PROT_VERSION < 4)
 	/* Do greylisting here if DATA callback is not available */
-	if (priv->priv_ip[0] != '\0' && cfg->memcached_servers_grey_num > 0 &&
-		cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
-
-		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
-		r = check_greylisting (priv);
-		switch (r) {
-			case GREY_GREYLISTED:
-				if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, (char *)"Try again later") != MI_SUCCESS) {
-					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
-				}
-				CFG_UNLOCK();
-				return SMFIS_TEMPFAIL;
-				break;
-			case GREY_ERROR:
-				if (smfi_setreply (ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL, (char *)"Service unavailable") != MI_SUCCESS) {
-					msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
-				}
-				CFG_UNLOCK();
-				break;
-			case GREY_WHITELISTED:
-			default:
-				break;
-		}
+	if (!cfg->spamd_greylist) {
+		return check_greylisting_ctx (ctx, priv);
 	}
-
 #endif
 	
+	CFG_RLOCK();
 	if (cfg->serial == priv->serial) {
 		msg_debug ("mlfi_eom: %s: checking regexp rules", priv->mlfi_id);
 		act = rules_check (priv->matched_rules);
@@ -1315,11 +1308,11 @@ mlfi_eom(SMFICTX * ctx)
 		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
 		}
-		else if (r == 1) {
+		else if (r != METRIC_ACTION_NOACTION) {
 			if (cfg->spam_server && cfg->send_beanstalk_spam) {
 				send_beanstalk_copy (priv, cfg->spam_server);
 			}
-			if (! cfg->spamd_soft_fail) {
+			if (! cfg->spamd_soft_fail || r == METRIC_ACTION_REJECT) {
 				msg_warn ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
 				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
@@ -1328,21 +1321,27 @@ mlfi_eom(SMFICTX * ctx)
 				return SMFIS_REJECT;
 			}
 			else {
-				msg_warn ("mlfi_eom: %s: rewriting spam subject", priv->mlfi_id);
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
-				/* 
-				 * X-Spam-Flag - indicate what message is spam 
-				 * X-Spam-Symbols - contain symbols
-				*/
-				smfi_addheader (ctx, "X-Spam-Flag", "yes");
+				if (r == METRIC_ACTION_ADD_HEADER) {
+					smfi_addheader (ctx, cfg->spam_header, "yes");
+				}
+				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
+					msg_warn ("mlfi_eom: %s: rewriting spam subject", priv->mlfi_id);
 
-				if (priv->priv_subject) {
-					smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
+					if (priv->priv_subject) {
+						smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
+					}
+					else {
+						smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+					}
 				}
-				else {
-					smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+				else if (r == METRIC_ACTION_GREYLIST && cfg->spamd_greylist){
+					CFG_UNLOCK();
+					if (check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
+						return SMFIS_TEMPFAIL;
+					}
+					CFG_RLOCK();
 				}
-				CFG_UNLOCK();
 			}
 		}
 	}

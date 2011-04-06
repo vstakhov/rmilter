@@ -53,7 +53,7 @@ uint8_t cur_flags = 0;
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
 %token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
-%token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM
+%token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAMD_GREYLIST
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -396,6 +396,8 @@ spamdcmd:
 	| spamd_soft_fail
 	| trace_symbol
 	| trace_addr
+	| spamd_spam_header
+	| spamd_greylist
 	;
 
 diff_dir :
@@ -616,6 +618,22 @@ spamd_soft_fail:
 	SPAMD_SOFT_FAIL EQSIGN FLAG {
 		if ($3) {
 			cfg->spamd_soft_fail = 1;
+		}
+	}
+	;
+
+spamd_greylist:
+	SPAMD_GREYLIST EQSIGN FLAG {
+		if ($3) {
+			cfg->spamd_greylist = 1;
+		}
+	}
+	;
+
+spamd_spam_header:
+	SPAM_HEADER EQSIGN QUOTEDSTRING {
+		if ($3) {
+			cfg->spam_header = $3;
 		}
 	}
 	;
