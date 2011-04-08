@@ -1051,6 +1051,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
     struct mlfi_priv *priv;
 	struct rule *act;
 	int len;
+	char *p, *c, t;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1058,8 +1059,26 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		return SMFIS_TEMPFAIL;
 	}
 
-	if (strncasecmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
+	if (headerv && strncasecmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
 		check_message_id (priv, headerv);
+	}
+	else if (headerv && strncasecmp (headerf, "References", sizeof ("References") - 1) == 0) {
+		/* Break references into individual message-id */
+		c = headerv;
+		p = c;
+		while (*p) {
+			if (isspace (*p)) {
+				t = *p;
+				*p = '\0';
+				check_message_id (priv, c);
+				*p = t;
+				while (isspace (*p) &&  *p) {
+					p ++;
+				}
+				c = p;
+			}
+			p ++;
+		}
 	}
 	else if (strncasecmp (headerf, "Return-Path", sizeof ("Return-Path") - 1) == 0) {
 		priv->has_return_path = 1;
