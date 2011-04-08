@@ -938,7 +938,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 					cur->required_score);
 		
 		}
-		if (cur->action < res_action) {
+		if (cur->action > res_action) {
 			res_action = cur->action;
 		}
 		/* Write symbols */
