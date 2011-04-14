@@ -980,14 +980,12 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 					}
 					if (cfg->extended_spam_headers) {
 						if (TAILQ_NEXT (cur_symbol, entry)) {
-							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s(%.2f)\r\n",
-									cur_symbol->symbol,
-									cur_symbol->score);
+							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s\r\n",
+									cur_symbol->symbol);
 						}
 						else {
-							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s(%.2f)",
-									cur_symbol->symbol,
-									cur_symbol->score);
+							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s",
+									cur_symbol->symbol);
 						}
 					}
 					free (cur_symbol->symbol);
