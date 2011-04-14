@@ -920,7 +920,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 	while (cur) {
 		if (cur->metric_name) {
 			if (cfg->extended_spam_headers) {
-				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\r\n",
+				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\n",
 						cur->metric_name,
 						cur->score > cur->required_score ? "True" : "False",
 						cur->score,
@@ -938,7 +938,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		}
 		else {
 			if (cfg->extended_spam_headers) {
-				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\r\n",
+				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\n",
 						"default",
 						cur->score > cur->required_score ? "True" : "False",
 						cur->score,
@@ -980,7 +980,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 					}
 					if (cfg->extended_spam_headers) {
 						if (TAILQ_NEXT (cur_symbol, entry)) {
-							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s\r\n",
+							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s\n",
 									cur_symbol->symbol);
 						}
 						else {
