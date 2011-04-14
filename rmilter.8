@@ -191,7 +191,7 @@ host[:port]
 .Dl Em Default: Li 10
 .El
 .It
-.\" Spamassassin section
+.\" Spamd section
 Spamd section:
 .Bl -dash
 .It 
@@ -253,6 +253,10 @@ r:host[:port] - for rspamd protocol
 .Sy whitelist
 - list of ips or nets that should be not checked with spamd
 .Dl Em Default: Li empty
+.It 
+.Sy extended_spam_headers
+- add extended spamd headers to messages, is useful for debugging or private mail servers (flag)
+.Dl Em Default: Li false
 .El
 .It
 .\" Memcached section

@@ -229,6 +229,7 @@ struct config_file {
 	char *trace_symbol;
 	char *trace_addr;
 	char *spam_header;
+	u_char extended_spam_headers;
 
 	pcre* special_mid_re;
 

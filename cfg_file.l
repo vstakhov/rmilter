@@ -153,6 +153,7 @@ rspamd_metric					return RSPAMD_METRIC;
 spamd_soft_fail					return SPAMD_SOFT_FAIL;
 spamd_greylist					return SPAMD_GREYLIST; 
 spam_header                     return SPAM_HEADER;
+extended_spam_headers			return EXTENDED_SPAM_HEADERS;
 reject_message					return REJECT_MESSAGE;
 trace_symbol					return TRACE_SYMBOL;
 trace_addr						return TRACE_ADDR;

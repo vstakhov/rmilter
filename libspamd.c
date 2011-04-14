@@ -857,11 +857,11 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 int 
 spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 {
-	int retry = 5, r = -2, to_trace = 0;
+	int retry = 5, r = -2, hr = 0, to_trace = 0;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
-	char rbuf[BUFSIZ];
+	char rbuf[BUFSIZ], hdrbuf[BUFSIZ];
 	char *prefix = "s", *mid = NULL, *c;
 	rspamd_result_t res;
 	struct rspamd_metric_result *cur = NULL, *tmp;
@@ -919,6 +919,13 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 	cur = TAILQ_FIRST(&res);
 	while (cur) {
 		if (cur->metric_name) {
+			if (cfg->extended_spam_headers) {
+				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\r\n",
+						cur->metric_name,
+						cur->score > cur->required_score ? "True" : "False",
+						cur->score,
+						cur->required_score);
+			}
 			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan qid: <%s>, mid: <%s>, %f, %s, metric: %s: [%f / %f], symbols: ",
 					priv->mlfi_id,
 					(mid != NULL) ? mid : "undef",
@@ -930,6 +937,13 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 			free (cur->metric_name);
 		}
 		else {
+			if (cfg->extended_spam_headers) {
+				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\r\n",
+						"default",
+						cur->score > cur->required_score ? "True" : "False",
+						cur->score,
+						cur->required_score);
+			}
 			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan <%s>, %f, %s, metric: default: [%f / %f], symbols: ",
 					priv->mlfi_id,
 					tf - ts,
@@ -964,6 +978,18 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 							to_trace ++;
 						}
 					}
+					if (cfg->extended_spam_headers) {
+						if (TAILQ_NEXT (cur_symbol, entry)) {
+							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s(%.2f)\r\n",
+									cur_symbol->symbol,
+									cur_symbol->score);
+						}
+						else {
+							hr += snprintf (hdrbuf + hr, sizeof (hdrbuf) - hr, " %s(%.2f)",
+									cur_symbol->symbol,
+									cur_symbol->score);
+						}
+					}
 					free (cur_symbol->symbol);
 				}
 				tmp_symbol = cur_symbol;
@@ -975,9 +1001,20 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		tmp = cur;
 		cur = TAILQ_NEXT(cur, entry);
 		free (tmp);
+		if (cfg->extended_spam_headers) {
+			smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
+		}
 	}
+	/* All other statistic headers */
+	if (cfg->extended_spam_headers) {
+		smfi_addheader (ctx, "X-Spamd-Server", selected->name);
+		snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
+		smfi_addheader (ctx, "X-Spamd-Scan-Time", hdrbuf);
+		smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->mlfi_id);
+	}
+	/* Trace spam messages to specific addr */
 	if (to_trace && cfg->trace_addr) {
-		smfi_addrcpt (ctx, cfg->trace_addr );
+		smfi_addrcpt (ctx, cfg->trace_addr);
 		smfi_setpriv (ctx, priv);
 	}
 
