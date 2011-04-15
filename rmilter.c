@@ -200,9 +200,21 @@ is_whitelisted_rcpt (const char *str)
 	len = strcspn (str, "@>");
 	if (len > 0) {
 		LIST_FOREACH (cur, &cfg->whitelist_static, next) {
-			if (len == cur->len) {
-				if (memcmp (str, cur->addr, len) == 0) {
-					return 1;
+			if (strchr (cur->addr, '@') == NULL) {
+				/* Compare just user */
+				if (len == cur->len) {
+					if (memcmp (str, cur->addr, len) == 0) {
+						return 1;
+					}
+				}
+			}
+			else {
+				/* Compare user and domain */
+				len = strcspn (str, ">");
+				if (len == cur->len) {
+					if (memcmp (str, cur->addr, len) == 0) {
+						return 1;
+					}
 				}
 			}
 		}
@@ -984,11 +996,14 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
     	return SMFIS_TEMPFAIL;
     }
     strlcpy (newrcpt->r_addr, tmprcpt, sizeof (newrcpt->r_addr));
+
     newrcpt->is_whitelisted = is_whitelisted_rcpt (newrcpt->r_addr);
-    if (newrcpt->is_whitelisted) {
+    if (!newrcpt->is_whitelisted && priv->has_whitelisted) {
+    	priv->has_whitelisted = 0;
+    }
+    else if (newrcpt->is_whitelisted && !priv->has_whitelisted) {
     	priv->has_whitelisted = 1;
     }
-
 
 	CFG_RLOCK();
 	/* Check ratelimit */

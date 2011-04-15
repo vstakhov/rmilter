@@ -578,8 +578,6 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 void
 init_defaults (struct config_file *cfg)
 {
-	static struct addr_list_entry white_from_abuse, white_from_postmaster;
-
 	LIST_INIT (&cfg->rules);
 	LIST_INIT (&cfg->whitelist_rcpt);
 	LIST_INIT (&cfg->whitelist_static);
@@ -625,6 +623,7 @@ init_defaults (struct config_file *cfg)
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	cfg->awl_enable = 0;
 
+#if 0
 	/* Init static defaults */
 	white_from_abuse.addr = "abuse";
 	white_from_abuse.len = sizeof ("abuse") - 1;
@@ -632,6 +631,7 @@ init_defaults (struct config_file *cfg)
 	white_from_postmaster.len = sizeof ("postmaster") - 1;
 	LIST_INSERT_HEAD (&cfg->whitelist_static, &white_from_abuse, next);
 	LIST_INSERT_HEAD (&cfg->whitelist_static, &white_from_postmaster, next);
+#endif
 }
 
 void
