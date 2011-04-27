@@ -1356,7 +1356,18 @@ mlfi_eom(SMFICTX * ctx)
 			}
 			else {
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
+
+				if (r >= METRIC_ACTION_GREYLIST && cfg->spamd_greylist) {
+					/* Perform greylisting */
+					CFG_UNLOCK();
+					if (check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
+						msg_info ("mlfi_eom: %s: greylisting message according to spamd action", priv->mlfi_id);
+						return SMFIS_TEMPFAIL;
+					}
+					CFG_RLOCK();
+				}
 				if (r == METRIC_ACTION_ADD_HEADER) {
+					msg_info ("mlfi_eom: %s: add spam header to message according to spamd action", priv->mlfi_id);
 					smfi_addheader (ctx, cfg->spam_header, "yes");
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
@@ -1368,13 +1379,6 @@ mlfi_eom(SMFICTX * ctx)
 					else {
 						smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
 					}
-				}
-				else if (r == METRIC_ACTION_GREYLIST && cfg->spamd_greylist){
-					CFG_UNLOCK();
-					if (check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
-						return SMFIS_TEMPFAIL;
-					}
-					CFG_RLOCK();
 				}
 			}
 		}
