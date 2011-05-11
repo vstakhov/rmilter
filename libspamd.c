@@ -966,11 +966,13 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 			}
 		}
 		msg_info ("%s", rbuf);
-		tmp = cur;
-		cur = TAILQ_NEXT(cur, entry);
 		if (cur->subject != NULL) {
 			free (cur->subject);
 		}
+
+		tmp = cur;
+		cur = TAILQ_NEXT(cur, entry);
+
 		free (tmp);
 		if (cfg->extended_spam_headers) {
 			smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
