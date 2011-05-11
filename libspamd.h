@@ -20,7 +20,7 @@
 struct config_file;
 struct mlfi_priv;
 
-int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg);
+int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject);
 
 /* Structure for rspamd results */
 enum rspamd_metric_action {
@@ -43,6 +43,7 @@ struct rspamd_metric_result {
 	double required_score;
 	double reject_score;
 	enum rspamd_metric_action action;
+	char *subject;
 	TAILQ_HEAD (symbolq, rspamd_symbol) symbols;
 	TAILQ_ENTRY (rspamd_metric_result) entry;
 };

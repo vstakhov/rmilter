@@ -49,35 +49,8 @@
 pthread_mutex_t mx_spamd_write = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
-/* Rspamd protocol parsing regexps */
-static pcre* re_metric = NULL;
-static pcre* re_symbol = NULL;
-static pcre* re_url = NULL;
-static const char* sym_metric = "^Metric: ([^;]+); (True|False); (-?\\d+\\.?\\d*) / (-?\\d+\\.?\\d*)$";
-static const char* sym_symbol = "^Symbol: ([^;]+);?.*$";
-static const char* sym_url = "^Urls: (([^,]+),)*([^,]+)?$";
-static int re_initialized = 0;
 
 /*****************************************************************************/
-
-static void
-prepare_proto_re ()
-{
-	int err;
-	const char *err_str;
-	/* May be race here */
-	if (!re_initialized) {
-		pthread_mutex_lock (&mx_spamd_write);
-		if (!re_initialized) {
-			re_metric = pcre_compile (sym_metric, 0, &err_str, &err, NULL);
-			re_symbol = pcre_compile (sym_symbol, 0, &err_str, &err, NULL);
-			re_url = pcre_compile (sym_url, 0, &err_str, &err, NULL);
-			re_initialized = 1;
-		}
-		pthread_mutex_unlock (&mx_spamd_write);
-	}
-	
-}
 
 /*
  * poll_fd() - wait for some POLLIN event on socket for timeout milliseconds.
@@ -143,35 +116,6 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 	return r;
 }
 
-static int
-check_symbols (char *symbols_got, char *symbols_check)
-{
-	char *p, *s, t;
-
-	p = symbols_check;
-	s = p;
-
-	while (*p) {
-		if (*p == ' ' || *p == ',') {
-			/* Try to find this symbol */
-			t = *p;
-			*p = '\0';
-			if (strstr (symbols_got, p) != NULL) {
-				*p = t;
-				return 1;
-			}
-			*p = t;
-			while (*p == ' ' || *p == ',') {
-				p ++;
-			}
-			s = p;
-		}
-		p ++;
-	}
-
-	return 0;
-}
-
 /*
  * rspamdscan_socket() - send file to specified host. See spamdscan() for
  * load-balanced wrapper.
@@ -199,9 +143,6 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	/* somebody doesn't need reply... */
 	if (!srv)
 		return 0;
-	
-	/* compile pcre if needed */
-	prepare_proto_re ();
 
 	if (srv->sock_type == AF_LOCAL) {
 
@@ -450,6 +391,7 @@ do {																				\
 					msg_err ("malloc failed: %s", strerror (errno));
 					return -1;
 				}
+				cur->subject = NULL;
 				TAILQ_INIT(&cur->symbols);
 				next_state = 3;
 				state = 99;
@@ -545,6 +487,12 @@ do {																				\
 					p += sizeof("Message-ID:") - 1;															\
 					remain -= sizeof("Message-ID:") - 1;
 				}
+				else if (remain >= sizeof ("Subject:") && memcmp (p, "Subject:", sizeof ("Subject:") - 1) == 0) {
+					state = 99;
+					next_state = 8;
+					p += sizeof("Subject:") - 1;															\
+					remain -= sizeof("Subject:") - 1;
+				}
 				else {
 					toklen = strcspn (p, "\r\n");
 					if (toklen > remain) {
@@ -621,6 +569,18 @@ do {																				\
 				toklen = strcspn (p, "\r\n");
 				*mid = malloc (toklen + 1);
 				strlcpy (*mid, p, toklen + 1);
+				remain -= toklen;
+				p += toklen;
+				next_state = 4;
+				state = 99;
+				break;
+			case 8:
+				/* Parse subject line */
+				toklen = strcspn (p, "\r\n");
+				if (cur) {
+					cur->subject = malloc (toklen + 1);
+					strlcpy (cur->subject, p, toklen + 1);
+				}
 				remain -= toklen;
 				p += toklen;
 				next_state = 4;
@@ -855,7 +815,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
  */
 
 int 
-spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
+spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject)
 {
 	int retry = 5, r = -2, hr = 0, to_trace = 0;
 	struct timeval t;
@@ -864,7 +824,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 	char rbuf[BUFSIZ], hdrbuf[BUFSIZ];
 	char *prefix = "s", *mid = NULL, *c;
 	rspamd_result_t res;
-	struct rspamd_metric_result *cur = NULL, *tmp;
+	struct rspamd_metric_result *cur = NULL, *tmp, *res_metric;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
 	
@@ -954,6 +914,14 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		}
 		if (cur->action > res_action) {
 			res_action = cur->action;
+			res_metric = cur;
+			if (res_action == METRIC_ACTION_REWRITE_SUBJECT && cur->subject != NULL) {
+				/* Copy subject as it would be freed further */
+				if (*subject != NULL) {
+					free (*subject);
+				}
+				*subject = strdup (cur->subject);
+			}
 		}
 		/* Write symbols */
 		cur_symbol = TAILQ_FIRST(&cur->symbols);
@@ -998,6 +966,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		msg_info ("%s", rbuf);
 		tmp = cur;
 		cur = TAILQ_NEXT(cur, entry);
+		if (cur->subject != NULL) {
+			free (cur->subject);
+		}
 		free (tmp);
 		if (cfg->extended_spam_headers) {
 			smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
@@ -1015,6 +986,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg)
 		smfi_addrcpt (ctx, cfg->trace_addr);
 		smfi_setpriv (ctx, priv);
 	}
+
 
 	return res_action;
 #if 0

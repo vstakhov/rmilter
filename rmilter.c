@@ -1179,7 +1179,7 @@ mlfi_eom(SMFICTX * ctx)
 #else
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
-    char *id;
+    char *id, *subject = NULL;
     struct stat sb;
 	struct action *act;
 	struct rcpt *rcpt;
@@ -1338,7 +1338,7 @@ mlfi_eom(SMFICTX * ctx)
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
 		(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
-		r = spamdscan (ctx, priv, cfg);
+		r = spamdscan (ctx, priv, cfg, &subject);
 		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
 		}
@@ -1373,11 +1373,18 @@ mlfi_eom(SMFICTX * ctx)
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
 					msg_warn ("mlfi_eom: %s: rewriting spam subject", priv->mlfi_id);
 
-					if (priv->priv_subject) {
-						smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
+					if (subject == NULL) {
+						/* Use own settings */
+						if (priv->priv_subject) {
+							smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
+						}
+						else {
+							smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+						}
 					}
 					else {
-						smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+						smfi_chgheader (ctx, "Subject", 1, subject);
+						free (subject);
 					}
 				}
 			}
