@@ -880,11 +880,12 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	while (cur) {
 		if (cur->metric_name) {
 			if (cfg->extended_spam_headers) {
-				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]\n",
+				hr = snprintf (hdrbuf, sizeof (hdrbuf), "%s: %s [%.2f / %.2f]%c",
 						cur->metric_name,
 						cur->score > cur->required_score ? "True" : "False",
 						cur->score,
-						cur->required_score);
+						cur->required_score,
+						TAILQ_FIRST(&cur->symbols) != NULL ? '\n' : ' ');
 			}
 			r = snprintf (rbuf, sizeof (rbuf), "spamdscan: scan qid: <%s>, mid: <%s>, %f, %s, metric: %s: [%f / %f], symbols: ",
 					priv->mlfi_id,
