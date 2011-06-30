@@ -1141,6 +1141,7 @@ static sfsistat
 mlfi_eoh(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
+    struct rcpt *rcpt;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1160,6 +1161,9 @@ mlfi_eoh(SMFICTX * ctx)
 		fprintf (priv->fileh, "Return-Path: <%s>\r\n", priv->priv_from);
 	}
 	if (priv->fileh) {
+		LIST_FOREACH (rcpt, &priv->rcpts, r_list) {
+			fprintf (priv->fileh, "X-Rcpt-To: %s\r\n", rcpt->r_addr);
+		}
     	fprintf (priv->fileh, "\r\n");
 		priv->eoh_pos = ftell (priv->fileh);
 	}
