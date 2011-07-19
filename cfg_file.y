@@ -642,7 +642,29 @@ spamd_greylist:
 spamd_spam_header:
 	SPAM_HEADER EQSIGN QUOTEDSTRING {
 		if ($3) {
-			cfg->spam_header = $3;
+			size_t len = strlen ($3);
+			char *c = $3;
+	
+			/* Trim quotes */
+			if (*c == '"') {
+				c++;
+				len--;
+			}
+			if (c[len - 1] == '"') {
+				len--;
+			}
+	
+			if (cfg->spam_header) {
+				free (cfg->spam_header);
+			}
+			cfg->spam_header = (char *)malloc (len + 1);
+			if (!cfg->spam_header) {
+				yyerror ("yyparse: malloc failed");
+				YYERROR;
+			}
+			strlcpy (cfg->spam_header, c, len + 1);
+	
+			free ($3);
 		}
 	}
 	;
