@@ -103,6 +103,16 @@ check_compiler()
 {
 	if [ "F${CC}" != "F" ] ; then 
 		GCC=${CC}
+		test_binary ${CC}
+		if [ $? -eq 0 ] ; then
+			GCC=$BIN
+			echo "found -> $GCC"
+			write_cache "compiler" "${GCC}" "yes" "$GCC"
+			return 0
+		else
+			echo "not found"
+			exit 1
+		fi
 	fi
 	echo -n "Testing for ${GCC}: "
 	check_cache "compiler" "${GCC}"
@@ -462,6 +472,7 @@ check_lib()
 check_os()
 {
 	_OS=`uname -s`
+	_PROCESSOR=`uname -p`
 	case "$_OS" in
 		FreeBSD*)
 				OS="freebsd"
@@ -479,7 +490,11 @@ check_os()
 					PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-pthread" ;;
 				esac
 				;;
-		Linux*)	OS="linux" CFLAGS="${CFLAGS} -DLINUX -D_GNU_SOURCE" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" PTHREAD_LDFLAGS="-pthread" ;;
+		Linux*)	
+				OS="linux"
+				CFLAGS="${CFLAGS} -I/usr/include/${_PROCESSOR}-linux-gnu/ -DLINUX -D_GNU_SOURCE" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" 
+				PTHREAD_LDFLAGS="-pthread" 
+				;;
 		*)		OS="unknown" PTHREAD_LDFLAGS="" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" ;;
 	esac
 }
@@ -689,11 +704,11 @@ fi
 echo "Starting configure for rmilter" >config.log
 echo $0 $@ >> config.log
 
+check_os
 check_compiler
 check_make
 check_lex
 check_yacc
-check_os
 
 check_lib "--search=/usr/lib/libmilter:${PREFIX}/lib:${PREFIX}/libmilter" "milter" "libmilter/mfapi.h"
 if [ $? -eq 1 ] ; then
@@ -714,6 +729,19 @@ fi
 
 check_lib "m"
 check_lib "pcre"
+if [ $? -eq 1 ] ; then
+	# Try to use pcre-config
+	PCRE_CONFIG=`which pcre-config`
+	if [ F"$PCRE_CONFIG" = "F" ] ; then
+		echo "Libpcre is not found and pcre-config binary is not found as well. Please install libcpcre."
+		exit 1
+	fi
+	PCRE_CFLAGS=`$PCRE_CONFIG --cflags`
+	PCRE_LIBS=`$PCRE_CONFIG --libs`
+	CFLAGS="$CFLAGS $PCRE_CFLAGS"
+	LIBS="$LIBS $PCRE_LIBS"
+fi
+  
 check_lib "md"
 if [ $? -eq 1 ] ; then
 	cp $COMPAT_DIR/md5.c .
