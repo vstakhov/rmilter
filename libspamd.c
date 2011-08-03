@@ -815,7 +815,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
  */
 
 int 
-spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject)
+spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject, int extra)
 {
 	int retry = 5, r = -2, hr = 0, to_trace = 0;
 	struct timeval t;
@@ -836,9 +836,16 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 
 	/* try to scan with available servers */
 	while (1) {
-		selected = (struct spamd_server *) get_random_upstream ((void *)cfg->spamd_servers,
-											cfg->spamd_servers_num, sizeof (struct spamd_server),
-											t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
+		if (extra) {
+			selected = (struct spamd_server *) get_random_upstream ((void *)cfg->extra_spamd_servers,
+					cfg->extra_spamd_servers_num, sizeof (struct spamd_server),
+					t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
+		}
+		else {
+			selected = (struct spamd_server *) get_random_upstream ((void *)cfg->spamd_servers,
+					cfg->spamd_servers_num, sizeof (struct spamd_server),
+					t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
+		}
 		if (selected == NULL) {
 			msg_err ("spamdscan: upstream get error, %s", priv->file);
 			return -1;
@@ -975,125 +982,36 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 
 		free (tmp);
 		if (cfg->extended_spam_headers) {
-			smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
+			if (extra) {
+				smfi_addheader (ctx, "X-Spamd-Extra-Result", hdrbuf);
+			}
+			else {
+				smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
+			}
 		}
 	}
 	/* All other statistic headers */
 	if (cfg->extended_spam_headers) {
-		smfi_addheader (ctx, "X-Spamd-Server", selected->name);
-		snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
-		smfi_addheader (ctx, "X-Spamd-Scan-Time", hdrbuf);
-		smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->mlfi_id);
+		if (extra) {
+			smfi_addheader (ctx, "X-Spamd-Extra-Server", selected->name);
+			snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
+			smfi_addheader (ctx, "X-Spamd-Extra-Scan-Time", hdrbuf);
+		}
+		else {
+			smfi_addheader (ctx, "X-Spamd-Server", selected->name);
+			snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
+			smfi_addheader (ctx, "X-Spamd-Scan-Time", hdrbuf);
+			smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->mlfi_id);
+		}
 	}
 	/* Trace spam messages to specific addr */
-	if (to_trace && cfg->trace_addr) {
+	if (!extra && to_trace && cfg->trace_addr) {
 		smfi_addrcpt (ctx, cfg->trace_addr);
 		smfi_setpriv (ctx, priv);
 	}
 
 
 	return res_action;
-#if 0
-	/* XXX: Enable this functionality some time */
-	if (cfg->extra_spamd_servers_num > 0) {
-		selected = (struct spamd_server *) get_random_upstream ((void *)cfg->extra_spamd_servers,
-											cfg->extra_spamd_servers_num, sizeof (struct spamd_server),
-											t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time, cfg->spamd_maxerrors);
-		if (selected == NULL) {
-			msg_err ("spamdscan: upstream get error, %s", priv->file);
-		}
-		else {
-			if (selected->type == SPAMD_SPAMASSASSIN) {
-				r1 = spamdscan_socket (priv->file, selected, extra_mark, cfg, symbols);
-			}
-			else {
-				r1 = rspamdscan_socket (ctx, priv, selected, extra_mark, cfg, symbols);
-			}
-			gettimeofday(&t, NULL);
-			tf = t.tv_sec + t.tv_usec / 1000000.0;
-			if (r1 == 0 || r1 == 1) {
-				upstream_ok (&selected->up, t.tv_sec);
-				if (r1 == 1) {
-					msg_info("%spamdscan: scan %f, %s, spam found [%f/%f], %s, %s", 
-								selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
-								tf - ts,
-								selected->name, 
-								extra_mark[0], extra_mark[1],
-								(*symbols != NULL) ? *symbols : "no symbols", priv->file);
-				}
-				else {
-					msg_info("%spamdscan: scan %f, %s, no spam [%f/%f], %s, %s", 
-								selected->type == SPAMD_SPAMASSASSIN ? "s" : "rs",
-								tf -ts, 
-								selected->name,
-								extra_mark[0], extra_mark[1], 
-								(*symbols != NULL) ? *symbols : "no symbols", priv->file);
-				}
-				if (r1 != r && cfg->diff_dir != NULL) {
-					snprintf (copyfile, sizeof (copyfile), "%s/%s", cfg->diff_dir, priv->mlfi_id);
-					msg_info ("spamdscan: results from check servers are different, saving to %s", copyfile);
-					cfd = open (copyfile, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
-					if (cfd == -1) {
-						msg_warn ("spamdscan: cannot create file %s, %m", copyfile);
-					}
-					else {
-						/* XXX: should check for return values */
-						rfd = open(priv->file, O_RDONLY);
-						if (rfd == -1) {
-							msg_warn ("spamdscan: cannot open file %s, %m", priv->file);
-						}
-						else {
-							while ((r1 = read (rfd, rbuf, sizeof (rbuf))) > 0) {
-								if (write (cfd, rbuf, r1) == -1) {
-									msg_warn ("spamdscan: write error while writing to %s: %m", copyfile);
-									break;
-								}
-							}
-							close (rfd);
-						}
-						close (cfd);
-					}
-				}
-
-				if (*symbols && cfg->check_symbols != NULL && cfg->symbols_dir != NULL) {
-					if (check_symbols (*symbols, cfg->check_symbols)) {
-						snprintf (copyfile, sizeof (copyfile), "%s/%s", cfg->symbols_dir, priv->mlfi_id);
-						msg_info ("spamdscan: found symbols from list, saving to %s", copyfile);
-						cfd = open (copyfile, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
-						if (cfd == -1) {
-							msg_warn ("spamdscan: cannot create file %s, %m", copyfile);
-						}
-						else {
-							/* XXX: should check for return values */
-							rfd = open(priv->file, O_RDONLY);
-							if (rfd == -1) {
-								msg_warn ("spamdscan: cannot open file %s, %m", priv->file);
-							}
-							else {
-								while ((r1 = read (rfd, rbuf, sizeof (rbuf))) > 0) {
-									if (write (cfd, rbuf, r1) == -1) {
-										msg_warn ("spamdscan: write error while writing to %s: %m", copyfile);
-										break;
-									}
-								}
-								close (rfd);
-							}
-							close (cfd);
-						}
-					}
-				}
-			}
-			else {
-				upstream_fail (&selected->up, t.tv_sec);
-				if (r1 == -2) {
-					msg_warn("spamdscan: unexpected problem, %s, %s", selected->name, priv->file);
-				}
-			}
-		}
-	}
-#endif
-
-	return r;
 }
 
 /* 

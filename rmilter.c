@@ -1175,7 +1175,7 @@ static sfsistat
 mlfi_eom(SMFICTX * ctx)
 {
     struct mlfi_priv *priv;
-    int r;
+    int r, er;
 #ifdef HAVE_PATH_MAX
 	char strres[PATH_MAX], buf[PATH_MAX];
 #elif defined(HAVE_MAXPATHLEN)
@@ -1342,7 +1342,19 @@ mlfi_eom(SMFICTX * ctx)
 		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
 		(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
-		r = spamdscan (ctx, priv, cfg, &subject);
+		r = spamdscan (ctx, priv, cfg, &subject, 0);
+
+		/* Check on extra servers */
+		if (cfg->extra_spamd_servers_num != 0) {
+			msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
+			er = spamdscan (ctx, priv, cfg, &subject, 1);
+			if (er < 0) {
+				msg_warn ("mlfi_eom: %s: extra_spamdscan() failed, %d", priv->mlfi_id, r);
+			}
+			else if (r != er) {
+				msg_warn ("mlfi_eom: spamd_extra_scan returned %d and normal scan returned %d", er, r);
+			}
+		}
 		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
 		}
@@ -1372,7 +1384,7 @@ mlfi_eom(SMFICTX * ctx)
 				}
 				if (r == METRIC_ACTION_ADD_HEADER) {
 					msg_info ("mlfi_eom: %s: add spam header to message according to spamd action", priv->mlfi_id);
-					smfi_addheader (ctx, cfg->spam_header, "yes");
+					smfi_chgheader (ctx, cfg->spam_header, 1, "yes");
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
 					msg_warn ("mlfi_eom: %s: rewriting spam subject", priv->mlfi_id);
@@ -1393,7 +1405,9 @@ mlfi_eom(SMFICTX * ctx)
 				}
 			}
 		}
+
 	}
+
 	/* Update rate limits for message */
 	msg_debug ("mlfi_eom: %s: updating rate limits", priv->mlfi_id);
 
