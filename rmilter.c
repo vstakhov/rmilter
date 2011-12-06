@@ -235,7 +235,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 {
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE], param = '0';
-	char md5_out[MD5_SIZE * 2 + 1], *c;
+	char md5_out[MD5_SIZE * 2 + 1], *c, ipout[INET_ADDRSTRLEN + 1];
 	struct memcached_server *selected;
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
@@ -306,7 +306,8 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	
 	r = memc_init_ctx(&mctx);
 	if (r == -1) {
-		msg_warn ("mlfi_data: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
+		msg_warn ("mlfi_data: cannot connect to memcached upstream: %s",
+				inet_ntop (AF_INET, &selected->addr[0], ipout, sizeof (ipout)));
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		return;
 	}
@@ -370,6 +371,7 @@ check_greylisting (struct mlfi_priv *priv)
 	struct timeval tm, tm1;
 	int r;
 	size_t s;
+	char ipout[INET_ADDRSTRLEN + 1];
 
 	/* Check whitelist */
 	if (radix32tree_find (cfg->grey_whitelist_tree, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
@@ -440,7 +442,8 @@ check_greylisting (struct mlfi_priv *priv)
 			r = memc_init_ctx_mirror (mctx_white, 2);
 			copy_alive (selected, mctx_white);
 			if (r == -1) {
-				msg_warn ("check_greylisting: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
+				msg_warn ("check_greylisting: cannot connect to memcached upstream: %s",
+						inet_ntop (AF_INET, &selected->addr[0], ipout, sizeof (ipout)));
 				upstream_fail (&selected->up, tm.tv_sec);
 			}
 			else {
@@ -500,7 +503,8 @@ check_greylisting (struct mlfi_priv *priv)
 		r = memc_init_ctx_mirror (mctx, 2);
 		copy_alive (selected, mctx);
 		if (r == -1) {
-			msg_err ("check_greylisting: cannot connect to memcached upstream: %s", inet_ntoa (selected->addr[0]));
+			msg_err ("check_greylisting: cannot connect to memcached upstream: %s",
+					inet_ntop (AF_INET, &selected->addr[0], ipout, sizeof (ipout)));
 			upstream_fail (&selected->up, tm.tv_sec);
 			return GREY_ERROR;
 		}
@@ -581,7 +585,8 @@ check_greylisting (struct mlfi_priv *priv)
 					r = memc_init_ctx_mirror (mctx_white, 2);
 					copy_alive (selected, mctx_white);
 					if (r == -1) {
-						msg_warn ("check_greylisting: cannot connect to memcached whitelist upstream: %s", inet_ntoa (selected->addr[0]));
+						msg_warn ("check_greylisting: cannot connect to memcached whitelist upstream: %s",
+								inet_ntop (AF_INET, &selected->addr[0], ipout, sizeof (ipout)));
 						upstream_fail (&selected->up, tm.tv_sec);
 					}
 					else {
@@ -598,7 +603,9 @@ check_greylisting (struct mlfi_priv *priv)
 							upstream_ok (&selected->up, tm.tv_sec);
 						}
 						else {
-							msg_info ("check_greylisting: cannot write to memcached(%s): %s", inet_ntoa (selected->addr[0]), memc_strerror (r));
+							msg_info ("check_greylisting: cannot write to memcached(%s): %s",
+									inet_ntop (AF_INET, &selected->addr[0], ipout, sizeof (ipout)),
+									memc_strerror (r));
 							memc_close_ctx_mirror (mctx_white, 2);
 							upstream_fail (&selected->up, tm.tv_sec);
 						}
@@ -666,6 +673,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	int r, fd;
 	void *map;
 	struct stat st;
+	char ipout[INET_ADDRSTRLEN + 1];
 	
 	/* Open and mmap file */
 	if (!*priv->file) {
@@ -699,7 +707,8 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	r = bean_init_ctx (&bctx);
 	if (r == -1) {
 		munmap (map, st.st_size);
-		msg_warn ("send_beanstalk_copy: cannot connect to beanstalk upstream: %s", inet_ntoa (srv->addr));
+		msg_warn ("send_beanstalk_copy: cannot connect to beanstalk upstream: %s",
+				inet_ntop (AF_INET, &srv->addr, ipout, sizeof (ipout)));
 		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
 		return;
 	}
@@ -737,6 +746,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 	size_t s;
 	int r, fd;
 	void *map;
+	char ipout[INET_ADDRSTRLEN + 1];
 
 
 	selected = (struct beanstalk_server *) get_random_upstream ((void *)cfg->beanstalk_servers,
@@ -775,7 +785,8 @@ send_beanstalk (const struct mlfi_priv *priv)
 
 	r = bean_init_ctx (&bctx);
 	if (r == -1) {
-		msg_warn ("send_beanstalk: cannot connect to beanstalk upstream: %s", inet_ntoa (selected->addr));
+		msg_warn ("send_beanstalk: cannot connect to beanstalk upstream: %s",
+				inet_ntop (AF_INET, &selected->addr, ipout, sizeof (ipout)));
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		munmap (map, priv->eoh_pos);
 		return;
