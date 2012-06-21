@@ -24,12 +24,18 @@
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <pthread.h>
+#ifdef ENABLE_DKIM
+#include "opendkim/dkim.h"
+#endif
+
 #include "pcre.h"
 #include "upstream.h"
 #include "memcached.h"
 #include "beanstalk.h"
 #include "radix.h"
 #include "awl.h"
+
+#include "uthash/uthash.h"
 
 #define COND_CONNECT_FLAG 0x1
 #define COND_HELO_FLAG 0x2
@@ -191,6 +197,12 @@ struct addr_list_entry {
 	LIST_ENTRY (addr_list_entry) next;
 };
 
+#undef HASH_KEYCMP
+#define HASH_KEYCMP(a,b,len) strncasecmp(a,b,len)
+struct dkim_hash_entry {
+	char *name;
+	UT_hash_handle hh;
+};
 
 struct config_file {
 	char *cfg_name;
@@ -298,6 +310,19 @@ struct config_file {
 	uint16_t awl_max_hits;
 	unsigned int awl_ttl;
 	size_t awl_pool_size;
+
+	/* DKIM section */
+	char *dkim_selector;
+	char *dkim_domain;
+	char *dkim_key;
+	unsigned long dkim_key_size;
+	u_char dkim_relaxed_header;
+	u_char dkim_relaxed_body;
+	u_char dkim_sign_sha256;
+#ifdef ENABLE_DKIM
+	DKIM_LIB *dkim_lib;
+	struct dkim_hash_entry *headers;
+#endif
 
 	/* Number of config reloads */
 	short int serial;

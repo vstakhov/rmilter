@@ -11,6 +11,7 @@
 #include <syslog.h>
 #include <netdb.h>
 #include <math.h>
+#include <sys/mman.h>
 #include <stdarg.h>
 
 #include "pcre.h"
@@ -208,7 +209,6 @@ add_clamav_server (struct config_file *cf, char *str)
 	char *cur_tok, *err_str;
 	struct clamav_server *srv;
 	struct hostent *he;
-	size_t s;
 
 	if (str == NULL) return 0;
 	
@@ -260,7 +260,6 @@ add_clamav_server (struct config_file *cf, char *str)
 			else {
 				srv->name = strdup (cur_tok);
 				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
-				s = strlen (cur_tok) + 1;
 			}
 		}
 		/* Try to parse priority */
@@ -287,7 +286,6 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 	char *cur_tok, *err_str;
 	struct spamd_server *srv;
 	struct hostent *he;
-	size_t s;
 
 	if (str == NULL) return 0;
 	
@@ -357,7 +355,6 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 			else {
 				srv->name = strdup (cur_tok);
 				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
-				s = strlen (cur_tok) + 1;
 			}
 		}
 
@@ -380,7 +377,6 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 	char *cur_tok, *err_str;
 	struct beanstalk_server *srv;
 	struct hostent *he;
-	size_t s;
 
 	if (str == NULL) return 0;
 	
@@ -425,7 +421,6 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 		else {
 			srv->name = strdup (cur_tok);
 			memcpy((char *)&srv->addr, he->h_addr, sizeof(struct in_addr));
-			s = strlen (cur_tok) + 1;
 		}
 		if (type == 0) {
 			cf->beanstalk_servers_num ++;
@@ -575,6 +570,16 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 	return 1;
 }
 
+static void
+add_hashed_header (const char *name, struct dkim_hash_entry *hash)
+{
+	struct dkim_hash_entry *new;
+
+	new = malloc (sizeof (struct dkim_hash_entry));
+	new->name = strdup (name);
+	HASH_ADD_KEYPTR (hh, hash, new->name, strlen (new->name), new);
+}
+
 void
 init_defaults (struct config_file *cfg)
 {
@@ -631,6 +636,36 @@ init_defaults (struct config_file *cfg)
 	white_from_postmaster.len = sizeof ("postmaster") - 1;
 	LIST_INSERT_HEAD (&cfg->whitelist_static, &white_from_abuse, next);
 	LIST_INSERT_HEAD (&cfg->whitelist_static, &white_from_postmaster, next);
+#endif
+
+#ifdef ENABLE_DKIM
+	cfg->dkim_lib = dkim_init (NULL, NULL);
+	/* Add recommended by rfc headers */
+	add_hashed_header ("from", cfg->headers);
+	add_hashed_header ("sender", cfg->headers);
+	add_hashed_header ("reply-to", cfg->headers);
+	add_hashed_header ("subject", cfg->headers);
+	add_hashed_header ("date", cfg->headers);
+	add_hashed_header ("message-id", cfg->headers);
+	add_hashed_header ("to", cfg->headers);
+	add_hashed_header ("cc", cfg->headers);
+	add_hashed_header ("date", cfg->headers);
+	add_hashed_header ("mime-version", cfg->headers);
+	add_hashed_header ("content-type", cfg->headers);
+	add_hashed_header ("content-transfer-encoding", cfg->headers);
+	add_hashed_header ("resent-to", cfg->headers);
+	add_hashed_header ("resent-cc", cfg->headers);
+	add_hashed_header ("resent-from", cfg->headers);
+	add_hashed_header ("resent-sender", cfg->headers);
+	add_hashed_header ("resent-message-id", cfg->headers);
+	add_hashed_header ("in-reply-to", cfg->headers);
+	add_hashed_header ("references", cfg->headers);
+	add_hashed_header ("list-id", cfg->headers);
+	add_hashed_header ("list-owner", cfg->headers);
+	add_hashed_header ("list-unsubscribe", cfg->headers);
+	add_hashed_header ("list-subscribe", cfg->headers);
+	add_hashed_header ("list-post", cfg->headers);
+	/* TODO: make it configurable */
 #endif
 }
 
@@ -755,6 +790,28 @@ free_config (struct config_file *cfg)
 		free (cfg->awl_hash->pool);
 		free (cfg->awl_hash);
 	}
+
+	if (cfg->dkim_key != MAP_FAILED && cfg->dkim_key != NULL) {
+		munmap (cfg->dkim_key, cfg->dkim_key_size);
+	}
+	if (cfg->dkim_domain) {
+		free (cfg->dkim_domain);
+	}
+	if (cfg->dkim_selector) {
+		free (cfg->dkim_selector);
+	}
+#ifdef ENABLE_DKIM
+	struct dkim_hash_entry *curh, *tmp;
+
+	if (cfg->dkim_lib) {
+		dkim_close (cfg->dkim_lib);
+	}
+	HASH_ITER (hh, cfg->headers, curh, tmp) {
+		HASH_DEL (cfg->headers, curh);  /* delete; users advances to next */
+		free (curh->name);
+		free (curh);            /* optional- if you want to free  */
+	}
+#endif
 }
 
 /*

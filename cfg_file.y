@@ -15,6 +15,8 @@
 #include <syslog.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 
 #include "pcre.h"
 #include "cfg_file.h"
@@ -54,6 +56,8 @@ uint8_t cur_flags = 0;
 %token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
+%token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
+%token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -93,6 +97,7 @@ command	:
 	| limits
 	| greylisting
 	| whitelist
+	| dkim
 	;
 
 tempdir :
@@ -1435,6 +1440,132 @@ whitelist_list:
 		t->addr = strdup ($3);
 		t->len = strlen (t->addr);
 		LIST_INSERT_HEAD (&cfg->whitelist_static, t, next);
+	}
+	;
+
+
+dkim:
+	DKIM_SECTION OBRACE dkimbody EBRACE
+	;
+
+dkimbody:
+	dkimcmd SEMICOLON
+	| dkimbody dkimcmd SEMICOLON
+	;
+
+dkimcmd:
+	dkim_key
+	| dkim_domain
+	| dkim_selector
+	| dkim_header_canon
+	| dkim_body_canon
+	| dkim_sign_alg
+	;
+	
+dkim_key:
+	DKIM_KEY EQSIGN FILENAME {
+		struct stat st;
+		int fd;
+		if (stat ($3, &st) != -1) {
+			cfg->dkim_key_size = st.st_size;
+			if ((fd = open ($3, O_RDONLY)) != -1) {
+				if ((cfg->dkim_key = mmap (NULL, cfg->dkim_key_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+					yyerror ("yyparse: cannot mmap: %s, %s", $3, strerror (errno));
+					close (fd);
+					YYERROR;
+				}
+				close (fd);
+			}
+			else {
+				yyerror ("yyparse: cannot open: %s, %s", $3, strerror (errno));
+				YYERROR;
+			}
+		}
+		else {
+			yyerror ("yyparse: cannot stat: %s, %s", $3, strerror (errno));
+			YYERROR;
+		}
+	}
+	;
+
+dkim_domain:
+	DKIM_DOMAIN EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (*c == '/') {
+			c ++;
+			len --;
+		}
+		if (c[len - 1] == '"') {
+			c[len - 1] = '\0';
+			len --;
+		}
+		if (c[len - 1] == '/') {
+			c[len - 1] = '\0';
+			len --;	
+		}
+		cfg->dkim_domain = strdup (c);
+		free ($3);
+	}
+	;
+	
+dkim_selector:
+	DKIM_SELECTOR EQSIGN QUOTEDSTRING {
+		size_t len = strlen ($3);
+		char *c = $3;
+
+		/* Trim quotes */
+		if (*c == '"') {
+			c++;
+			len--;
+		}
+		if (*c == '/') {
+			c ++;
+			len --;
+		}
+		if (c[len - 1] == '"') {
+			c[len - 1] = '\0';
+			len --;
+		}
+		if (c[len - 1] == '/') {
+			c[len - 1] = '\0';
+			len --;	
+		}
+		cfg->dkim_selector = strdup (c);
+		free ($3);
+	}
+	;
+
+dkim_header_canon:
+	DKIM_HEADER_CANON EQSIGN DKIM_SIMPLE {
+		cfg->dkim_relaxed_header = 0;
+	}
+	| DKIM_HEADER_CANON EQSIGN DKIM_RELAXED {
+		cfg->dkim_relaxed_header = 1;
+	}
+	;
+	
+dkim_body_canon:
+	DKIM_BODY_CANON EQSIGN DKIM_SIMPLE {
+		cfg->dkim_relaxed_body = 0;
+	}
+	| DKIM_BODY_CANON EQSIGN DKIM_RELAXED {
+		cfg->dkim_relaxed_body = 1;
+	}
+	;
+
+dkim_sign_alg:
+	DKIM_SIGN_ALG EQSIGN DKIM_SHA1 {
+		cfg->dkim_sign_sha256 = 0;
+	}
+	| DKIM_SIGN_ALG EQSIGN DKIM_SHA256 {
+		cfg->dkim_sign_sha256 = 1;
 	}
 	;
 

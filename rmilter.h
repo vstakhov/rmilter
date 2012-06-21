@@ -30,6 +30,9 @@
 #ifdef HAVE_STRLCPY_H
 #include "strlcpy.h"
 #endif
+#ifdef ENABLE_DKIM
+#include "opendkim/dkim.h"
+#endif
 
 #include "cfg_file.h"
 
@@ -104,6 +107,9 @@ struct mlfi_priv {
 	short int has_return_path;
 	short int complete_to_beanstalk;
 	short int has_whitelisted;
+#ifdef ENABLE_DKIM
+	DKIM *dkim;
+#endif
 };
 
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))

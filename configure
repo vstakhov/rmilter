@@ -25,7 +25,9 @@ CFLAGS="$CFLAGS -DHASH_COMPAT"
 LDFLAGS="$LDFLAGS -L${LOCALBASE}/lib"
 PTHREAD_CFLAGS="-D_THREAD_SAFE"
 OPT_FLAGS="-O -pipe -fno-omit-frame-pointer"
-DEPS="awl.h cfg_file.h libclamc.h libspamd.h memcached.h radix.h ratelimit.h regexp.h rmilter.h spf.h upstream.h ${LEX_OUTPUT} ${YACC_OUTPUT}"
+DEPS="awl.h cfg_file.h libclamc.h libspamd.h memcached.h radix.h ratelimit.h regexp.h \
+	  rmilter.h spf.h upstream.h ${LEX_OUTPUT} ${YACC_OUTPUT} \
+	  uthash/uthash.h"
 EXEC=rmilter
 USER=postfix
 GROUP=postfix
@@ -627,11 +629,13 @@ do
 		--enable-auth-strict)			 CFLAGS="$CFLAGS -DSTRICT_AUTH"             ;;
 		--enable-dcc)                    dcc=yes                    				;;
 		--disable-spf)                   spf=no                                     ;;
+		--enable-dkim)					 dkim=yes									;;
 		--enable-debug)					 CFLAGS="$CFLAGS -DWITH_DEBUG" OPT_FLAGS=""	;;
 		--enable-opt)                    OPT_FLAGS="-O3 -pipe"						;;
 		--enable-sendmail)               SENDMAIL=yes                               ;;
 		--with-libmilter*)               LIBMILTER=$value                           ;;
 		--with-libspf*)                  LIBSPF=$value                              ;;
+		--with-libopendkim*)             LIBOPENDKIM=$value							;;
 		*=*)																		;;
 		*)
             echo "$0: error: invalid option \"$option\""
@@ -647,6 +651,7 @@ if [ "F$help" = "Fyes" ] ; then
 
   --prefix=PATH                      set the installation prefix
   --enable-dcc                       enable dcc support
+  --enable-dkim                      enable dkim signing support
   --enable-debug                     turn on extra debug messages
   --enable-opt                       turn on extra optimization
   --enable-auth-strict               turn on strict check for authenticated users
@@ -656,6 +661,7 @@ if [ "F$help" = "Fyes" ] ; then
   --group=GROUP                      set group to use
   --with-libmilter=PATH              set path to libmilter
   --with-libspf=PATH                 set path to libspf2
+  --with-libopendkim=PATH            set path to libopendkim
 END
 	exit 1
 fi
@@ -701,6 +707,21 @@ if [ "F$LIBSPF" != "F" ] ; then
 	fi
 fi
 
+if [ "F$LIBOPENDKIM" != "F" ] ; then
+	echo $LIBOPENDKIM | fgrep '/lib/' > /dev/null
+	if [ $? -eq 0 ] ; then
+		LDFLAGS="$LDFLAGS -L$LIBOPENDKIM"
+	else
+		echo $LIBOPENDKIM | fgrep '/include/' > /dev/null
+		if [ $? -eq 0 ] ; then
+			CFLAGS="$CFLAGS -I$LIBOPENDKIM"
+		else
+			LDFLAGS="$LDFLAGS -L$LIBOPENDKIM/lib"
+			CFLAGS="$CFLAGS -I$LIBOPENDKIM/include"
+		fi
+	fi
+fi
+
 echo "Starting configure for rmilter" >config.log
 echo $0 $@ >> config.log
 
@@ -723,6 +744,15 @@ else
 	check_lib "--search=/usr/lib/libspf2:${PREFIX}/lib:${PREFIX}/libspf2" "spf2" "netinet/in.h" "spf2/spf.h"
 	if [ $? -eq 1 ] ; then
 		echo "Libspf2 not found, check config.log for details"
+		exit 1
+	fi
+fi
+
+if [ "F$dkim" = "Fyes" ] ; then
+	CFLAGS="$CFLAGS -DENABLE_DKIM"
+	check_lib "--search=/usr/lib/libopendkim:${PREFIX}/lib:${PREFIX}/libopendkim" "opendkim" "netinet/in.h" "opendkim/dkim.h"
+	if [ $? -eq 1 ] ; then
+		echo "Libopendkim not found, check config.log for details"
 		exit 1
 	fi
 fi

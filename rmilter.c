@@ -901,10 +901,10 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 static sfsistat
 mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 {
-	char *tmpfrom;
+	char *tmpfrom, *domain_pos;
 	struct mlfi_priv *priv;
 	struct rule *act;
-	unsigned int i;
+	unsigned int i, to_sign = 0;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -927,6 +927,43 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
 	priv->priv_from[i] = '\0';
 	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
+
+	/* Check whether we need to sign this message */
+#ifdef ENABLE_DKIM
+	DKIM_STAT statp;
+	if (cfg->dkim_domain != NULL) {
+		domain_pos = strchr (priv->priv_from, '@');
+		if (domain_pos) {
+			if (priv->priv_from[i - 1] == '>') {
+				priv->priv_from[i - 1] = '\0';
+				if (strcasecmp (domain_pos + 1, cfg->dkim_domain) == 0) {
+					to_sign = 1;
+				}
+				priv->priv_from[i - 1] = '>';
+			}
+			else {
+				if (strcasecmp (domain_pos + 1, cfg->dkim_domain) == 0) {
+					to_sign = 1;
+				}
+			}
+		}
+		if (to_sign && cfg->dkim_key != MAP_FAILED && cfg->dkim_key != NULL) {
+			priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
+					(u_char *)cfg->dkim_key,  (u_char *)cfg->dkim_selector,
+					(u_char *)cfg->dkim_domain,
+					cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+					cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+					cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+			if (statp != DKIM_STAT_OK) {
+				msg_info ("dkim sign failed: %d", statp);
+				if (priv->dkim) {
+					dkim_free (priv->dkim);
+				}
+				priv->dkim = NULL;
+			}
+		}
+	}
+#endif
 
 #ifndef SENDMAIL
 	/* Extract IP and hostname */
@@ -1124,6 +1161,15 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		}
 	}
 
+#ifdef ENABLE_DKIM
+    struct dkim_hash_entry *e;
+    HASH_FIND_STR (cfg->headers, headerf, e);
+    if (e) {
+    	dkim_chunk (priv->dkim, (u_char *)headerf, strlen (headerf));
+    	dkim_chunk (priv->dkim, (u_char *)": ", 2);
+    	dkim_chunk (priv->dkim, (u_char *)headerv, strlen (headerv));
+    }
+#endif
     /*
      * Write header line to temporary file.
      */
@@ -1178,6 +1224,9 @@ mlfi_eoh(SMFICTX * ctx)
     	fprintf (priv->fileh, "\r\n");
 		priv->eoh_pos = ftell (priv->fileh);
 	}
+#ifdef ENABLE_DKIM
+	dkim_eoh (priv->dkim);
+#endif
 
     return SMFIS_CONTINUE;
 }
@@ -1442,6 +1491,23 @@ mlfi_eom(SMFICTX * ctx)
 
 	}
 #endif
+#ifdef ENABLE_DKIM
+	/* Add dkim signature */
+	char *hdr;
+	size_t len;
+	if (dkim_eom (priv->dkim, NULL) == DKIM_STAT_OK) {
+		if (dkim_getsighdr_d (priv->dkim, 0, &hdr, &len) == DKIM_STAT_OK) {
+			smfi_addheader (ctx, DKIM_SIGNHEADER, hdr);
+			free (hdr);
+		}
+		else {
+			msg_info ("<%s> sign failed", priv->mlfi_id);
+		}
+	}
+	else {
+		msg_info ("<%s> dkim_eom failed", priv->mlfi_id);
+	}
+#endif
 	CFG_UNLOCK();
     return mlfi_cleanup (ctx, true);
 }
@@ -1498,6 +1564,12 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->strict = 1;
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
+#ifdef ENABLE_DKIM
+	if (priv->dkim) {
+		dkim_free (priv->dkim);
+	}
+	priv->dkim = NULL;
+#endif
 	if (priv->priv_subject != NULL) {
 		free (priv->priv_subject);
 		priv->priv_subject = NULL;
@@ -1555,6 +1627,9 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 		priv->matched_rules[STAGE_BODY] = act;
 	}
     /* continue processing */
+#ifdef ENABLE_DKIM
+	dkim_chunk (priv->dkim, bodyp, bodylen);
+#endif
 
 	CFG_UNLOCK();
     return SMFIS_CONTINUE;
