@@ -962,6 +962,9 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				priv->dkim = NULL;
 			}
 		}
+		else {
+			priv->dkim = NULL;
+		}
 	}
 #endif
 
@@ -1163,11 +1166,23 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 
 #ifdef ENABLE_DKIM
     struct dkim_hash_entry *e;
-    HASH_FIND_STR (cfg->headers, headerf, e);
-    if (e) {
-    	dkim_chunk (priv->dkim, (u_char *)headerf, strlen (headerf));
-    	dkim_chunk (priv->dkim, (u_char *)": ", 2);
-    	dkim_chunk (priv->dkim, (u_char *)headerv, strlen (headerv));
+    u_char *tmp;
+    int tmplen, r;
+
+    if (priv->dkim) {
+    	HASH_FIND_STR (cfg->headers, headerf, e);
+    	if (e) {
+    		tmplen = strlen (headerf) + strlen (headerv) + sizeof (": ");
+    		tmp = malloc (tmplen);
+    		if (tmp != NULL) {
+    			snprintf ((char *)tmp, tmplen, "%s: %s", headerf, headerv);
+    			r = dkim_header (priv->dkim, tmp, tmplen - 1);
+    			if (r != DKIM_STAT_OK) {
+    				msg_info ("dkim_header failed: %d", r);
+    			}
+    			free (tmp);
+    		}
+    	}
     }
 #endif
     /*
@@ -1225,7 +1240,14 @@ mlfi_eoh(SMFICTX * ctx)
 		priv->eoh_pos = ftell (priv->fileh);
 	}
 #ifdef ENABLE_DKIM
-	dkim_eoh (priv->dkim);
+	int r;
+
+	if (priv->dkim) {
+		r = dkim_eoh (priv->dkim);
+		if (r != DKIM_STAT_OK) {
+			msg_info ("dkim_eoh failed: %d", r);
+		}
+	}
 #endif
 
     return SMFIS_CONTINUE;
@@ -1495,17 +1517,22 @@ mlfi_eom(SMFICTX * ctx)
 	/* Add dkim signature */
 	char *hdr;
 	size_t len;
-	if (dkim_eom (priv->dkim, NULL) == DKIM_STAT_OK) {
-		if (dkim_getsighdr_d (priv->dkim, 0, &hdr, &len) == DKIM_STAT_OK) {
-			smfi_addheader (ctx, DKIM_SIGNHEADER, hdr);
-			free (hdr);
+	if (priv->dkim) {
+		r = dkim_eom (priv->dkim, NULL);
+		if (r == DKIM_STAT_OK) {
+			r = dkim_getsighdr_d (priv->dkim, 0, (u_char **)&hdr, &len);
+			if (r == DKIM_STAT_OK) {
+				msg_info ("<%s> added DKIM signature", priv->mlfi_id);
+				smfi_addheader (ctx, DKIM_SIGNHEADER, hdr);
+				free (hdr);
+			}
+			else {
+				msg_info ("<%s> sign failed: %d", priv->mlfi_id, r);
+			}
 		}
 		else {
-			msg_info ("<%s> sign failed", priv->mlfi_id);
+			msg_info ("<%s> dkim_eom failed: %d", priv->mlfi_id, r);
 		}
-	}
-	else {
-		msg_info ("<%s> dkim_eom failed", priv->mlfi_id);
 	}
 #endif
 	CFG_UNLOCK();
@@ -1628,7 +1655,14 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	}
     /* continue processing */
 #ifdef ENABLE_DKIM
-	dkim_chunk (priv->dkim, bodyp, bodylen);
+	int r;
+
+	if (priv->dkim) {
+		r = dkim_body (priv->dkim, bodyp, bodylen);
+		if (r != DKIM_STAT_OK) {
+			msg_info ("<%s>: dkim_body failed: %d", priv->mlfi_id, r);
+		}
+	}
 #endif
 
 	CFG_UNLOCK();
