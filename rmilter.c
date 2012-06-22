@@ -1524,7 +1524,6 @@ mlfi_eom(SMFICTX * ctx)
 			if (r == DKIM_STAT_OK) {
 				msg_info ("<%s> added DKIM signature", priv->mlfi_id);
 				smfi_addheader (ctx, DKIM_SIGNHEADER, hdr);
-				free (hdr);
 			}
 			else {
 				msg_info ("<%s> sign failed: %d", priv->mlfi_id, r);
