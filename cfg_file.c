@@ -571,13 +571,13 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 }
 
 static void
-add_hashed_header (const char *name, struct dkim_hash_entry *hash)
+add_hashed_header (const char *name, struct dkim_hash_entry **hash)
 {
 	struct dkim_hash_entry *new;
 
 	new = malloc (sizeof (struct dkim_hash_entry));
 	new->name = strdup (name);
-	HASH_ADD_KEYPTR (hh, hash, new->name, strlen (new->name), new);
+	HASH_ADD_KEYPTR (hh, *hash, new->name, strlen (new->name), new);
 }
 
 void
@@ -641,30 +641,30 @@ init_defaults (struct config_file *cfg)
 #ifdef ENABLE_DKIM
 	cfg->dkim_lib = dkim_init (NULL, NULL);
 	/* Add recommended by rfc headers */
-	add_hashed_header ("from", cfg->headers);
-	add_hashed_header ("sender", cfg->headers);
-	add_hashed_header ("reply-to", cfg->headers);
-	add_hashed_header ("subject", cfg->headers);
-	add_hashed_header ("date", cfg->headers);
-	add_hashed_header ("message-id", cfg->headers);
-	add_hashed_header ("to", cfg->headers);
-	add_hashed_header ("cc", cfg->headers);
-	add_hashed_header ("date", cfg->headers);
-	add_hashed_header ("mime-version", cfg->headers);
-	add_hashed_header ("content-type", cfg->headers);
-	add_hashed_header ("content-transfer-encoding", cfg->headers);
-	add_hashed_header ("resent-to", cfg->headers);
-	add_hashed_header ("resent-cc", cfg->headers);
-	add_hashed_header ("resent-from", cfg->headers);
-	add_hashed_header ("resent-sender", cfg->headers);
-	add_hashed_header ("resent-message-id", cfg->headers);
-	add_hashed_header ("in-reply-to", cfg->headers);
-	add_hashed_header ("references", cfg->headers);
-	add_hashed_header ("list-id", cfg->headers);
-	add_hashed_header ("list-owner", cfg->headers);
-	add_hashed_header ("list-unsubscribe", cfg->headers);
-	add_hashed_header ("list-subscribe", cfg->headers);
-	add_hashed_header ("list-post", cfg->headers);
+	add_hashed_header ("from", &cfg->headers);
+	add_hashed_header ("sender", &cfg->headers);
+	add_hashed_header ("reply-to", &cfg->headers);
+	add_hashed_header ("subject", &cfg->headers);
+	add_hashed_header ("date", &cfg->headers);
+	add_hashed_header ("message-id", &cfg->headers);
+	add_hashed_header ("to", &cfg->headers);
+	add_hashed_header ("cc", &cfg->headers);
+	add_hashed_header ("date", &cfg->headers);
+	add_hashed_header ("mime-version", &cfg->headers);
+	add_hashed_header ("content-type", &cfg->headers);
+	add_hashed_header ("content-transfer-encoding", &cfg->headers);
+	add_hashed_header ("resent-to", &cfg->headers);
+	add_hashed_header ("resent-cc", &cfg->headers);
+	add_hashed_header ("resent-from", &cfg->headers);
+	add_hashed_header ("resent-sender", &cfg->headers);
+	add_hashed_header ("resent-message-id", &cfg->headers);
+	add_hashed_header ("in-reply-to", &cfg->headers);
+	add_hashed_header ("references", &cfg->headers);
+	add_hashed_header ("list-id", &cfg->headers);
+	add_hashed_header ("list-owner", &cfg->headers);
+	add_hashed_header ("list-unsubscribe", &cfg->headers);
+	add_hashed_header ("list-subscribe", &cfg->headers);
+	add_hashed_header ("list-post", &cfg->headers);
 	/* TODO: make it configurable */
 #endif
 }

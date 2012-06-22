@@ -1170,7 +1170,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
     int tmplen, r;
 
     if (priv->dkim) {
-    	HASH_FIND_STR (cfg->headers, headerf, e);
+    	HASH_FIND_STR (cfg->headers, headerf, e, strncasecmp);
     	if (e) {
     		tmplen = strlen (headerf) + strlen (headerv) + sizeof (": ");
     		tmp = malloc (tmplen);

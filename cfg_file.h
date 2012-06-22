@@ -197,8 +197,6 @@ struct addr_list_entry {
 	LIST_ENTRY (addr_list_entry) next;
 };
 
-#undef HASH_KEYCMP
-#define HASH_KEYCMP(a,b,len) strncasecmp(a,b,len)
 struct dkim_hash_entry {
 	char *name;
 	UT_hash_handle hh;

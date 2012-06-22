@@ -91,7 +91,7 @@ typedef unsigned char uint8_t;
 /* calculate the element whose hash handle address is hhe */
 #define ELMT_FROM_HH(tbl,hhp) ((void*)(((char*)(hhp)) - ((tbl)->hho)))
 
-#define HASH_FIND(hh,head,keyptr,keylen,out)                                     \
+#define HASH_FIND(hh,head,keyptr,keylen,out,cmp)                                 \
 do {                                                                             \
   unsigned _hf_bkt,_hf_hashv;                                                    \
   out=NULL;                                                                      \
@@ -99,7 +99,7 @@ do {                                                                            
      HASH_FCN(keyptr,keylen, (head)->hh.tbl->num_buckets, _hf_hashv, _hf_bkt);   \
      if (HASH_BLOOM_TEST((head)->hh.tbl, _hf_hashv)) {                           \
        HASH_FIND_IN_BKT((head)->hh.tbl, hh, (head)->hh.tbl->buckets[ _hf_bkt ],  \
-                        keyptr,keylen,out);                                      \
+                        keyptr,keylen,out,cmp);                                  \
      }                                                                           \
   }                                                                              \
 } while (0)
@@ -238,18 +238,18 @@ do {                                                                            
 
 
 /* convenience forms of HASH_FIND/HASH_ADD/HASH_DEL */
-#define HASH_FIND_STR(head,findstr,out)                                          \
-    HASH_FIND(hh,head,findstr,strlen(findstr),out)
-#define HASH_ADD_STR(head,strfield,add)                                          \
-    HASH_ADD(hh,head,strfield,strlen(add->strfield),add)
-#define HASH_FIND_INT(head,findint,out)                                          \
-    HASH_FIND(hh,head,findint,sizeof(int),out)
-#define HASH_ADD_INT(head,intfield,add)                                          \
-    HASH_ADD(hh,head,intfield,sizeof(int),add)
-#define HASH_FIND_PTR(head,findptr,out)                                          \
-    HASH_FIND(hh,head,findptr,sizeof(void *),out)
-#define HASH_ADD_PTR(head,ptrfield,add)                                          \
-    HASH_ADD(hh,head,ptrfield,sizeof(void *),add)
+#define HASH_FIND_STR(head,findstr,out,cmp)                                          \
+    HASH_FIND(hh,head,findstr,strlen(findstr),out,cmp)
+#define HASH_ADD_STR(head,strfield,add,cmp)                                          \
+    HASH_ADD(hh,head,strfield,strlen(add->strfield),add,cmp)
+#define HASH_FIND_INT(head,findint,out,cmp)                                          \
+    HASH_FIND(hh,head,findint,sizeof(int),out,cmp)
+#define HASH_ADD_INT(head,intfield,add,cmp)                                          \
+    HASH_ADD(hh,head,intfield,sizeof(int),add,cmp)
+#define HASH_FIND_PTR(head,findptr,out,cmp)                                          \
+    HASH_FIND(hh,head,findptr,sizeof(void *),out,cmp)
+#define HASH_ADD_PTR(head,ptrfield,add,cmp)                                          \
+    HASH_ADD(hh,head,ptrfield,sizeof(void *),add,cmp)
 #define HASH_DEL(head,delptr)                                                    \
     HASH_DELETE(hh,head,delptr)
 
@@ -575,13 +575,13 @@ do {                                                                   \
 #define HASH_KEYCMP(a,b,len) memcmp(a,b,len) 
 
 /* iterate over items in a known bucket to find desired item */
-#define HASH_FIND_IN_BKT(tbl,hh,head,keyptr,keylen_in,out)                       \
+#define HASH_FIND_IN_BKT(tbl,hh,head,keyptr,keylen_in,out,compare_f)             \
 do {                                                                             \
  if (head.hh_head) DECLTYPE_ASSIGN(out,ELMT_FROM_HH(tbl,head.hh_head));          \
  else out=NULL;                                                                  \
  while (out) {                                                                   \
     if ((out)->hh.keylen == keylen_in) {                                           \
-        if ((HASH_KEYCMP((out)->hh.key,keyptr,keylen_in)) == 0) break;             \
+        if (((compare_f)((out)->hh.key,keyptr,keylen_in)) == 0) break;             \
     }                                                                            \
     if ((out)->hh.hh_next) DECLTYPE_ASSIGN(out,ELMT_FROM_HH(tbl,(out)->hh.hh_next)); \
     else out = NULL;                                                             \
