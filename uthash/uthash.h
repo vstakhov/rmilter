@@ -331,7 +331,7 @@ do {                                                                            
 #ifdef HASH_FUNCTION 
 #define HASH_FCN HASH_FUNCTION
 #else
-#define HASH_FCN HASH_JEN
+#define HASH_FCN HASH_FNV_CASELESS
 #endif
 
 /* The Bernstein hash function, used in Perl prior to v5.6 */
@@ -366,7 +366,17 @@ do {                                                                            
       hashv = (hashv * 16777619) ^ _hf_key[_fn_i];                               \
   bkt = hashv & (num_bkts-1);                                                    \
 } while(0) 
- 
+
+#define HASH_FNV_CASELESS(key,keylen,num_bkts,hashv,bkt)                         \
+do {                                                                             \
+  unsigned _fn_i;                                                                \
+  char *_hf_key=(char*)(key);                                                    \
+  hashv = 2166136261UL;                                                          \
+  for(_fn_i=0; _fn_i < keylen; _fn_i++)                                          \
+      hashv = (hashv * 16777619) ^ tolower(_hf_key[_fn_i]);                      \
+  bkt = hashv & (num_bkts-1);                                                    \
+} while(0)
+
 #define HASH_OAT(key,keylen,num_bkts,hashv,bkt)                                  \
 do {                                                                             \
   unsigned _ho_i;                                                                \
