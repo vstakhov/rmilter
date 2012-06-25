@@ -28,6 +28,7 @@ extern int yylineno;
 extern char *yytext;
 
 struct condl *cur_conditions;
+struct dkim_domain_entry *cur_domain;
 uint8_t cur_flags = 0;
 
 %}
@@ -1456,20 +1457,46 @@ dkimbody:
 dkimcmd:
 	dkim_key
 	| dkim_domain
-	| dkim_selector
 	| dkim_header_canon
 	| dkim_body_canon
 	| dkim_sign_alg
 	;
-	
+
+dkim_domain:
+	DKIM_DOMAIN OBRACE dkim_domain_body EBRACE {
+		if (cur_domain == NULL || cur_domain->domain == NULL || cur_domain->key == NULL ||
+		cur_domain->key == MAP_FAILED || cur_domain->selector == NULL) {
+			yyerror ("yyparse: incomplete dkim definition");
+			YYERROR;
+		}
+		HASH_ADD_KEYPTR (hh, cfg->dkim_domains, cur_domain->domain, strlen (cur_domain->domain), cur_domain);
+		cur_domain = NULL;
+	}
+	;
+
+dkim_domain_body:
+	dkim_domain_cmd SEMICOLON
+	| dkim_domain_body dkim_domain_cmd SEMICOLON
+	;
+
+dkim_domain_cmd:
+	dkim_key
+	| dkim_domain
+	| dkim_selector
+	;
+
 dkim_key:
 	DKIM_KEY EQSIGN FILENAME {
 		struct stat st;
 		int fd;
+		if (cur_domain == NULL) {
+			cur_domain = malloc (sizeof (struct dkim_domain_entry));
+			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
+		}
 		if (stat ($3, &st) != -1) {
-			cfg->dkim_key_size = st.st_size;
+			cur_domain->keylen = st.st_size;
 			if ((fd = open ($3, O_RDONLY)) != -1) {
-				if ((cfg->dkim_key = mmap (NULL, cfg->dkim_key_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+				if ((cur_domain->key = mmap (NULL, cur_domain->keylen, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
 					yyerror ("yyparse: cannot mmap: %s, %s", $3, strerror (errno));
 					close (fd);
 					YYERROR;
@@ -1492,7 +1519,11 @@ dkim_domain:
 	DKIM_DOMAIN EQSIGN QUOTEDSTRING {
 		size_t len = strlen ($3);
 		char *c = $3;
-
+		
+		if (cur_domain == NULL) {
+			cur_domain = malloc (sizeof (struct dkim_domain_entry));
+			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
+		}
 		/* Trim quotes */
 		if (*c == '"') {
 			c++;
@@ -1510,7 +1541,7 @@ dkim_domain:
 			c[len - 1] = '\0';
 			len --;	
 		}
-		cfg->dkim_domain = strdup (c);
+		cur_domain->domain = strdup (c);
 		free ($3);
 	}
 	;
@@ -1520,6 +1551,10 @@ dkim_selector:
 		size_t len = strlen ($3);
 		char *c = $3;
 
+		if (cur_domain == NULL) {
+			cur_domain = malloc (sizeof (struct dkim_domain_entry));
+			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
+		}
 		/* Trim quotes */
 		if (*c == '"') {
 			c++;
@@ -1537,7 +1572,7 @@ dkim_selector:
 			c[len - 1] = '\0';
 			len --;	
 		}
-		cfg->dkim_selector = strdup (c);
+		cur_domain->selector = strdup (c);
 		free ($3);
 	}
 	;

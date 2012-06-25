@@ -931,26 +931,22 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	/* Check whether we need to sign this message */
 #ifdef ENABLE_DKIM
 	DKIM_STAT statp;
-	if (cfg->dkim_domain != NULL) {
-		domain_pos = strchr (priv->priv_from, '@');
-		if (domain_pos) {
-			if (priv->priv_from[i - 1] == '>') {
-				priv->priv_from[i - 1] = '\0';
-				if (strcasecmp (domain_pos + 1, cfg->dkim_domain) == 0) {
-					to_sign = 1;
-				}
-				priv->priv_from[i - 1] = '>';
-			}
-			else {
-				if (strcasecmp (domain_pos + 1, cfg->dkim_domain) == 0) {
-					to_sign = 1;
-				}
-			}
+	struct dkim_domain_entry *dkim_domain;
+
+	domain_pos = strchr (priv->priv_from, '@');
+	if (domain_pos) {
+		if (priv->priv_from[i - 1] == '>') {
+			priv->priv_from[i - 1] = '\0';
+			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
+			priv->priv_from[i - 1] = '>';
 		}
-		if (to_sign && cfg->dkim_key != MAP_FAILED && cfg->dkim_key != NULL) {
+		else {
+			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
+		}
+		if (dkim_domain) {
 			priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
-					(u_char *)cfg->dkim_key,  (u_char *)cfg->dkim_selector,
-					(u_char *)cfg->dkim_domain,
+					(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
+					(u_char *)dkim_domain->domain,
 					cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
 					cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
 					cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);

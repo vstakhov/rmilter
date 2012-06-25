@@ -791,25 +791,31 @@ free_config (struct config_file *cfg)
 		free (cfg->awl_hash);
 	}
 
-	if (cfg->dkim_key != MAP_FAILED && cfg->dkim_key != NULL) {
-		munmap (cfg->dkim_key, cfg->dkim_key_size);
-	}
-	if (cfg->dkim_domain) {
-		free (cfg->dkim_domain);
-	}
-	if (cfg->dkim_selector) {
-		free (cfg->dkim_selector);
-	}
+
 #ifdef ENABLE_DKIM
-	struct dkim_hash_entry *curh, *tmp;
+	struct dkim_hash_entry *curh, *tmph;
+	struct dkim_domain_entry *curd, *tmpd;
 
 	if (cfg->dkim_lib) {
 		dkim_close (cfg->dkim_lib);
 	}
-	HASH_ITER (hh, cfg->headers, curh, tmp) {
+	HASH_ITER (hh, cfg->headers, curh, tmph) {
 		HASH_DEL (cfg->headers, curh);  /* delete; users advances to next */
 		free (curh->name);
-		free (curh);            /* optional- if you want to free  */
+		free (curh);
+	}
+	HASH_ITER (hh, cfg->dkim_domains, curd, tmpd) {
+		HASH_DEL (cfg->dkim_domains, curd);  /* delete; users advances to next */
+		if (curd->key != MAP_FAILED && curd->key != NULL) {
+			munmap (curd->key, curd->keylen);
+		}
+		if (curd->domain) {
+			free (curd->domain);
+		}
+		if (curd->selector) {
+			free (curd->selector);
+		}
+		free (curd);
 	}
 #endif
 }

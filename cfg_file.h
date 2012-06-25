@@ -202,6 +202,14 @@ struct dkim_hash_entry {
 	UT_hash_handle hh;
 };
 
+struct dkim_domain_entry {
+	char *domain;
+	char *selector;
+	char *key;
+	size_t keylen;
+	UT_hash_handle hh;
+};
+
 struct config_file {
 	char *cfg_name;
 	char *pid_file;
@@ -310,10 +318,7 @@ struct config_file {
 	size_t awl_pool_size;
 
 	/* DKIM section */
-	char *dkim_selector;
-	char *dkim_domain;
-	char *dkim_key;
-	unsigned long dkim_key_size;
+	struct dkim_domain_entry *dkim_domains;
 	u_char dkim_relaxed_header;
 	u_char dkim_relaxed_body;
 	u_char dkim_sign_sha256;
