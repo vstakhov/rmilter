@@ -235,6 +235,23 @@ greylisting {
 	awl_ttl = 3600s;
 };
 
+dkim {
+    domain {
+        key = /usr/local/etc/dkim_example.key;
+        domain = "example.com";
+        selector = "dkim";
+    };
+    domain {
+        key = /usr/local/etc/dkim_test.key;
+        domain = "test.com";
+        selector = "dkim";
+    };
+    header_canon = relaxed;
+    body_canon = relaxed;
+    sign_alg = sha256;
+};
+
+
 # Order of checks at EOM:
 # 
 # SPF -> DCC -> CLAMAV

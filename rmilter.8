@@ -52,12 +52,16 @@ Passing messages and/or their headers to beanstalk servers
 The following additional options are supported:
 .Bl -tag -width indent
 .It Fl h
-Show greeting message, version of rmilter and exit
+Show greeting message, version of
+.Nm
+and exit
 .It Fl c Ar config_file
 Specify config file to use
 .El
 .Pp
-All rmilter configuration is placed in rmilter.conf file.
+All
+.Nm
+configuration is placed in rmilter.conf file.
 .Sh CONFIGURATION FILE
 .\" Format
 The configuration file has format:
@@ -438,6 +442,46 @@ can be removed from bucket each second). It can be schematically displayed:
 - limits bucket for non-bounce messages (msg from, rcpt to per one source ip)
 .Dl Em Default: Li 100:0.033333333
 .El
+.It
+.\" DKIM section
+DKIM section.
+.Pp
+.No Dkim can be used to sign messages by Nm . Dkim support must be provided with opendkim library and 
+.Nm 
+must be configured with 
+.Ar --enable-dkim 
+option.
+.Bl -dash
+.It
+.Sy header_canon
+- canonization of headers (simple or relaxed)
+.Dl Em Default: Li simple
+.It
+.Sy body_canon
+- canonization of body (simple or relaxed)
+.Dl Em Default: Li simple
+.It
+.Sy sign_alg
+- signature algorithm (sha1 for rsa-sha1 and sha256 for rsa-sha256)
+.Dl Em Default: Li sha1
+.It
+.Sy domain
+- domain entry must be enclosed in braces {}
+.Bl -bullet
+.It
+.Sy key
+- path to private key
+.It
+.Sy domain
+- domain to be used for signing (this matches with SMTP FROM data)
+.It
+.Sy selector
+- dkim DNS selector (e.g. for selector 
+.Em dkim 
+and domain 
+.Em example.com 
+DNS TXT record should be for dkim._domainkey.example.com).
+.El
 .El
 .Sh EXAMPLE CONFIG
 .Bd -literal
@@ -621,11 +665,29 @@ beanstalk {
 	id_regexp = "/^SomeID.*$/";
 };
 
+dkim {
+    domain {
+        key = /usr/local/etc/dkim_example.key;
+        domain = "example.com";
+        selector = "dkim";
+    };
+    domain {
+        key = /usr/local/etc/dkim_test.key;
+        domain = "test.com";
+        selector = "dkim";
+    };
+    header_canon = relaxed;
+    body_canon = relaxed;
+    sign_alg = sha256;
+};
+
 .Ed
 .Sh NOTES
 There are several things that might be useful to notice.
 .Sh The order of checks:
 .Bl -enum -compact
+.It
+DKIM test from and create signing context (MAIL FROM)
 .It
 Ratelimit (RCPT TO)
 .It
@@ -646,6 +708,8 @@ Clamav (EOM)
 Spamassassin (EOM)
 .It
 Beanstalk (EOM)
+.It 
+DKIM add signature (EOM)
 .El
 .Pp
 .Sh Keys used in memcached:
