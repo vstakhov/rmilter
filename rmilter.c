@@ -957,6 +957,9 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				}
 				priv->dkim = NULL;
 			}
+			else {
+				msg_info ("try to add signature for %s domain", dkim_domain->domain);
+			}
 		}
 		else {
 			priv->dkim = NULL;

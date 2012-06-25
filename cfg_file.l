@@ -182,12 +182,12 @@ send_beanstalk_headers			return SEND_BEANSTALK_HEADERS;
 send_beanstalk_spam				return SEND_BEANSTALK_SPAM;
 
 dkim							return DKIM_SECTION;
-dkim_key						return DKIM_KEY;
-dkim_domain						return DKIM_DOMAIN;
-dkim_selector					return DKIM_SELECTOR;
-dkim_header_canon				return DKIM_HEADER_CANON;
-dkim_body_canon					return DKIM_BODY_CANON;
-dkim_sign_alg					return DKIM_SIGN_ALG;
+key								return DKIM_KEY;
+domain							return DKIM_DOMAIN;
+selector						return DKIM_SELECTOR;
+header_canon					return DKIM_HEADER_CANON;
+body_canon						return DKIM_BODY_CANON;
+sign_alg						return DKIM_SIGN_ALG;
 
 relaxed							return DKIM_RELAXED;
 simple							return DKIM_SIMPLE;
