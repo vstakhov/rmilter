@@ -246,7 +246,7 @@ yes|YES|no|NO|[yY]|[nN]			yylval.flag=parse_flag(yytext); return FLAG;
 [ \t]+							/* ignore whitespace */;
 \".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;
 [0-9]+							yylval.number=strtol(yytext, NULL, 10); return NUMBER;
-[0-9]+\.[0-9]*					yylval.number=strtod(yytext, NULL); return FLOAT;
+[0-9]+\.[0-9]*					yylval.frac=strtod(yytext, NULL); return FLOAT;
 [0-9]+[kKmMgG]?					yylval.limit=parse_limit(yytext); return SIZELIMIT;
 [0-9]+[sShHdD]|[0-9]+[mM][sS]	yylval.seconds=parse_seconds(yytext); return SECONDS;
 [0-9]+:[0-9]+[.]?[0-9]*			parse_bucket(yytext, &yylval.bucket); return BUCKET;

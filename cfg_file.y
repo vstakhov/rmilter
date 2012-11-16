@@ -751,6 +751,12 @@ spf_domain:
 			YYERROR;
 		}
 	}
+	| STRING {
+		if (!add_spf_domain (cfg, $1)) {
+			yyerror ("yyparse: add_spf_domain");
+			YYERROR;
+		}
+	}
 	;
 
 bindsock:
