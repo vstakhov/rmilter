@@ -1425,7 +1425,7 @@ mlfi_eom(SMFICTX * ctx)
 			prob_max *= 10;
 			prob_cur *= 10;
 		}
-		if (rand () % prob_max > prob_cur) {
+		if (rand () % prob_max <= prob_cur) {
 			send_beanstalk_copy (priv, cfg->copy_server);
 		}
 	}
