@@ -627,6 +627,7 @@ init_defaults (struct config_file *cfg)
 
 	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
 	cfg->awl_enable = 0;
+	cfg->beanstalk_copy_prob = 100.0;
 
 #if 0
 	/* Init static defaults */

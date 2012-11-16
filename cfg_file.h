@@ -269,6 +269,7 @@ struct config_file {
 	size_t beanstalk_servers_num;
 	struct beanstalk_server *copy_server;
 	struct beanstalk_server *spam_server;
+	double beanstalk_copy_prob;
 	char send_beanstalk_copy;
 	char send_beanstalk_spam;
 	char send_beanstalk_headers;

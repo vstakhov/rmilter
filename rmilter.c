@@ -1265,6 +1265,8 @@ mlfi_eom(SMFICTX * ctx)
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
     char *id, *subject = NULL;
+    int prob_max;
+    double prob_cur;
     struct stat sb;
 	struct action *act;
 	struct rcpt *rcpt;
@@ -1416,7 +1418,16 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Maybe write its copy */
 	if (cfg->copy_server && cfg->send_beanstalk_copy) {
-		send_beanstalk_copy (priv, cfg->copy_server);
+		prob_cur = cfg->beanstalk_copy_prob;
+		/* Normalize */
+		prob_max = 100;
+		while (prob_cur < 1.0) {
+			prob_max *= 10;
+			prob_cur *= 10;
+		}
+		if (rand () % prob_max > prob_cur) {
+			send_beanstalk_copy (priv, cfg->copy_server);
+		}
 	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict

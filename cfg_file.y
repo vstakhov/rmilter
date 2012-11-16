@@ -42,9 +42,10 @@ uint8_t cur_flags = 0;
 	char flag;
 	unsigned int seconds;
 	unsigned int number;
+	double frac;
 }
 
-%token	ERROR STRING QUOTEDSTRING FLAG
+%token	ERROR STRING QUOTEDSTRING FLAG FLOAT
 %token	ACCEPT REJECTL TEMPFAIL DISCARD QUARANTINE
 %token	CONNECT HELO ENVFROM ENVRCPT HEADER MACRO BODY
 %token	AND OR NOT
@@ -58,7 +59,7 @@ uint8_t cur_flags = 0;
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
-%token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256
+%token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 COPY_PROBABILITY
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -76,6 +77,7 @@ uint8_t cur_flags = 0;
 %type	<bucket>	BUCKET;
 %type	<seconds>	SECONDS;
 %type	<number>	NUMBER;
+%type   <frac>		FLOAT;
 %%
 
 file	: /* empty */
@@ -1159,6 +1161,7 @@ beanstalkcmd:
 	| send_beanstalk_headers
 	| send_beanstalk_spam
 	| send_beanstalk_copy
+	| beanstalk_copy_prob
 	;
 
 beanstalk_servers:
@@ -1315,6 +1318,15 @@ send_beanstalk_spam:
 	}
 	;
 
+beanstalk_copy_prob:
+	COPY_PROBABILITY EQSIGN NUMBER {
+		cfg->beanstalk_copy_prob = $3;	
+	}
+	| COPY_PROBABILITY EQSIGN FLOAT {
+		cfg->beanstalk_copy_prob = $3;	
+	}
+	;
+	
 limits:
 	LIMITS OBRACE limitsbody EBRACE
 	;
