@@ -29,7 +29,18 @@ override_dh_auto_configure:
 	--with-libmilter=/usr/lib/libmilter
 	touch configure-stamp
     
-override_dh_install:
+override_dh_auto_install:
 	dh_install rmilter usr/sbin
 	dh_install rmilter.conf.sample etc
 	dh_installman rmilter.8
+
+override_dh_auto_clean:
+	dh_clean
+	rm -f Makefile
+	rm -f config.cache
+	rm -f config.log
+	rm -f md5.c
+	rm -f md5.h
+	rm -f queue.h
+	rm -f strlcpy.c
+	rm -f strlcpy.h
