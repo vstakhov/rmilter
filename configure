@@ -833,12 +833,4 @@ if [ "F$dcc" = "Fyes" ] ; then
 	TARGETS="dcc $TARGETS"
 fi
 
-check_group $GROUP
-if [ $? -ne 0 ] ; then 
-	TARGETS="$TARGETS creategroup"
-fi
-check_user $USER
-if [ $? -ne 0 ] ; then 
-	TARGETS="$TARGETS createuser"
-fi
 write_result
