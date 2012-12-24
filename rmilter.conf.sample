@@ -8,7 +8,7 @@
 # pidfile - path to pid file
 # Default: pidfile = /var/run/rmilter.pid
 
-pidfile = /var/run/rmilter/rmilter.pid;
+pidfile = /var/run/rmilter.pid;
 
 
 clamav {
@@ -148,7 +148,7 @@ memcached {
 # inet:port@host - bind to inet socket
 # Default: bind_socket = unix:/var/tmp/rmilter.sock;
 
-bind_socket = unix:/var/run/rmilter/rmilter.sock;
+bind_socket = unix:/var/lib/rmilter/rmilter.sock;
 
 # tempdir - path to directory that contains temporary files
 # Default: $TMPDIR

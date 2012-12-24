@@ -17,11 +17,11 @@ memctest: upstream.c memcached.c memcached-test.c
 	$(CC) $(OPT_FLAGS) $(PTHREAD_LDFLAGS) $(LD_PATH) upstream.o memcached.o memcached-test.o $(LIBS) -o memcached-test
 
 install: $(EXEC) rmilter.8 rmilter.conf.sample
-	$(INSTALL) -b $(EXEC) $(PREFIX)/sbin/$(EXEC)
-	$(INSTALL) -v $(EXEC).sh $(PREFIX)/etc/rc.d
-	$(INSTALL) -m0644 rmilter.8 $(PREFIX)/man/man8
-	$(INSTALL) -m0644 rmilter.conf.sample $(PREFIX)/etc
-	$(MKDIR) -o $(RMILTER_USER) -g $(RMILTER_GROUP) /var/run/rmilter
+	$(INSTALL) -b $(EXEC) $(DESTDIR)/$(PREFIX)/sbin/$(EXEC)
+	$(INSTALL) -v $(EXEC).sh $(DESTDIR)/$(PREFIX)/etc/rc.d
+	$(INSTALL) -m0644 rmilter.8 $(DESTDIR)/$(PREFIX)/man/man8
+	$(INSTALL) -m0644 rmilter.conf.sample $(DESTDIR)/$(PREFIX)/etc
+	$(MKDIR) -o $(RMILTER_USER) -g $(DESTDIR)/$(RMILTER_GROUP) /var/run/rmilter
 
 clean:
 	rm -f *.o $(EXEC) *.core

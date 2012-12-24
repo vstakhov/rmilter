@@ -11,8 +11,8 @@ limit core unlimited unlimited
 env NAME=rmilter
 env DAEMON=/usr/sbin/rmilter
 env DAEMON_OPTS="-c /etc/rmilter.conf"
-env PIDFILE=/var/run/rmilter/rmilter.pid
-env SOCKET=/var/run/rmilter/rmilter.sock
+env PIDFILE=/var/run/rmilter.pid
+env SOCKET=/var/lib/rmilter/rmilter.sock
 env MKDIR="/usr/bin/install -v -d"
 
 post-stop script

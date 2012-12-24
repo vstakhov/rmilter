@@ -19,7 +19,7 @@ set -e
 
 case "$1" in
     configure)
-	chown rmilter:rmilter /var/run/rmilter
+	chown rmilter:rmilter /var/lib/rmilter
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure|upgrade)

@@ -25,7 +25,7 @@ DESC="Rmilter Mail Filter Daemon"
 PIDFILE="/var/run/$NAME.pid"
 PNAME="rmilter"
 USER="@USER@"
-SOCKET=/var/run/rmilter/milter-greylist.sock
+SOCKET=/var/lib/rmilter/rmilter.sock
 
 
 [ -x $DAEMON ] || DAEMON=/usr/sbin/rmilter

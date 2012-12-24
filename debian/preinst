@@ -16,7 +16,7 @@ set -e
 
 case "$1" in
     install)
-       SERVER_HOME=/var/run/rmilter
+       SERVER_HOME=/var/lib/rmilter
        SERVER_USER=rmilter
        SERVER_NAME="Rmilter"
        SERVER_GROUP=rmilter
