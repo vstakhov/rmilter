@@ -31,5 +31,5 @@ override_dh_auto_configure:
     
 override_dh_install:
 	dh_install rmilter usr/sbin
-	dh_install rmilter.8 usr/share/man/man8
 	dh_install rmilter.conf.sample etc
+	dh_installman rmilter.8

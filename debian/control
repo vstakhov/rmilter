@@ -5,13 +5,13 @@ Maintainer: Vsevolod Stakhov <vsevolod@highsecure.ru>
 Build-Depends: debhelper (>= 8.0.0), libopendkim-dev, libmilter-dev, libspf2-dev, bison, flex, libpcre3-dev
 Standards-Version: 3.9.2
 Homepage: https://bitbucket.org/vstakhov/rmilter
-Recommends: sendmail | postfix
 #Vcs-HG: https://bitbucket.org/vstakhov/rmilter
 #Vcs-Browser: https://bitbucket.org/vstakhov/rmilter/src
 
 Package: rmilter
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libmilter1.0.1, libopendkim6, libspf2-2, libpcre3
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
+Recommends: sendmail | postfix
 Description: Rmilter is sendmail milter for different checks of mail
  Rmilter provides the following features:
  .
