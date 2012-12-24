@@ -12,8 +12,8 @@ Package: rmilter
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
 Recommends: sendmail | postfix
-Description: Rmilter is sendmail milter for different checks of mail
- rmilter is standalone application that provides the following features:
+Description: Another sendmail milter for different mail checks
+ rmilter is a standalone application that provides the following features:
   SPF checks;
   greylisting using memcached storage;
   ratelimits using memcached storage;
