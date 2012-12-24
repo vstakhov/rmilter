@@ -274,7 +274,7 @@ main(int argc, char *argv[])
      * temporary file too :( temporary directory shuld be owned by user
      * rmilter-clam and have permissions 700
      */
-    umask(0);
+    umask(0007);
 
 	smfi_setconn(cfg->sock_cred);
 	if (smfi_register(smfilter) == MI_FAILURE) {
