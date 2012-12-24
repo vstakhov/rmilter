@@ -24,7 +24,7 @@ SNAME=rmilter
 DESC="Rmilter Mail Filter Daemon"
 PIDFILE="/var/run/$NAME.pid"
 PNAME="rmilter"
-USER="@USER@"
+USER="rmilter"
 SOCKET=/var/lib/rmilter/rmilter.sock
 
 
@@ -41,7 +41,7 @@ NICE=
 
 test -f /etc/default/rmilter && . /etc/default/rmilter
 
-DOPTIONS="-P $PIDFILE -u $USER -p $SOCKET"
+DOPTIONS="-c /etc/rmilter.conf"
 
 if [ "$ENABLED" = "0" ]; then
     echo "$DESC: disabled, see /etc/default/rmilter"
@@ -68,6 +68,7 @@ set -e
 case "$1" in
   start)
 	echo -n "Starting $DESC: "
+	rm -f /var/lib/rmilter/rmilter.sock
 	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
 	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
 	echo "$NAME."
@@ -76,6 +77,7 @@ case "$1" in
   stop)
 	echo -n "Stopping $DESC: "
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME --oknodo
+	rm -f /var/lib/rmilter/rmilter.sock
 	echo "$NAME."
 	;;
 
@@ -83,6 +85,7 @@ case "$1" in
 	echo -n "Restarting $DESC: "
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
 	    --retry 5 --oknodo
+	rm -f /var/lib/rmilter/rmilter.sock
 	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
 	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
 
@@ -93,6 +96,7 @@ case "$1" in
 	echo -n "Restarting $DESC: "
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
 	    --retry 5 --oknodo
+	rm -f /var/lib/rmilter/rmilter.sock
 	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
 	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
 

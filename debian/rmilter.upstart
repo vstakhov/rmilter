@@ -15,6 +15,10 @@ env PIDFILE=/var/run/rmilter.pid
 env SOCKET=/var/lib/rmilter/rmilter.sock
 env MKDIR="/usr/bin/install -v -d"
 
+pre-start script
+        rm -f ${SOCKET}
+end script
+
 post-stop script
         rm -f ${PIDFILE}
         rm -f ${SOCKET}
