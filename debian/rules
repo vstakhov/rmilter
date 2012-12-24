@@ -34,8 +34,6 @@ override_dh_auto_install:
 	dh_install rmilter.conf.sample etc
 	dh_installman
 
-override_dh_install:
-
 override_dh_auto_clean:
 	dh_clean
 	dh_auto_clean
