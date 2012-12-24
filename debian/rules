@@ -31,7 +31,7 @@ override_dh_auto_configure:
     
 override_dh_auto_install:
 	dh_install rmilter usr/sbin
-	dh_install rmilter.conf.sample etc/rmilter.conf
+	dh_install debian/rmilter.conf etc
 	dh_installman
 
 override_dh_auto_clean:
