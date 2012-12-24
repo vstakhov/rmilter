@@ -842,6 +842,9 @@ free_config (struct config_file *cfg)
 		if (curd->selector) {
 			free (curd->selector);
 		}
+		if (curd->keyfile) {
+			free (curd->keyfile);
+		}
 		free (curd);
 	}
 #endif

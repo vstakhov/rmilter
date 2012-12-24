@@ -916,6 +916,73 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 	return SMFIS_CONTINUE;
 }
 
+#ifdef ENABLE_DKIM
+static DKIM*
+try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
+{
+	DKIM_STAT statp;
+	struct dkim_domain_entry *dkim_domain;
+	DKIM *d;
+	int fd;
+	struct stat st;
+	void *keymap;
+#ifdef HAVE_PATH_MAX
+	char fname[PATH_MAX + 10];
+#elif defined(HAVE_MAXPATHLEN)
+	char fname[MAXPATHLEN + 10];
+#else
+#error "neither PATH_MAX nor MAXPATHEN defined"
+#endif
+
+	for(dkim_domain = cfg->dkim_domains; dkim_domain != NULL; dkim_domain = dkim_domain->hh.next) {
+		if (dkim_domain->is_wildcard) {
+			/* Check for domain */
+			if (strcmp (dkim_domain->domain, "*") != 0 && strcasestr (domain, dkim_domain->domain) == NULL) {
+				/* Not our domain */
+				continue;
+			}
+			/* Check for directory */
+			if (dkim_domain->keyfile) {
+				if (stat (dkim_domain->keyfile, &st) != -1 && S_ISDIR (st.st_mode)) {
+					/* Print keyfilename in format <dkim_domain>/<domain>.<selector>.key */
+					snprintf (fname, sizeof (fname), "%s/%s.%s.key", dkim_domain->keyfile, domain, dkim_domain->selector);
+					if (stat (fname, &st) != -1 && S_ISREG (st.st_mode)) {
+						fd = open (fname, O_RDONLY);
+						if (fd != -1) {
+							/* Mmap key */
+							keymap = mmap (NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+							close (fd);
+							if (keymap != MAP_FAILED) {
+								d = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
+													(u_char *)keymap,  (u_char *)dkim_domain->selector,
+													(u_char *)domain,
+													cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+													cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+													cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+								/* It is safe to unmap memory here */
+								munmap (keymap, st.st_size);
+								if (statp != DKIM_STAT_OK) {
+									msg_info ("dkim sign failed: %d", statp);
+									if (d) {
+										dkim_free (d);
+									}
+									return NULL;
+								}
+								else {
+									return d;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return NULL;
+}
+#endif
+
 static sfsistat
 mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 {
@@ -948,6 +1015,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 	/* Check whether we need to sign this message */
 #ifdef ENABLE_DKIM
+	CFG_RLOCK();
 	DKIM_STAT statp;
 	struct dkim_domain_entry *dkim_domain;
 
@@ -961,7 +1029,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		else {
 			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
 		}
-		if (dkim_domain) {
+		if (dkim_domain && dkim_domain->is_loaded) {
 			priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
 					(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
 					(u_char *)dkim_domain->domain,
@@ -980,9 +1048,13 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 			}
 		}
 		else {
-			priv->dkim = NULL;
+			priv->dkim = try_wildcard_dkim (domain_pos + 1, priv);
+			if (priv->dkim) {
+				msg_info ("try to add signature for %s domain", domain_pos + 1);
+			}
 		}
 	}
+	CFG_UNLOCK();
 #endif
 
 #ifndef SENDMAIL

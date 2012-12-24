@@ -228,8 +228,11 @@ struct dkim_domain_entry {
 	char *domain;
 	char *selector;
 	char *key;
+	char *keyfile;
 	size_t keylen;
 	UT_hash_handle hh;
+	unsigned is_wildcard:1;
+	unsigned is_loaded:1;
 };
 
 struct config_file {
