@@ -637,10 +637,6 @@ do
 		--with-libspf*)                  LIBSPF=$value                              ;;
 		--with-libopendkim*)             LIBOPENDKIM=$value							;;
 		*=*)																		;;
-		*)
-            echo "$0: error: invalid option \"$option\""
-            exit 1
-        ;;
     esac
 done
 
