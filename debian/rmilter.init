@@ -1,0 +1,117 @@
+#! /bin/sh
+
+# Rmilter init script
+### BEGIN INIT INFO
+# Provides:                 rmilter
+# Required-Start:    $local_fs $named $remote_fs $syslog
+# Required-Stop:     $local_fs $remote_fs
+# Should-Start:             sendmail
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Script to start/stop the rmilter
+# Description: another spam-defense service
+### END INIT INFO
+
+
+
+# Based on skeleton by Miquel van Smoorenburg and Ian Murdock
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
+DAEMON=/usr/sbin/rmilter
+NAME=rmilter
+SNAME=rmilter
+DESC="Rmilter Mail Filter Daemon"
+PIDFILE="/var/run/$NAME.pid"
+PNAME="rmilter"
+USER="@USER@"
+SOCKET=/var/run/rmilter/milter-greylist.sock
+
+
+[ -x $DAEMON ] || DAEMON=/usr/sbin/rmilter
+[ -x $DAEMON ] || exit 0
+
+
+export TMPDIR=/tmp
+# Apparently people have trouble if this isn't explicitly set...
+
+ENABLED=0
+OPTIONS=""
+NICE=
+
+test -f /etc/default/rmilter && . /etc/default/rmilter
+
+DOPTIONS="-P $PIDFILE -u $USER -p $SOCKET"
+
+if [ "$ENABLED" = "0" ]; then
+    echo "$DESC: disabled, see /etc/default/rmilter"
+    exit 0
+fi
+
+if ! getent passwd | grep -q "^rmilter:"; then
+  echo "$0: rmilter user does not exist. Aborting" >&2
+  exit 1
+fi
+if ! getent group | grep -q "^rmilter:" ; then
+  echo "$0: rmilter group does not exist. Aborting" >&2
+  exit 1
+fi
+
+if [ ! -d /var/run/$PNAME ]; then
+  mkdir /var/run/$PNAME
+  chown rmilter:rmilter /var/run/$PNAME
+  chmod 755 /var/run/$PNAME
+fi
+
+set -e
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
+	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
+	echo "$NAME."
+	;;
+
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME --oknodo
+	echo "$NAME."
+	;;
+
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
+	    --retry 5 --oknodo
+	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
+	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
+
+	echo "$NAME."
+	;;
+
+  reload)
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
+	    --retry 5 --oknodo
+	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
+	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
+
+	echo "$NAME."
+	;;
+
+  status)
+  	PID=`pidof $DAEMON`
+	if [ x$PID = x ]; then
+	  echo "$DAEMON is not running"
+	else
+	  echo "$DESC is running with pid[$PID]"
+	fi
+	;;
+  *)
+	N=/etc/init.d/$SNAME
+	echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

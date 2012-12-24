@@ -1,0 +1,6 @@
+DEBIAN
+etc/init
+usr/sbin
+etc/
+usr/man/man8
+var/run/rmilter

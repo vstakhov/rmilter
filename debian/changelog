@@ -1,0 +1,11 @@
+rmilter (1.5.39-1) unstable; urgency=low
+
+  * Standart release
+
+ -- Vsevolod Stakhov <vsevolod@highsecure.ru>  Mon, 24 Dec 2012 17:14:00 +0400
+
+rmilter (1.5.38-1204.11ramail) precise; urgency=low
+
+  * Initial release
+
+ -- Dmitry Schedrin <dmx@rambler-co.ru>  Thu, 30 Aug 2012 23:02:54 +0400

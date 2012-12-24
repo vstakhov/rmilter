@@ -1,0 +1,35 @@
+Source: rmilter
+Section: mail
+Priority: extra
+Maintainer: Vsevolod Stakhov <vsevolod@highsecure.ru>
+Build-Depends: debhelper (>= 8.0.0), libopendkim-dev, libmilter-dev, libspf2-dev, bison, flex, libpcre3-dev
+Standards-Version: 3.9.2
+Homepage: https://bitbucket.org/vstakhov/rmilter
+Recommends: sendmail | postfix
+#Vcs-HG: https://bitbucket.org/vstakhov/rmilter
+#Vcs-Browser: https://bitbucket.org/vstakhov/rmilter/src
+
+Package: rmilter
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libmilter1.0.1, libopendkim6, libspf2-2, libpcre3
+Description: Rmilter is sendmail milter for different checks of mail
+ Rmilter provides the following features:
+ .
+ * SPF checks;
+ .
+ * greylisting using memcached storage;
+ .
+ * ratelimits using memcached storage;
+ .
+ * checking mail via rspamd/spamassassin;
+ .
+ * checking mail via clamav antivirus;
+ .
+ * regexp filters;
+ .
+ * DKIM signing;
+ .
+ * beanstalk operations for specific messages.
+ .
+ Rmilter uses sendmail milter interface and is compatible with Sendmail and Postfix MTA 
+ as well as with other MTA that supports milter interface.
