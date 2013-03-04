@@ -205,7 +205,7 @@ create_temp_file (struct mlfi_priv *priv)
 	return 0;
 }
 
-static void
+static char *
 dkim_stripcr (char *str)
 {
 	char *t, *h;
@@ -224,6 +224,8 @@ dkim_stripcr (char *str)
 	if (h != t) {
 		*h = *t;
 	}
+
+	return str;
 }
 
 
