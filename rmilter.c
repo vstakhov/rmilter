@@ -1642,7 +1642,7 @@ mlfi_eom(SMFICTX * ctx)
 	char *hdr;
 	size_t len;
 	if (priv->dkim) {
-		dkim_setmargin (priv->dkim, 0);
+		dkim_set_margin (priv->dkim, 0);
 		r = dkim_eom (priv->dkim, NULL);
 		if (r == DKIM_STAT_OK) {
 			r = dkim_getsighdr_d (priv->dkim, 0, (u_char **)&hdr, &len);
