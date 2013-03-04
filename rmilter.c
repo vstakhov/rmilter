@@ -205,6 +205,28 @@ create_temp_file (struct mlfi_priv *priv)
 	return 0;
 }
 
+static void
+dkim_stripcr (char *str)
+{
+	char *t, *h;
+
+	for (t = str, h = str; *t != '\0'; t++) {
+		if (*t == '\r') {
+			continue;
+		}
+
+		if (t != h) {
+			*h = *t;
+		}
+		h++;
+	}
+
+	if (h != t) {
+		*h = *t;
+	}
+}
+
+
 static inline int
 is_whitelisted_rcpt (const char *str)
 {
@@ -1623,7 +1645,7 @@ mlfi_eom(SMFICTX * ctx)
 			r = dkim_getsighdr_d (priv->dkim, 0, (u_char **)&hdr, &len);
 			if (r == DKIM_STAT_OK) {
 				msg_info ("<%s> added DKIM signature", priv->mlfi_id);
-				smfi_addheader (ctx, DKIM_SIGNHEADER, hdr);
+				smfi_addheader (ctx, DKIM_SIGNHEADER, dkim_stripcr (hdr));
 			}
 			else {
 				msg_info ("<%s> sign failed: %d", priv->mlfi_id, r);
