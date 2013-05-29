@@ -101,6 +101,8 @@ Regexp (eg. /Match*/)
 .It
 List (eg. value1, value2, value3)
 .It
+Recipients list (user, user@domain, @domain)
+.It
 Time argument (eg. 10s, 5d)
 .El
 .Pp
@@ -161,6 +163,10 @@ inet:port@host - bind to inet socket
 .It 
 .Sy use_dcc
 - flag that specify whether we should use dcc checks for mail
+.Dl Em Default: Li no
+.It
+.Sy whitelist
+- global recipients whitelist
 .Dl Em Default: Li no
 .El
 .It
@@ -425,7 +431,7 @@ can be removed from bucket each second). It can be schematically displayed:
 .It
 .Sy limit_whitelist_rcpt
 - don't check limits for specified recipients
-.Dl Em Default: Li postmaster, mailer-daemon
+.Dl Em Default: Li no
 .It
 .Sy limit_bounce_addrs
 - list of address that require more strict limits
@@ -631,6 +637,10 @@ spf_domains = rambler.ru, mail.ru;
 # Default: no
 
 use_dcc = yes;
+
+# whitelisted recipients
+# domain are whitelisted as @example.com
+whitelist = postmaster, abuse;
 
 # rule definition:
 # rule {

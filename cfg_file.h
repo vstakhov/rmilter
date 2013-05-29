@@ -235,6 +235,17 @@ struct dkim_domain_entry {
 	unsigned is_loaded:1;
 };
 
+struct whitelisted_rcpt_entry {
+	char *rcpt;
+	size_t len;
+	enum {
+		WLIST_RCPT_USER = 0,
+		WLIST_RCPT_DOMAIN,
+		WLIST_RCPT_USERDOMAIN
+	} type;
+	UT_hash_handle hh;
+};
+
 struct config_file {
 	char *cfg_name;
 	char *pid_file;
@@ -323,10 +334,10 @@ struct config_file {
 	bucket_t limit_bounce_to;
 	bucket_t limit_bounce_to_ip;
 
-	LIST_HEAD (whitelistaddrset, addr_list_entry) whitelist_rcpt;
-	LIST_HEAD (whiteliststaticset, addr_list_entry) whitelist_static;
+	struct whitelisted_rcpt_entry *wlist_rcpt_limit;
+	struct whitelisted_rcpt_entry *wlist_rcpt_global;
 	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
-	
+
 	unsigned int greylisting_timeout;
 	unsigned int greylisting_expire;
 	unsigned int whitelisting_expire;
@@ -367,6 +378,8 @@ int add_spf_domain (struct config_file *cfg, char *domain);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
 int add_ip_radix (radix_tree_t *tree, char *ipnet);
+void add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global);
+int is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global);
 
 int yylex (void);
 int yyparse (void);

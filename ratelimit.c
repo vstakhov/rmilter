@@ -104,15 +104,8 @@ extract_user_part (const char *str)
 static int
 is_whitelisted (struct in_addr *addr, const char *rcpt, struct config_file *cfg)
 {
-	size_t user_part_len;
-	struct addr_list_entry *cur_addr;
-
-	user_part_len = extract_user_part (rcpt);
-	LIST_FOREACH (cur_addr, &cfg->whitelist_rcpt, next) {
-		if (cur_addr->len == user_part_len && strncasecmp (cur_addr->addr, rcpt, user_part_len) == 0) {
-			/* Whitelist rcpt */
-			return 1;
-		}
+	if (is_whitelisted_rcpt (cfg, rcpt, 0)) {
+		return 1;
 	}
 	
 	if (radix32tree_find (cfg->limit_whitelist_tree, ntohl((uint32_t)addr->s_addr)) != RADIX_NO_VALUE) {

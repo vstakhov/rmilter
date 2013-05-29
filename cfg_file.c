@@ -43,6 +43,7 @@
 #include "pcre.h"
 #include "cfg_file.h"
 #include "spf.h"
+#include "rmilter.h"
 
 extern int yylineno;
 extern char *yytext;
@@ -610,8 +611,8 @@ void
 init_defaults (struct config_file *cfg)
 {
 	LIST_INIT (&cfg->rules);
-	LIST_INIT (&cfg->whitelist_rcpt);
-	LIST_INIT (&cfg->whitelist_static);
+	cfg->wlist_rcpt_global = NULL;
+	cfg->wlist_rcpt_limit = NULL;
 	LIST_INIT (&cfg->bounce_addrs);
 
 	cfg->clamav_connect_timeout = DEFAULT_CLAMAV_CONNECT_TIMEOUT;
@@ -703,6 +704,7 @@ free_config (struct config_file *cfg)
 	struct rule *cur, *tmp_rule;
 	struct condition *cond, *tmp_cond;
 	struct addr_list_entry *addr_cur, *addr_tmp;
+	struct whitelisted_rcpt_entry *rcpt_cur, *rcpt_tmp;
 
 	if (cfg->pid_file) {
 		free (cfg->pid_file);
@@ -761,12 +763,15 @@ free_config (struct config_file *cfg)
 		free (cur);
 	}
 	/* Free whitelists and bounce list*/
-	LIST_FOREACH_SAFE (addr_cur, &cfg->whitelist_rcpt, next, addr_tmp) {
-		if (addr_cur->addr) {
-			free (addr_cur->addr);
-		}
-		LIST_REMOVE (addr_cur, next);
-		free (addr_cur);
+	HASH_ITER (hh, cfg->wlist_rcpt_global, rcpt_cur, rcpt_tmp) {
+		HASH_DEL (cfg->wlist_rcpt_global, rcpt_cur);
+		free (rcpt_cur->rcpt);
+		free (rcpt_cur);
+	}
+	HASH_ITER (hh, cfg->wlist_rcpt_limit, rcpt_cur, rcpt_tmp) {
+		HASH_DEL (cfg->wlist_rcpt_limit, rcpt_cur);
+		free (rcpt_cur->rcpt);
+		free (rcpt_cur);
 	}
 	LIST_FOREACH_SAFE (addr_cur, &cfg->bounce_addrs, next, addr_tmp) {
 		if (addr_cur->addr) {
@@ -848,6 +853,81 @@ free_config (struct config_file *cfg)
 		free (curd);
 	}
 #endif
+}
+
+void
+add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global)
+{
+	struct whitelisted_rcpt_entry *t;
+	t = (struct whitelisted_rcpt_entry *)malloc (sizeof (struct whitelisted_rcpt_entry));
+	if (*rcpt == '@') {
+		t->type = WLIST_RCPT_DOMAIN;
+		rcpt ++;
+	}
+	else if (strchr (rcpt, '@') != NULL) {
+		t->type = WLIST_RCPT_USERDOMAIN;
+	}
+	else {
+		t->type = WLIST_RCPT_USER;
+	}
+	t->rcpt = strdup (rcpt);
+	t->len = strlen (t->rcpt);
+	if (is_global) {
+		HASH_ADD_KEYPTR (hh, cfg->wlist_rcpt_global, t->rcpt, t->len, t);
+	}
+	else {
+		HASH_ADD_KEYPTR (hh, cfg->wlist_rcpt_limit, t->rcpt, t->len, t);
+	}
+}
+
+int
+is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
+{
+	int len;
+	struct whitelisted_rcpt_entry *entry, *list;
+	char rcptbuf[ADDRLEN + 1], *domain;
+
+	if (*str == '<') {
+		str ++;
+	}
+
+	len = strcspn (str, ">");
+	strlcpy (rcptbuf, str, MIN (len + 1, sizeof (rcptbuf)));
+	if (len > 0) {
+		if (is_global) {
+			list = cfg->wlist_rcpt_global;
+		}
+		else {
+			list = cfg->wlist_rcpt_limit;
+		}
+		/* Initially search for userdomain */
+		HASH_FIND_STR (list, rcptbuf, entry, strncasecmp);
+		if (entry != NULL && entry->type == WLIST_RCPT_USERDOMAIN) {
+			return 1;
+		}
+		domain = strchr (rcptbuf, '@');
+		if (domain == NULL && entry != NULL && entry->type == WLIST_RCPT_USER) {
+			return 1;
+		}
+		/* Search for user */
+		if (domain != NULL) {
+			*domain = '\0';
+		}
+		HASH_FIND_STR (list, rcptbuf, entry, strncasecmp);
+		if (entry != NULL && entry->type == WLIST_RCPT_USER) {
+			return 1;
+		}
+		if (domain != NULL) {
+			/* Search for domain */
+			domain ++;
+			HASH_FIND_STR (list, domain, entry, strncasecmp);
+			if (entry != NULL && entry->type == WLIST_RCPT_DOMAIN) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 /*

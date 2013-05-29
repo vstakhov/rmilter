@@ -106,19 +106,19 @@ static int check_dcc(const struct mlfi_priv *);
 
 struct smfiDesc smfilter =
 {
-    	"rmilter",		/* filter name */
-    	SMFI_VERSION,	/* version code -- do not change */
-    	SMFIF_ADDHDRS | SMFIF_CHGHDRS | SMFIF_ADDRCPT | SMFIF_DELRCPT,	/* flags */
-    	mlfi_connect,	/* connection info filter */
-    	mlfi_helo,		/* SMTP HELO command filter */
-    	mlfi_envfrom,	/* envelope sender filter */
-    	mlfi_envrcpt,	/* envelope recipient filter */
-    	mlfi_header,	/* header filter */
-    	mlfi_eoh,		/* end of header */
-    	mlfi_body,		/* body block filter */
-    	mlfi_eom,		/* end of message */
-    	mlfi_abort,		/* message aborted */
-    	mlfi_close,		/* connection cleanup */
+		"rmilter",		/* filter name */
+		SMFI_VERSION,	/* version code -- do not change */
+		SMFIF_ADDHDRS | SMFIF_CHGHDRS | SMFIF_ADDRCPT | SMFIF_DELRCPT,	/* flags */
+		mlfi_connect,	/* connection info filter */
+		mlfi_helo,		/* SMTP HELO command filter */
+		mlfi_envfrom,	/* envelope sender filter */
+		mlfi_envrcpt,	/* envelope recipient filter */
+		mlfi_header,	/* header filter */
+		mlfi_eoh,		/* end of header */
+		mlfi_body,		/* body block filter */
+		mlfi_eom,		/* end of message */
+		mlfi_abort,		/* message aborted */
+		mlfi_close,		/* connection cleanup */
 #if (SMFI_PROT_VERSION >= 4)
 		NULL,			/* unknown situation */
 		mlfi_data,		/* SMTP DATA callback */
@@ -138,30 +138,30 @@ set_reply (SMFICTX *ctx, const struct action *act)
 	int result = SMFIS_CONTINUE;
 
 	switch (act->type) {
-		case ACTION_ACCEPT:
-			result = SMFIS_ACCEPT;
-			break;
-		case ACTION_REJECT:
-			result = SMFIS_REJECT;
-			break;
-		case ACTION_TEMPFAIL:
-			result = SMFIS_TEMPFAIL;
-			break;
-		case ACTION_QUARANTINE:
-			result = SMFIS_DISCARD;
-			break;
-		case ACTION_DISCARD:
-			result = SMFIS_DISCARD;
-			break;
+	case ACTION_ACCEPT:
+		result = SMFIS_ACCEPT;
+		break;
+	case ACTION_REJECT:
+		result = SMFIS_REJECT;
+		break;
+	case ACTION_TEMPFAIL:
+		result = SMFIS_TEMPFAIL;
+		break;
+	case ACTION_QUARANTINE:
+		result = SMFIS_DISCARD;
+		break;
+	case ACTION_DISCARD:
+		result = SMFIS_DISCARD;
+		break;
 	}
 	if (act->type == ACTION_REJECT &&
-	    smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT,
-		(char *)act->message) != MI_SUCCESS) {
+			smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT,
+					(char *)act->message) != MI_SUCCESS) {
 		msg_err("smfi_setreply");
 	}
 	if (act->type == ACTION_TEMPFAIL &&
-		smfi_setreply(ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL,
-		(char *)act->message) != MI_SUCCESS) {
+			smfi_setreply(ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL,
+					(char *)act->message) != MI_SUCCESS) {
 		msg_err("smfi_setreply");
 	}
 
@@ -178,7 +178,7 @@ create_temp_file (struct mlfi_priv *priv)
 #else
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
-    int fd;
+	int fd;
 
 	snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
 	strlcpy (priv->file, buf, sizeof (priv->file));
@@ -200,7 +200,7 @@ create_temp_file (struct mlfi_priv *priv)
 		return -1;
 	}
 	fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\r\n",
-			 priv->priv_helo, priv->priv_hostname, priv->priv_ip); 
+			priv->priv_helo, priv->priv_hostname, priv->priv_ip);
 
 	return 0;
 }
@@ -228,42 +228,6 @@ dkim_stripcr (char *str)
 	return str;
 }
 
-
-static inline int
-is_whitelisted_rcpt (const char *str)
-{
-	int len;
-	struct addr_list_entry *cur;
-
-	if (*str == '<') {
-		str ++;
-	}
-
-	len = strcspn (str, "@>");
-	if (len > 0) {
-		LIST_FOREACH (cur, &cfg->whitelist_static, next) {
-			if (strchr (cur->addr, '@') == NULL) {
-				/* Compare just user */
-				if (len == cur->len) {
-					if (memcmp (str, cur->addr, len) == 0) {
-						return 1;
-					}
-				}
-			}
-			else {
-				/* Compare user and domain */
-				len = strcspn (str, ">");
-				if (len == cur->len) {
-					if (memcmp (str, cur->addr, len) == 0) {
-						return 1;
-					}
-				}
-			}
-		}
-	}
-
-	return 0;
-}
 
 static inline void
 copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2]) 
@@ -319,17 +283,17 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		c += s;
 	}
 	if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
- 		memcpy (c, md5_out, sizeof (md5_out));
- 	}
- 	else {
- 		msg_warn ("check_id: id_prefix(%s) too long for memcached key, error in configure", cfg->id_prefix);
- 	}
+		memcpy (c, md5_out, sizeof (md5_out));
+	}
+	else {
+		msg_warn ("check_id: id_prefix(%s) too long for memcached key, error in configure", cfg->id_prefix);
+	}
 
 	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_id,
-										cfg->memcached_servers_id_num, sizeof (struct memcached_server),
-										(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time, 
-										cfg->memcached_dead_time, cfg->memcached_maxerrors,
-										(char *)cur_param.key, strlen (cur_param.key));
+			cfg->memcached_servers_id_num, sizeof (struct memcached_server),
+			(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time,
+			cfg->memcached_dead_time, cfg->memcached_maxerrors,
+			(char *)cur_param.key, strlen (cur_param.key));
 	if (selected == NULL) {
 		msg_err ("mlfi_data: cannot get memcached upstream for storing message id");
 		return;
@@ -345,7 +309,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 #else
 	mctx.options = 0;
 #endif
-	
+
 	r = memc_init_ctx(&mctx);
 	if (r == -1) {
 		msg_warn ("mlfi_data: cannot connect to memcached upstream: %s",
@@ -380,7 +344,7 @@ make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[MD5_SIZ
 	size_t s;
 	int i;
 	char md5_out[MD5_SIZE * 2 + 1], *c;
-	
+
 	/* Format md5 output */
 	s = sizeof (md5_out);
 	for (i = 0; i < MD5_SIZE; i ++){
@@ -429,23 +393,23 @@ check_greylisting (struct mlfi_priv *priv)
 		MD5Update(&mdctx, (const u_char *)priv->priv_ip, strlen(priv->priv_ip));
 		MD5Update(&mdctx, (const u_char *)priv->rcpts.lh_first->r_addr, strlen(priv->rcpts.lh_first->r_addr));
 		MD5Final(final, &mdctx);
-		
+
 		tm.tv_sec = priv->conn_tm.tv_sec;
 		tm.tv_usec = priv->conn_tm.tv_usec;
 
 		make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
 
 		msg_debug ("check_greylisting: check from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
+				priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 		s = 1;
 		cur_param.buf = (u_char *)&tm1;
 		cur_param.bufsize = sizeof (tm1);
 
 		/* Check whitelist memcached */
 		selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
-										cfg->memcached_servers_white_num, sizeof (struct memcached_server),
-										(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-										(char *)final, MD5_SIZE);
+				cfg->memcached_servers_white_num, sizeof (struct memcached_server),
+				(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+				(char *)final, MD5_SIZE);
 		if (selected == NULL) {
 			if (cfg->memcached_servers_white_num != 0) {
 				msg_err ("check_greylisting: cannot get memcached upstream");
@@ -480,7 +444,7 @@ check_greylisting (struct mlfi_priv *priv)
 			mctx_white[0].options = 0;
 			mctx_white[1].options = 0;
 #endif
-			
+
 			r = memc_init_ctx_mirror (mctx_white, 2);
 			copy_alive (selected, mctx_white);
 			if (r == -1) {
@@ -502,13 +466,13 @@ check_greylisting (struct mlfi_priv *priv)
 				memc_close_ctx_mirror (mctx_white, 2);
 			}
 		}
-		
+
 		/* Try to get record from memcached_grey */
 		make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->grey_prefix, final);
 		selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_grey,
-										cfg->memcached_servers_grey_num, sizeof (struct memcached_server),
-										(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-										(char *)final, MD5_SIZE);
+				cfg->memcached_servers_grey_num, sizeof (struct memcached_server),
+				(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+				(char *)final, MD5_SIZE);
 		if (selected == NULL) {
 			msg_err ("check_greylisting: cannot get memcached upstream");
 			return GREY_ERROR;
@@ -560,7 +524,7 @@ check_greylisting (struct mlfi_priv *priv)
 			cur_param.bufsize = sizeof (tm);
 			r = memc_set_mirror (mctx, 2, &cur_param, &s, cfg->greylisting_expire);
 			msg_debug ("check_greylisting: write hash to grey list from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-							priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
+					priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 			copy_alive (selected, mctx);
 			if (r == OK) {
 				upstream_ok (&selected->up, tm.tv_sec);
@@ -587,9 +551,9 @@ check_greylisting (struct mlfi_priv *priv)
 				}
 				/* Write to whitelist memcached server */
 				selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
-									cfg->memcached_servers_white_num, sizeof (struct memcached_server),
-									(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-									(char *)final, MD5_SIZE);
+						cfg->memcached_servers_white_num, sizeof (struct memcached_server),
+						(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
+						(char *)final, MD5_SIZE);
 				if (selected == NULL) {
 					if (cfg->memcached_servers_white_num != 0) {
 						msg_warn ("check_greylisting: cannot get memcached upstream for whitelisting");
@@ -635,12 +599,12 @@ check_greylisting (struct mlfi_priv *priv)
 						make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
 						s = 1;
 						cur_param.buf = (u_char *)&tm;
-           				cur_param.bufsize = sizeof (tm);
+						cur_param.bufsize = sizeof (tm);
 						r = memc_set_mirror (mctx_white, 2, &cur_param, &s, cfg->whitelisting_expire);
 						copy_alive (selected, mctx_white);
 						if (r == OK) {
 							msg_debug ("check_greylisting: write hash to white list from: %s@%s to: %s, md5: %s, time: %ld.%ld", priv->priv_from, 
-								priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
+									priv->priv_ip, priv->rcpts.lh_first->r_addr, cur_param.key, (long int)tm.tv_sec, (long int)tm.tv_usec);
 							memc_close_ctx_mirror (mctx_white, 2);
 							upstream_ok (&selected->up, tm.tv_sec);
 						}
@@ -716,7 +680,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	void *map;
 	struct stat st;
 	char ipout[INET_ADDRSTRLEN + 1];
-	
+
 	/* Open and mmap file */
 	if (!*priv->file) {
 		return;
@@ -792,9 +756,9 @@ send_beanstalk (const struct mlfi_priv *priv)
 
 
 	selected = (struct beanstalk_server *) get_random_upstream ((void *)cfg->beanstalk_servers,
-											cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
-											priv->conn_tm.tv_sec, cfg->beanstalk_error_time, 
-											cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors);
+			cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
+			priv->conn_tm.tv_sec, cfg->beanstalk_error_time,
+			cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors);
 	if (selected == NULL) {
 		msg_err ("send_beanstalk: upstream get error, %s", priv->file);
 		return;
@@ -886,15 +850,15 @@ format_spamd_reply (char *result, size_t len, char *format, char *symbols)
 static sfsistat 
 mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 {
-    struct mlfi_priv *priv;
+	struct mlfi_priv *priv;
 
-    priv = malloc(sizeof (struct mlfi_priv));
+	priv = malloc(sizeof (struct mlfi_priv));
 
-    if (priv == NULL) {
+	if (priv == NULL) {
 		return SMFIS_TEMPFAIL;
-    }
-    memset(priv, '\0', sizeof (struct mlfi_priv));
-    LIST_INIT (&priv->rcpts);
+	}
+	memset(priv, '\0', sizeof (struct mlfi_priv));
+	LIST_INIT (&priv->rcpts);
 	priv->strict = 1;
 	priv->serial = cfg->serial;
 
@@ -922,7 +886,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	}
 #endif
 
-    smfi_setpriv(ctx, priv);
+	smfi_setpriv(ctx, priv);
 	/* Cannot set reply here, so delay processing of connect stage */
 	return SMFIS_CONTINUE;
 }
@@ -936,7 +900,7 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 
 	strlcpy (priv->priv_helo, helostr, ADDRLEN);
 	msg_debug ("mlfi_helo: got helo value: %s", priv->priv_helo);
-	
+
 	return SMFIS_CONTINUE;
 }
 
@@ -978,11 +942,11 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 							close (fd);
 							if (keymap != MAP_FAILED) {
 								d = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
-													(u_char *)keymap,  (u_char *)dkim_domain->selector,
-													(u_char *)domain,
-													cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-													cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-													cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+										(u_char *)keymap,  (u_char *)dkim_domain->selector,
+										(u_char *)domain,
+										cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+												cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+														cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
 								/* It is safe to unmap memory here */
 								munmap (keymap, st.st_size);
 								if (statp != DKIM_STAT_OK) {
@@ -1023,8 +987,8 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	/*
 	 * Get mail from addr
 	 */
-    tmpfrom = smfi_getsymval(ctx, "{mail_addr}");
-    if (tmpfrom == NULL || *tmpfrom == '\0') {
+	tmpfrom = smfi_getsymval(ctx, "{mail_addr}");
+	if (tmpfrom == NULL || *tmpfrom == '\0') {
 		tmpfrom = "<>";
 	}
 	for (i = 0; i < sizeof(priv->priv_from) - 1; i++) {
@@ -1058,8 +1022,8 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 					(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
 					(u_char *)dkim_domain->domain,
 					cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-					cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-					cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+							cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+									cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
 			if (statp != DKIM_STAT_OK) {
 				msg_info ("dkim sign failed: %d", statp);
 				if (priv->dkim) {
@@ -1124,7 +1088,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (act != NULL) {
 		priv->matched_rules[STAGE_HELO] = act;
 	}
-	
+
 	/* Check envfrom */
 	act = regexp_check (cfg, priv, STAGE_ENVFROM);
 	if (act != NULL) {
@@ -1150,26 +1114,26 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	/*
 	 * Get recipient address
 	 */
-    tmprcpt = *envrcpt;
-    if (tmprcpt == NULL || *tmprcpt == '\0') {
+	tmprcpt = *envrcpt;
+	if (tmprcpt == NULL || *tmprcpt == '\0') {
 		tmprcpt = "<>";
 	}
-    newrcpt = malloc (sizeof (struct rcpt));
-    if (newrcpt == NULL) {
-    	msg_err ("malloc failed: %s", strerror (errno));
-    	return SMFIS_TEMPFAIL;
-    }
-    strlcpy (newrcpt->r_addr, tmprcpt, sizeof (newrcpt->r_addr));
-
-    newrcpt->is_whitelisted = is_whitelisted_rcpt (newrcpt->r_addr);
-    if (!newrcpt->is_whitelisted && priv->has_whitelisted) {
-    	priv->has_whitelisted = 0;
-    }
-    else if (newrcpt->is_whitelisted && !priv->has_whitelisted) {
-    	priv->has_whitelisted = 1;
-    }
+	newrcpt = malloc (sizeof (struct rcpt));
+	if (newrcpt == NULL) {
+		msg_err ("malloc failed: %s", strerror (errno));
+		return SMFIS_TEMPFAIL;
+	}
+	strlcpy (newrcpt->r_addr, tmprcpt, sizeof (newrcpt->r_addr));
 
 	CFG_RLOCK();
+
+	newrcpt->is_whitelisted = is_whitelisted_rcpt (cfg, newrcpt->r_addr, 1);
+	if (!newrcpt->is_whitelisted && priv->has_whitelisted) {
+		priv->has_whitelisted = 0;
+	}
+	else if (newrcpt->is_whitelisted && !priv->has_whitelisted) {
+		priv->has_whitelisted = 1;
+	}
 	/* Check ratelimit */
 	if (rate_check (priv, cfg, newrcpt->r_addr, 0) == 0) {
 		/* Rate is more than limit */
@@ -1195,7 +1159,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 static sfsistat
 mlfi_data(SMFICTX *ctx)
 {
-    struct mlfi_priv *priv;
+	struct mlfi_priv *priv;
 	char *id;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -1204,12 +1168,12 @@ mlfi_data(SMFICTX *ctx)
 		return SMFIS_TEMPFAIL;
 	}
 
-    /* set queue id */
-    id = smfi_getsymval(ctx, "i");
+	/* set queue id */
+	id = smfi_getsymval(ctx, "i");
 
 	CFG_RLOCK();
 	if (id) {
-    	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+		strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 	}
 	else {
 		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
@@ -1227,7 +1191,7 @@ mlfi_data(SMFICTX *ctx)
 static sfsistat 
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
-    struct mlfi_priv *priv;
+	struct mlfi_priv *priv;
 	struct rule *act;
 	int len;
 	char *p, *c, t;
@@ -1262,13 +1226,13 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	else if (strncasecmp (headerf, "Return-Path", sizeof ("Return-Path") - 1) == 0) {
 		priv->has_return_path = 1;
 	}
-    /*
-     * Create temporary file, if this is first call of mlfi_header(), and it
-     * not yet created
-     */
+	/*
+	 * Create temporary file, if this is first call of mlfi_header(), and it
+	 * not yet created
+	 */
 
 	CFG_RLOCK();
-    if (!priv->fileh) {
+	if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
 			msg_err ("mlfi_eoh: cannot create temp file");
 			CFG_UNLOCK();
@@ -1278,31 +1242,31 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	}
 
 #ifdef ENABLE_DKIM
-    struct dkim_hash_entry *e;
-    u_char *tmp;
-    int tmplen, r;
+	struct dkim_hash_entry *e;
+	u_char *tmp;
+	int tmplen, r;
 
-    if (priv->dkim) {
-    	HASH_FIND_STR (cfg->headers, headerf, e, strncasecmp);
-    	if (e) {
-    		tmplen = strlen (headerf) + strlen (headerv) + sizeof (": ");
-    		tmp = malloc (tmplen);
-    		if (tmp != NULL) {
-    			snprintf ((char *)tmp, tmplen, "%s: %s", headerf, headerv);
-    			r = dkim_header (priv->dkim, tmp, tmplen - 1);
-    			if (r != DKIM_STAT_OK) {
-    				msg_info ("dkim_header failed: %d", r);
-    			}
-    			free (tmp);
-    		}
-    	}
-    }
+	if (priv->dkim) {
+		HASH_FIND_STR (cfg->headers, headerf, e, strncasecmp);
+		if (e) {
+			tmplen = strlen (headerf) + strlen (headerv) + sizeof (": ");
+			tmp = malloc (tmplen);
+			if (tmp != NULL) {
+				snprintf ((char *)tmp, tmplen, "%s: %s", headerf, headerv);
+				r = dkim_header (priv->dkim, tmp, tmplen - 1);
+				if (r != DKIM_STAT_OK) {
+					msg_info ("dkim_header failed: %d", r);
+				}
+				free (tmp);
+			}
+		}
+	}
 #endif
-    /*
-     * Write header line to temporary file.
-     */
+	/*
+	 * Write header line to temporary file.
+	 */
 
-    fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
+	fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
 	/* Check header with regexp */
 	priv->priv_cur_header.header_name = headerf;
 	priv->priv_cur_header.header_value = headerv;
@@ -1319,22 +1283,22 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	}
 
 	CFG_UNLOCK();
-    return SMFIS_CONTINUE;
+	return SMFIS_CONTINUE;
 }
 
 static sfsistat 
 mlfi_eoh(SMFICTX * ctx)
 {
-    struct mlfi_priv *priv;
-    struct rcpt *rcpt;
+	struct mlfi_priv *priv;
+	struct rcpt *rcpt;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;
 	}
-	
-    if (!priv->fileh) {
+
+	if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
 			msg_err ("mlfi_eoh: cannot create temp file");
 			mlfi_cleanup (ctx, false);
@@ -1349,7 +1313,7 @@ mlfi_eoh(SMFICTX * ctx)
 		LIST_FOREACH (rcpt, &priv->rcpts, r_list) {
 			fprintf (priv->fileh, "X-Rcpt-To: %s\r\n", rcpt->r_addr);
 		}
-    	fprintf (priv->fileh, "\r\n");
+		fprintf (priv->fileh, "\r\n");
 		priv->eoh_pos = ftell (priv->fileh);
 	}
 #ifdef ENABLE_DKIM
@@ -1363,14 +1327,14 @@ mlfi_eoh(SMFICTX * ctx)
 	}
 #endif
 
-    return SMFIS_CONTINUE;
+	return SMFIS_CONTINUE;
 }
 
 static sfsistat 
 mlfi_eom(SMFICTX * ctx)
 {
-    struct mlfi_priv *priv;
-    int r, er;
+	struct mlfi_priv *priv;
+	int r, er;
 #ifdef HAVE_PATH_MAX
 	char strres[PATH_MAX], buf[PATH_MAX];
 #elif defined(HAVE_MAXPATHLEN)
@@ -1378,10 +1342,10 @@ mlfi_eom(SMFICTX * ctx)
 #else
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
-    char *id, *subject = NULL;
-    int prob_max;
-    double prob_cur;
-    struct stat sb;
+	char *id, *subject = NULL;
+	int prob_max;
+	double prob_cur;
+	struct stat sb;
 	struct action *act;
 	struct rcpt *rcpt;
 
@@ -1389,12 +1353,12 @@ mlfi_eom(SMFICTX * ctx)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
-	
+
 	/* set queue id */
-    id = smfi_getsymval(ctx, "i");
+	id = smfi_getsymval(ctx, "i");
 
 	if (id) {
-    	strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+		strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 	}
 	else {
 		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
@@ -1408,7 +1372,7 @@ mlfi_eom(SMFICTX * ctx)
 		return check_greylisting_ctx (ctx, priv);
 	}
 #endif
-	
+
 	CFG_RLOCK();
 	if (cfg->serial == priv->serial) {
 		msg_debug ("mlfi_eom: %s: checking regexp rules", priv->mlfi_id);
@@ -1429,22 +1393,22 @@ mlfi_eom(SMFICTX * ctx)
 		msg_debug ("mlfi_eom: %s: check spf", priv->mlfi_id);
 		r = spf_check (priv, cfg);
 		switch (r) {
-			case SPF_RESULT_PASS:
-			case SPF_RESULT_SOFTFAIL:
-			case SPF_RESULT_NEUTRAL:
-			case SPF_RESULT_NONE:
-				break;
-			case SPF_RESULT_FAIL:
-				if (!priv->has_whitelisted) {
-					snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
-							(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
-									priv->priv_ip, priv->priv_from);
-					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
-					CFG_UNLOCK();
-					mlfi_cleanup (ctx, false);
-					return SMFIS_REJECT;
-				}
-				break;
+		case SPF_RESULT_PASS:
+		case SPF_RESULT_SOFTFAIL:
+		case SPF_RESULT_NEUTRAL:
+		case SPF_RESULT_NONE:
+			break;
+		case SPF_RESULT_FAIL:
+			if (!priv->has_whitelisted) {
+				snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
+						(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
+								priv->priv_ip, priv->priv_from);
+				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
+				CFG_UNLOCK();
+				mlfi_cleanup (ctx, false);
+				return SMFIS_REJECT;
+			}
+			break;
 		}
 	}
 #endif
@@ -1454,15 +1418,15 @@ mlfi_eom(SMFICTX * ctx)
 		priv->eoh_pos = ftell (priv->fileh);	
 	}
 
-    fflush (priv->fileh);
+	fflush (priv->fileh);
 
-    /* check file size */
-    if (stat (priv->file, &sb) == -1) {
+	/* check file size */
+	if (stat (priv->file, &sb) == -1) {
 		msg_warn ("mlfi_eom: %s: stat failed: %m", priv->mlfi_id);
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
-    else if (cfg->sizelimit != 0 && sb.st_size > (off_t)cfg->sizelimit) {
+	else if (cfg->sizelimit != 0 && sb.st_size > (off_t)cfg->sizelimit) {
 #ifndef FREEBSD_LEGACY
 		msg_warn ("mlfi_eom: %s: message size(%zd) exceeds limit(%zd), not scanned, %s", priv->mlfi_id, (size_t)sb.st_size, cfg->sizelimit, priv->file);
 #else
@@ -1471,60 +1435,60 @@ mlfi_eom(SMFICTX * ctx)
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
-    msg_warn ("mlfi_eom: %s: tempfile=%s, size=%lu", priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
-	
+	msg_warn ("mlfi_eom: %s: tempfile=%s, size=%lu", priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
+
 	if (!priv->strict) {
 		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; skip dcc, spamd", priv->mlfi_id, 
 				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->rcpts.lh_first->r_addr, priv->reply_id);
 	}
 
 #ifdef HAVE_DCC
- 	/* Check dcc */
+	/* Check dcc */
 	if (cfg->use_dcc == 1 && !priv->has_whitelisted && priv->strict &&
 			(cfg->strict_auth && *priv->priv_user != '\0')) {
 		msg_debug ("mlfi_eom: %s: check dcc", priv->mlfi_id);
 		r = check_dcc (priv);
 		switch (r) {
-			case 'A':
-				break;
-			case 'G':
-				msg_warn ("mlfi_eom: %s: greylisting by dcc", priv->mlfi_id);
-				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Try again later");
-				CFG_UNLOCK();
-				mlfi_cleanup (ctx, false);
-				return SMFIS_TEMPFAIL;
-			case 'R':
-				msg_warn ("mlfi_eom: %s: rejected by dcc", priv->mlfi_id);
-				smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
-				CFG_UNLOCK();
-				mlfi_cleanup (ctx, false);
-				return SMFIS_REJECT;
-			case 'S': /* XXX - dcc selective reject - not implemented yet */
-			case 'T': /* Temp failure by dcc */
-			default:
-				break;
+		case 'A':
+			break;
+		case 'G':
+			msg_warn ("mlfi_eom: %s: greylisting by dcc", priv->mlfi_id);
+			smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Try again later");
+			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+		case 'R':
+			msg_warn ("mlfi_eom: %s: rejected by dcc", priv->mlfi_id);
+			smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
+			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
+			return SMFIS_REJECT;
+		case 'S': /* XXX - dcc selective reject - not implemented yet */
+		case 'T': /* Temp failure by dcc */
+		default:
+			break;
 		}
 	}
 #endif
-	
+
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0) {
 		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
-	    r = check_clamscan (priv->file, strres, sizeof (strres));
-    	if (r < 0) {
+		r = check_clamscan (priv->file, strres, sizeof (strres));
+		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
 			CFG_UNLOCK();
 			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
-    	}
-    	if (*strres) {
+		}
+		if (*strres) {
 			msg_warn ("mlfi_eom: %s: rejecting virus %s", priv->mlfi_id, strres);
 			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 			CFG_UNLOCK();
 			mlfi_cleanup (ctx, false);
 			return SMFIS_REJECT;
-    	}
+		}
 	}
 	/* Write message to beanstalk */
 	if (cfg->beanstalk_servers_num > 0 && cfg->send_beanstalk_headers) {
@@ -1545,8 +1509,8 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict
-		&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
-		(cfg->strict_auth || *priv->priv_user == '\0')) {
+			&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
+			(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (ctx, priv, cfg, &subject, 0);
 
@@ -1660,13 +1624,13 @@ mlfi_eom(SMFICTX * ctx)
 	}
 #endif
 	CFG_UNLOCK();
-    return mlfi_cleanup (ctx, true);
+	return mlfi_cleanup (ctx, true);
 }
 
 static sfsistat 
 mlfi_close(SMFICTX * ctx)
 {
-    struct mlfi_priv *priv;
+	struct mlfi_priv *priv;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1676,24 +1640,24 @@ mlfi_close(SMFICTX * ctx)
 
 	mlfi_cleanup (ctx, true);
 
-    free(priv);
-    smfi_setpriv(ctx, NULL);
+	free(priv);
+	smfi_setpriv(ctx, NULL);
 
-    return SMFIS_ACCEPT;
+	return SMFIS_ACCEPT;
 }
 
 static sfsistat 
 mlfi_abort(SMFICTX * ctx)
 {
-    return mlfi_cleanup(ctx, false);
+	return mlfi_cleanup(ctx, false);
 }
 
 static sfsistat 
 mlfi_cleanup(SMFICTX * ctx, bool ok)
 {
-    sfsistat rstat = SMFIS_CONTINUE;
-    struct mlfi_priv *priv;
-    struct rcpt *rcpt, *next;
+	sfsistat rstat = SMFIS_CONTINUE;
+	struct mlfi_priv *priv;
+	struct rcpt *rcpt, *next;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1701,16 +1665,16 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	}
 	msg_debug ("mlfi_cleanup: cleanup");
 
-    if (priv->fileh) {
+	if (priv->fileh) {
 		if (fclose (priv->fileh) != 0) {
 			msg_err ("mlfi_close: %s: close failed (%d), %m", priv->mlfi_id, errno);
 		}
 		priv->fileh = NULL;
-    }
-    if (*priv->file) {
+	}
+	if (*priv->file) {
 		unlink (priv->file);
 		priv->file[0] = '\0';
-    }
+	}
 	/* clean message specific data */
 	priv->strict = 1;
 	priv->mlfi_id[0] = '\0';
@@ -1738,14 +1702,14 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		}
 		LIST_INIT (&priv->rcpts);
 	}
-    /* return status */
-    return rstat;
+	/* return status */
+	return rstat;
 }
 
 static sfsistat 
 mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 {
-    struct mlfi_priv *priv;
+	struct mlfi_priv *priv;
 	struct rule *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -1754,7 +1718,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 		return SMFIS_TEMPFAIL;
 	}
 
-    if (!priv->fileh) {
+	if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
 			msg_err ("mlfi_eoh: cannot create temp file");
 			mlfi_cleanup (ctx, false);
@@ -1763,11 +1727,11 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	}
 
 
-    if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
+	if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
 		msg_warn ("mlfi_body: %s: file write error, %d: %m", priv->mlfi_id, errno);
 		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;;
-    }
+	}
 	/* Check body with regexp */
 	priv->priv_cur_body.value = (char *)bodyp;
 	priv->priv_cur_body.len = bodylen;
@@ -1777,7 +1741,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	if (act != NULL) {
 		priv->matched_rules[STAGE_BODY] = act;
 	}
-    /* continue processing */
+	/* continue processing */
 #ifdef ENABLE_DKIM
 	int r;
 
@@ -1790,7 +1754,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 #endif
 
 	CFG_UNLOCK();
-    return SMFIS_CONTINUE;
+	return SMFIS_CONTINUE;
 }
 
 
@@ -1806,19 +1770,19 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 static int 
 check_clamscan(const char *file, char *strres, size_t strres_len)
 {
-    int r = -2;
+	int r = -2;
 
-    *strres = '\0';
+	*strres = '\0';
 
-    /* scan using libclamc clamscan() */
-    r = clamscan (file, cfg, strres, strres_len);
- 
-    /* reset virusname for non-viruses */
-    if (*strres && (!strcmp (strres, "Suspected.Zip") || !strcmp (strres, "Oversized.Zip"))) {
+	/* scan using libclamc clamscan() */
+	r = clamscan (file, cfg, strres, strres_len);
+
+	/* reset virusname for non-viruses */
+	if (*strres && (!strcmp (strres, "Suspected.Zip") || !strcmp (strres, "Oversized.Zip"))) {
 		*strres = '\0';
 	}
 
-    return r;
+	return r;
 }
 
 #ifdef HAVE_DCC
@@ -1851,10 +1815,10 @@ check_dcc (const struct mlfi_priv *priv)
 	rcpt.user = "";
 	rcpt.ok = '?';
 	rcpts = &rcpt;
-	
+
 	dccres = dccif (emsg, /*out body fd*/dccofd, /*out_body*/0,
-					opts, &sup, priv->priv_hostname, priv->priv_helo,
-					(priv->priv_from == 0) || (priv->priv_from[0] == 0) ? "<>" : priv->priv_from,
+			opts, &sup, priv->priv_hostname, priv->priv_helo,
+			(priv->priv_from == 0) || (priv->priv_from[0] == 0) ? "<>" : priv->priv_from,
 					rcpts, dccfd, /*in_body*/0, homedir);
 
 	return dccres;

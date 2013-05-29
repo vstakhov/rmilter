@@ -93,7 +93,7 @@ struct rcpt {
 
 struct mlfi_priv {
 	struct sockaddr_in priv_addr;
-	char priv_ip[INET_ADDRSTRLEN + 1];
+	char priv_ip[INET_ADDRSTRLEN * 4 + 1];
 	char priv_hostname[ADDRLEN + 1];
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];

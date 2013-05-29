@@ -1,3 +1,9 @@
+rmilter (1.5.41-1) unstable; urgency=low
+
+  * Update to 1.5.41
+
+ -- Vsevolod Stakhov <vsevolod@highsecure.ru>  Wed, 29 May 2013 14:04:00 +0000
+
 rmilter (1.5.40-1) unstable; urgency=low
 
   * Update to 1.5.40

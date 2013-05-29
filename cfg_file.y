@@ -1415,18 +1415,10 @@ limit_whitelist_rcpt:
 	;
 whitelist_rcpt_list:
 	STRING {
-		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
-		t->addr = strdup ($1);
-		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->whitelist_rcpt, t, next);
+		add_rcpt_whitelist (cfg, $1, 0);
 	}
 	| whitelist_rcpt_list COMMA STRING {
-		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
-		t->addr = strdup ($3);
-		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->whitelist_rcpt, t, next);
+		add_rcpt_whitelist (cfg, $3, 0);
 	}
 	;
 
@@ -1471,18 +1463,10 @@ whitelist:
 	;
 whitelist_list:
 	STRING {
-		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
-		t->addr = strdup ($1);
-		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->whitelist_static, t, next);
+		add_rcpt_whitelist (cfg, $1, 1);
 	}
 	| whitelist_list COMMA STRING {
-		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
-		t->addr = strdup ($3);
-		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->whitelist_static, t, next);
+		add_rcpt_whitelist (cfg, $3, 1);
 	}
 	;
 
