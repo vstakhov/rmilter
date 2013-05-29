@@ -104,7 +104,7 @@ extract_user_part (const char *str)
 static int
 is_whitelisted (struct in_addr *addr, const char *rcpt, struct config_file *cfg)
 {
-	if (is_whitelisted_rcpt (cfg, rcpt, 0)) {
+	if (is_whitelisted_rcpt (cfg, rcpt, 0) || is_whitelisted_rcpt (cfg, rcpt, 1)) {
 		return 1;
 	}
 	
