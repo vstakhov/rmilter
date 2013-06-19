@@ -92,8 +92,15 @@ struct rcpt {
 };
 
 struct mlfi_priv {
-	struct sockaddr_in priv_addr;
-	char priv_ip[INET_ADDRSTRLEN * 4 + 1];
+	struct {
+		int family;
+		union {
+			struct sockaddr_in sa4;
+			struct sockaddr_in6 sa6;
+			struct sockaddr sa;
+		} addr;
+	} priv_addr;
+	char priv_ip[INET6_ADDRSTRLEN + 1];
 	char priv_hostname[ADDRLEN + 1];
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];

@@ -268,7 +268,8 @@ rate_check (struct mlfi_priv *priv, struct config_file *cfg, const char *rcpt, i
 	struct timeval tm;
 	int r;
 
-	if (is_whitelisted (&priv->priv_addr.sin_addr, rcpt, cfg) != 0) {
+	if (priv->priv_addr.family == AF_INET &&
+			is_whitelisted (&priv->priv_addr.addr.sa4.sin_addr, rcpt, cfg) != 0) {
 		msg_info ("rate_check: address is whitelisted, skipping checks");
 		return 1;
 	}

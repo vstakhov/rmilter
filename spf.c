@@ -46,7 +46,6 @@ extern int my_strcmp (const void *, const void *);
 int
 spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 {
-	struct sockaddr_in *sa = &priv->priv_addr;
 	char *helo = priv->priv_helo;
 	char *fromp = priv->priv_from;
 	SPF_server_t *spf_server;
@@ -94,12 +93,15 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 	/*
 	 * Get the IP address
 	 */
-	switch (sa->sin_family) {
+	switch (priv->priv_addr.family) {
 	case AF_INET:
-		res = SPF_request_set_ipv4 (spf_request, sa->sin_addr);
+		res = SPF_request_set_ipv4 (spf_request, priv->priv_addr.addr.sa4.sin_addr);
+		break;
+	case AF_INET6:
+		res = SPF_request_set_ipv6 (spf_request, priv->priv_addr.addr.sa6.sin6_addr);
 		break;
 	default:
-		msg_err ("spf: unknown address family %d", sa->sin_family);
+		msg_err ("spf: unknown address family %d", priv->priv_addr.family);
 		goto out3;
 	}
 	if (res != 0) {
