@@ -378,10 +378,19 @@ check_greylisting (struct mlfi_priv *priv)
 	int r;
 	size_t s;
 	char ipout[INET_ADDRSTRLEN + 1];
+	bool ip_whitelisted = false;
+
+	if (priv->priv_addr.family == AF_INET) {
+		if (radix32tree_find (cfg->grey_whitelist_tree,
+				ntohl((uint32_t)priv->priv_addr.addr.sa4.sin_addr.s_addr)) != RADIX_NO_VALUE) {
+			ip_whitelisted = true;
+		}
+	}
 
 	/* Check whitelist */
-	if (radix32tree_find (cfg->grey_whitelist_tree, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE) {
-		if (cfg->awl_enable && awl_check ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec) == 1) {
+	if (!ip_whitelisted) {
+		if (cfg->awl_enable && priv->priv_addr.family == AF_INET &&
+				awl_check ((uint32_t)priv->priv_addr.addr.sa4.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec) == 1) {
 			/* Auto whitelisted */
 			return GREY_WHITELISTED;
 		}
@@ -546,8 +555,8 @@ check_greylisting (struct mlfi_priv *priv)
 			}
 			else {
 				/* Write to autowhitelist */
-				if (cfg->awl_enable) {
-					awl_add ((uint32_t)priv->priv_addr.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec);
+				if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
+					awl_add ((uint32_t)priv->priv_addr.addr.sa4.sin_addr.s_addr, cfg->awl_hash, priv->conn_tm.tv_sec);
 				}
 				/* Write to whitelist memcached server */
 				selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
@@ -851,6 +860,11 @@ static sfsistat
 mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 {
 	struct mlfi_priv *priv;
+	union sockaddr_un {
+		struct sockaddr_in sa4;
+		struct sockaddr_in6 sa6;
+		struct sockaddr sa;
+	} *addr_storage;
 
 	priv = malloc(sizeof (struct mlfi_priv));
 
@@ -861,6 +875,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	LIST_INIT (&priv->rcpts);
 	priv->strict = 1;
 	priv->serial = cfg->serial;
+	priv->priv_addr.family = AF_UNSPEC;
 
 	priv->priv_rcptcount = 0;
 
@@ -869,22 +884,31 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		return SMFIS_TEMPFAIL;
 	}
 
-#ifdef SENDMAIL
-	strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
-	if (hostname) {
+	if (addr != NULL) {
+		addr_storage = (union sockaddr_un *)addr;
+		priv->priv_addr.family = addr->sa_family;
+		switch (addr->sa_family) {
+		case AF_INET:
+			inet_ntop (AF_INET, &addr_storage->sa4.sin_addr, priv->priv_ip, sizeof (priv->priv_ip));
+			memcpy (&priv->priv_addr.addr.sa4, &addr_storage->sa4, sizeof (struct sockaddr_in));
+			break;
+		case AF_INET6:
+			inet_ntop (AF_INET6, &addr_storage->sa6.sin6_addr, priv->priv_ip, sizeof (priv->priv_ip));
+			memcpy (&priv->priv_addr.addr.sa6, &addr_storage->sa6, sizeof (struct sockaddr_in6));
+			break;
+		default:
+			strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
+			memcpy (&priv->priv_addr.addr.sa, &addr_storage->sa, sizeof (struct sockaddr));
+			break;
+		}
+	}
+
+	if (hostname != NULL) {
 		strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
 	}
 	else {
-		strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+		priv->priv_hostname[0] = '\0';
 	}
-	if ((addr == NULL) || (&(((struct sockaddr_in *)(addr))->sin_addr) == NULL)) {
-		msg_warn ("mlfi_connect: hostaddr is NULL");
-	}
-	else {
-		(void)inet_ntop(AF_INET, &((struct sockaddr_in *)(addr))->sin_addr, priv->priv_ip, sizeof (priv->priv_ip));
-		memcpy (&priv->priv_addr, addr, sizeof (struct sockaddr_in));
-	}
-#endif
 
 	smfi_setpriv(ctx, priv);
 	/* Cannot set reply here, so delay processing of connect stage */
@@ -1045,24 +1069,16 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	CFG_UNLOCK();
 #endif
 
-#ifndef SENDMAIL
-	/* Extract IP and hostname */
-	tmpfrom = smfi_getsymval(ctx, "{client_addr}");
-	if (tmpfrom != NULL) {
-		strlcpy (priv->priv_ip, tmpfrom, sizeof (priv->priv_ip));
-		inet_aton (priv->priv_ip, &priv->priv_addr.sin_addr);
-		msg_debug ("mlfi_envfrom: got ip value: %s", priv->priv_ip);
-		priv->priv_addr.sin_family = AF_INET;
+	if (priv->priv_hostname[0] == '\0') {
+		tmpfrom = smfi_getsymval(ctx, "{client_name}");
+		if (tmpfrom != NULL) {
+			strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
+			msg_debug ("mlfi_envfrom: got host value: %s", priv->priv_hostname);
+		}
+		else {
+			strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+		}
 	}
-	tmpfrom = smfi_getsymval(ctx, "{client_name}");
-	if (tmpfrom != NULL) {
-		strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
-		msg_debug ("mlfi_envfrom: got host value: %s", priv->priv_hostname);
-	}
-	else {
-		strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
-	}
-#endif
 
 
 	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
@@ -1348,6 +1364,7 @@ mlfi_eom(SMFICTX * ctx)
 	struct stat sb;
 	struct action *act;
 	struct rcpt *rcpt;
+	bool ip_whitelisted = false;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1507,9 +1524,15 @@ mlfi_eom(SMFICTX * ctx)
 			send_beanstalk_copy (priv, cfg->copy_server);
 		}
 	}
+	if (priv->priv_addr.family == AF_INET) {
+		if (radix32tree_find (cfg->spamd_whitelist,
+				ntohl((uint32_t)priv->priv_addr.addr.sa4.sin_addr.s_addr)) != RADIX_NO_VALUE) {
+			ip_whitelisted = true;
+		}
+	}
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict
-			&& radix32tree_find (cfg->spamd_whitelist, ntohl((uint32_t)priv->priv_addr.sin_addr.s_addr)) == RADIX_NO_VALUE &&
+			&& !ip_whitelisted &&
 			(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("mlfi_eom: %s: check spamd", priv->mlfi_id);
 		r = spamdscan (ctx, priv, cfg, &subject, 0);
@@ -1808,7 +1831,7 @@ check_dcc (const struct mlfi_priv *priv)
 		return 0;
 	}
 
-	dcc_mk_su (&sup, AF_INET, &priv->priv_addr.sin_addr, 0);
+	dcc_mk_su (&sup, priv->priv_addr.family, &priv->priv_addr.addr.sa, 0);
 
 	rcpt.next = rcpts;
 	rcpt.addr = priv->rcpts.lh_first->r_addr;
