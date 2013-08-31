@@ -1580,8 +1580,9 @@ mlfi_eom(SMFICTX * ctx)
 					smfi_chgheader (ctx, cfg->spam_header, 1, "yes");
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
-					msg_warn ("mlfi_eom: %s: rewriting spam subject", priv->mlfi_id);
+					msg_info ("mlfi_eom: %s: rewriting spam subject and adding spam header", priv->mlfi_id);
 
+					smfi_chgheader (ctx, cfg->spam_header, 1, "yes");
 					if (subject == NULL) {
 						/* Use own settings */
 						if (priv->priv_subject) {
