@@ -380,10 +380,10 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 				return 0;
 			}
 			else {
-				srv->name = strdup (cur_tok);
 				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
 			}
 		}
+		srv->name = strdup (cur_tok);
 
 		srv->sock_type = AF_INET;
 		if (is_extra) {
