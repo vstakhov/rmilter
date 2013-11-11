@@ -69,8 +69,9 @@ case "$1" in
   start)
 	echo -n "Starting $DESC: "
 	rm -f /var/lib/rmilter/rmilter.sock
-	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
-	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
+	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
+		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
+		$OPTIONS $DOPTIONS
 	echo "$NAME."
 	;;
 
@@ -86,8 +87,9 @@ case "$1" in
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
 	    --retry 5 --oknodo
 	rm -f /var/lib/rmilter/rmilter.sock
-	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
-	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
+	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
+		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
+		$OPTIONS $DOPTIONS
 
 	echo "$NAME."
 	;;
@@ -97,8 +99,9 @@ case "$1" in
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
 	    --retry 5 --oknodo
 	rm -f /var/lib/rmilter/rmilter.sock
-	start-stop-daemon --start --pidfile $PIDFILE --name $PNAME \
-	    $NICE --oknodo --startas $DAEMON -- $OPTIONS $DOPTIONS
+	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
+		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
+		$OPTIONS $DOPTIONS
 
 	echo "$NAME."
 	;;
