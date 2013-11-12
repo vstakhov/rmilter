@@ -42,13 +42,13 @@ Value may be:
 -   String (may not contain spaces)
 -   Quoted string (if string may contain spaces)
 -   Numeric value
--   Flag (y, Yes or n, No)
--   Ip or network (eg. 127.0.0.1, 192.168.1.0/24)
--   Socket argument (eg. host:port or /path/to/socket)
--   Regexp (eg. /Match\*/)
--   List (eg. value1, value2, value3)
--   Recipients list (user, [user@domain](mailto:user@domain), @domain)
--   Time argument (eg. 10s, 5d)
+-   Flag (`y`, `Yes` or `n`, `No`)
+-   IPv4 or network (eg. `127.0.0.1`, `192.168.1.0/24`)
+-   Socket argument (eg. `host:port` or `/path/to/socket`)
+-   Regexp (eg. `/Match\*/`)
+-   List (eg. `value1, value2, value3`)
+-   Recipients list (`user, user@domain, @domain`)
+-   Time argument (eg. `10s`, `5d`)
 
 Some directives MUST be specified only in specified sections. Section
 definition looks like:
@@ -81,8 +81,8 @@ Directives that can be defined in config file:
 
     - **bind\_socket**: socket credits for local bind:
 
-    1.  unix:/path/to/file - bind to local socket
-    2.  inet:[port@host](mailto:port@host) - bind to inet socket
+    1.  `unix:/path/to/file` - bind to local socket
+    2.  `inet:[port@host]` - bind to inet socket
 
     > *Default:* **bind\_socket = unix:/var/tmp/rmilter.sock**
 
@@ -111,32 +111,32 @@ Directives that can be defined in config file:
 
     > sockets are separated by ','
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **connect\_timeout**: timeout in miliseconds for connecting to clamav
 
-    > **Default:* **1s**
+    > *Default:* **1s**
 
     - **port\_timeout**: timeout in miliseconds for waiting for clamav port response
 
-    > **Default:* **4s**
+    > *Default:* **4s**
 
     - **results\_timeout**: timeout in miliseconds for waiting for clamav response
 
-    > **Default:* **20s**
+    > *Default:* **20s**
 
     - **error\_time**: time in seconds during which we are counting errors
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    > **Default:* **300**
+    > *Default:* **300**
 
     - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > **Default:* **10**
+    > *Default:* **10**
 
 -   Spamd section:
 
@@ -149,60 +149,60 @@ Directives that can be defined in config file:
 
     > * sockets are separated by *,*
 
-    > **Default:* **empty (spam checks disabled)**
+    > *Default:* **empty (spam checks disabled)**
 
     - **connect\_timeout**: timeout in miliseconds for connecting to spamd
 
-    > **Default:* **1s**
+    > *Default:* **1s**
 
     - **results\_timeout**: timeout in miliseconds for waiting for spamd response
 
-    > **Default:* **20s**
+    > *Default:* **20s**
 
     - **error\_time**: time in seconds during which we are counting errors
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    > **Default:* **300**
+    > *Default:* **300**
 
     - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **reject\_message**: reject message for spam (quoted string)
 
-    > **Default: \*\*Spam message rejected; If*this is not spam contact
+    > *Default: \*\*Spam message rejected; If*this is not spam contact
     > abuse team ''
 
     - **spamd\_soft\_fail**: if action is not reject use it for other actions (flag)
 
-    > **Default:* **true**
+    > *Default:* **true**
 
     - **spamd\_greylist**: greylist message only if action is greylist (flag)
 
-    > **Default:* **true**
+    > *Default:* **true**
 
     - **spam\_header**: add specified header if action is add\_header and
     spamd\_soft\_fail os turned on
 
-    > **Default: \*\*X-Spam''*
+    > *Default: \*\*X-Spam''*
 
     - **rspamd\_metric**: rspamd metric that would define whether we reject message as spam
     or not (quoted string)
 
-    > **Default: \*\*default''*
+    > *Default: \*\*default''*
 
     - **whitelist**: list of ips or nets that should be not checked with spamd
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **extended\_spam\_headers**: add extended spamd headers to messages, is useful for debugging or
     private mail servers (flag)
 
-    > **Default:* **false**
+    > *Default:* **false**
 
 -   Memcached section:
 
@@ -212,37 +212,37 @@ Directives that can be defined in config file:
     > **is possible to make memcached mirroring, its syntax is {server1,
     > server2}**
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **servers\_white**: memcached servers for whitelisting in format similar to that is
     used in *servers\_grey*
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **servers\_limits**: memcached servers used for limits storing, can not be mirrored
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **connect\_timeout**: timeout in miliseconds for connecting to memcached
 
-    > **Default:* **1s**
+    > *Default:* **1s**
 
     - **error\_time**: time in seconds during which we are counting errors
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    > **Default:* **300**
+    > *Default:* **300**
 
     - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **protocol**: protocol that is using for connecting to memcached (tcp or udp)
 
-    > **Default:* **udp**
+    > *Default:* **udp**
 
 -   Beanstalk section:
 
@@ -250,90 +250,90 @@ Directives that can be defined in config file:
 
     > *host*[:port][, host:port]
     >
-    > > **Default:* **empty**
+    > > *Default:* **empty**
 
     - **copy\_server**: address of server to which rmilter should send all messages copies
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **spam\_server**: address of server to which rmilter should send spam messages
     copies
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **connect\_timeout**: timeout in miliseconds for connecting to beanstalk
 
-    > **Default:* **1s**
+    > *Default:* **1s**
 
     - **error\_time**: time in seconds during which we are counting errors
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    > **Default:* **300**
+    > *Default:* **300**
 
     - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **id\_regexp**: regexp that defines for which messages we should put the whole
     message to beanstalk, not only headers, now this regexp checks only
     In-Reply-To headers
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **send\_beanstalk\_headers**: defines whether we should send headers to beanstalk servers (from
     servers option)
 
-    > **Default:* **no**
+    > *Default:* **no**
 
     - **send\_beanstalk\_copy**: defines whether we should send copy of messages to beanstalk
     server (from copy\_server option)
 
-    > **Default:* **no**
+    > *Default:* **no**
 
     - **send\_beanstalk\_spam**: defines whether we should send copy of spam messages to beanstalk
     server (from spam\_server option)
 
-    > **Default:* **no**
+    > *Default:* **no**
 
     - **protocol**: protocol that is using for connecting to beanstalk (tcp or udp)
 
-    > **Default:* **tcp**
+    > *Default:* **tcp**
 
 -   Greylisting section:
 
     - **timeout (required)**: time during which we mark message greylisted
 
-    > **Default:* **300s**
+    > *Default:* **300s**
 
     - **expire (required)**: time during which we save a greylisting record
 
-    > **Default:* **empty (greylisting disabled)**
+    > *Default:* **empty (greylisting disabled)**
 
     - **whitelist**: list of ip addresses or networks that should be whitelisted from
     greylisting
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **awl\_enable**: enable internal auto-whitelist mechanics
 
-    > **Default:* **no**
+    > *Default:* **no**
 
     - **awl\_pool**: size for in-memory auto whitelist
 
-    > **Default:* **10M**
+    > *Default:* **10M**
 
     - **awl\_hits**: number of messages (from this ip) that passes greylisting to put
     this ip into whitelist
 
-    > **Default:* **10**
+    > *Default:* **10**
 
     - **awl\_ttl**: time to live for ip address in auto whitelist
 
-    > **Default:* **3600s**
+    > *Default:* **3600s**
 
 -   Limits section.
 
@@ -355,39 +355,39 @@ Directives that can be defined in config file:
 
     - **limit\_whitelist\_ip**: don't check limits for specified ips
 
-    > **Default:* **empty**
+    > *Default:* **empty**
 
     - **limit\_whitelist\_rcpt**: don't check limits for specified recipients
 
-    > **Default:* **no**
+    > *Default:* **no**
 
     - **limit\_bounce\_addrs**: list of address that require more strict limits
 
-    > **Default:* **postmaster, mailer-daemon,
+    > *Default:* **postmaster, mailer-daemon,
     > symantec\_antivirus\_for\_smtp\_gateways, null,
     > fetchmail-daemon
 
     - **limit\_bounce\_to**: limits bucket for bounce messages (only rcpt to)
 
-    > **Default:* **5:0.000277778**
+    > *Default:* **5:0.000277778**
 
     - **limit\_bounce\_to\_ip**: limits bucket for bounce messages (only rcpt to per one source ip)
 
-    > **Default:* **5:0.000277778**
+    > *Default:* **5:0.000277778**
 
     - **limit\_to**: limits bucket for non-bounce messages (only rcpt to)
 
-    > **Default:* **20:0.016666667**
+    > *Default:* **20:0.016666667**
 
     - **limit\_to\_ip**: limits bucket for non-bounce messages (only rcpt to per one source
     ip)
 
-    > **Default:* **30:0.025**
+    > *Default:* **30:0.025**
 
     - **limit\_to\_ip\_from**: limits bucket for non-bounce messages (msg from, rcpt to per one
     source ip)
 
-    > **Default:* **100:0.033333333**
+    > *Default:* **100:0.033333333**
 
 -   DKIM section.
 
@@ -397,15 +397,15 @@ Directives that can be defined in config file:
 
     - **header\_canon**: canonization of headers (simple or relaxed)
 
-    > **Default:* **simple**
+    > *Default:* **simple**
 
     - **body\_canon**: canonization of body (simple or relaxed)
 
-    > **Default:* **simple**
+    > *Default:* **simple**
 
     - **sign\_alg**: signature algorithm (sha1 for rsa-sha1 and sha256 for rsa-sha256)
 
-    > **Default:* **sha1**
+    > *Default:* **sha1**
 
     - **domain**: domain entry must be enclosed in braces {}
 
