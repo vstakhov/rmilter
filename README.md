@@ -109,7 +109,7 @@ Directives that can be defined in config file:
         1.  `/path/to/file`
         2.  `host[:port]`
 
-    > sockets are separated by ','
+		Sockets are separated by `,`
 
         > *Default:* **empty**
 
@@ -147,7 +147,7 @@ Directives that can be defined in config file:
         3.  `r:/path/to/file` - for rspamd protocol
         4.  `r:host[:port]` - for rspamd protocol
 
-    Sockets are separated by `,`.
+    	Sockets are separated by `,`.
 
         > *Default:* **empty (spam checks disabled)**
 
