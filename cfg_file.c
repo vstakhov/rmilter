@@ -656,6 +656,9 @@ init_defaults (struct config_file *cfg)
 	cfg->awl_enable = 0;
 	cfg->beanstalk_copy_prob = 100.0;
 
+	cfg->spamd_soft_fail = 1;
+	cfg->spamd_greylist = 1;
+
 #if 0
 	/* Init static defaults */
 	white_from_abuse.addr = "abuse";
