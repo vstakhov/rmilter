@@ -81,8 +81,8 @@ Directives that can be defined in config file:
 
     - **bind\_socket**: socket credits for local bind:
 
-    1.  `unix:/path/to/file` - bind to local socket
-    2.  `inet:[port@host]` - bind to inet socket
+        1.  `unix:/path/to/file` - bind to local socket
+        2.  `inet:[port@host]` - bind to inet socket
 
         > *Default:* **bind\_socket = unix:/var/tmp/rmilter.sock**
 
@@ -106,8 +106,8 @@ Directives that can be defined in config file:
 
     - **servers**: clamav socket definitions in format:
 
-    1.  /path/to/file
-    2.  host[:port]
+        1.  `/path/to/file`
+        2.  `host[:port]`
 
     > sockets are separated by ','
 
@@ -142,12 +142,12 @@ Directives that can be defined in config file:
 
     - **servers**: spamd (or rspamd) socket definitions in format:
 
-    1.  /path/to/file
-    2.  host[:port]
-    3.  r:/path/to/file - for rspamd protocol
-    4.  r:host[:port] - for rspamd protocol
+        1.  `/path/to/file`
+        2.  `host[:port]`
+        3.  `r:/path/to/file` - for rspamd protocol
+        4.  `r:host[:port]` - for rspamd protocol
 
-    > * sockets are separated by *,*
+    Sockets are separated by `,`.
 
         > *Default:* **empty (spam checks disabled)**
 
@@ -174,8 +174,7 @@ Directives that can be defined in config file:
 
     - **reject\_message**: reject message for spam (quoted string)
 
-        > *Default: \*\*Spam message rejected; If*this is not spam contact
-    > abuse team ''
+        > *Default: `Spam message rejected; If this is not spam contact abuse team`
 
     - **spamd\_soft\_fail**: if action is not reject use it for other actions (flag)
 
@@ -207,10 +206,8 @@ Directives that can be defined in config file:
 -   Memcached section:
 
     - **servers\_grey**: memcached servers for greylisting in format:
-
-    > *host*[:port][, host[:port]]
-    > **is possible to make memcached mirroring, its syntax is {server1,
-    > server2}**
+    `host[:port][, host[:port]]`
+    It is possible to make memcached mirroring (for two servers only), its syntax is `{server1,server2}`
 
         > *Default:* **empty**
 
@@ -247,10 +244,9 @@ Directives that can be defined in config file:
 -   Beanstalk section:
 
     - **servers**: beanstalk servers for pushing headers in format:
+    `host[:port][, host:port]`
 
-    > *host*[:port][, host:port]
-    >
-    >     > *Default:* **empty**
+        > *Default:* **empty**
 
     - **copy\_server**: address of server to which rmilter should send all messages copies
 
@@ -280,7 +276,7 @@ Directives that can be defined in config file:
 
     - **id\_regexp**: regexp that defines for which messages we should put the whole
     message to beanstalk, not only headers, now this regexp checks only
-    In-Reply-To headers
+    `In-Reply-To` headers
 
         > *Default:* **empty**
 
