@@ -1,22 +1,16 @@
 RMILTER
 =======
 
-NAME
-----
-
-**rmilter** - milter for sendmail with many abilities designed for
-distributed MX network
-
-SYNOPSIS
+Synopsis
 --------
 
-**rmilter** [-**h** ] [-**c***config\_file* ]
+**rmilter** [-**h** ] [-**c** *config\_file* ]
 
-DESCRIPTION
+Description
 -----------
 
 The **rmilter** utility is designed to act as milter for
-[sendmail](8) MTA. It provides several
+sendmail and postfix MTA. It provides several
 filter and mail scan features, among them are:
 
 -   Clamav scanning (via unix or tcp socket).
@@ -31,18 +25,13 @@ filter and mail scan features, among them are:
 
 The following additional options are supported:
 
-**-h**
-
-Show greeting message, version of **rmilter** and exit
-
-**-c***config\_file*
-
-Specify config file to use
+- **-h**: Show greeting message, version of **rmilter** and exit
+- **-c** *config\_file*: Specify config file to use
 
 All **rmilter** configuration is placed in rmilter.conf file.
 
-CONFIGURATION FILE
-------------------
+Configuration format
+--------------------
 
 The configuration file has format:
 
@@ -81,378 +70,270 @@ Directives that can be defined in config file:
 
 -   Global section:
 
-    **pidfile**
+    - **pidfile**: specify path to pidfile
 
-    - specify path to pidfile
+    > *Default:* **/var/run/rmilter.pid**
 
-    > ``*Default:***/var/run/rmilter.pid**
-
-    **tempdir**
-
-    - specify path to temporary directory. For maximum performance it is
+    - **tempdir**: specify path to temporary directory. For maximum performance it is
     recommended to put it on memory file system.
 
-    > ``*Default:***$TMPDIR**
+    > *Default:* **$TMPDIR**
 
-    **bind\_socket**
-
-    - socket credits for local bind:
+    - **bind\_socket**: socket credits for local bind:
 
     1.  unix:/path/to/file - bind to local socket
     2.  inet:[port@host](mailto:port@host) - bind to inet socket
 
-    > ``*Default:***bind\_socket = unix:/var/tmp/rmilter.sock**
+    > *Default:* **bind\_socket = unix:/var/tmp/rmilter.sock**
 
-    **max\_size**
+    - **max\_size**: maximum size of scanned message for clamav, spamd and dcc.
 
-    - maximum size of scanned message for clamav, spamd and dcc.
+    > *Default:* **0 (no limit)**
 
-    > ``*Default:***0 (no limit)**
+    - **spf\_domains**: list of domains that would be checked with spf
 
-    **spf\_domains**
+    > *Default:* **empty (spf disabled)**
 
-    - list of domains that would be checked with spf
+    - **use\_dcc**: flag that specify whether we should use dcc checks for mail
 
-    > ``*Default:***empty (spf disabled)**
+    > *Default:* **no**
 
-    **use\_dcc**
+    - **whitelist**: global recipients whitelist
 
-    - flag that specify whether we should use dcc checks for mail
-
-    > ``*Default:***no**
-
-    **whitelist**
-
-    - global recipients whitelist
-
-    > ``*Default:***no**
+    > *Default:* **no**
 
 -   Clamav section:
 
-    **servers**
-
-    - clamav socket definitions in format:
+    - **servers**: clamav socket definitions in format:
 
     1.  /path/to/file
     2.  host[:port]
 
-    > `sockets are separated by ','`
+    > sockets are separated by ','
 
-    > ``*Default:***empty**
+    > **Default:* **empty**
 
-    **connect\_timeout**
+    - **connect\_timeout**: timeout in miliseconds for connecting to clamav
 
-    - timeout in miliseconds for connecting to clamav
+    > **Default:* **1s**
 
-    > ``*Default:***1s**
+    - **port\_timeout**: timeout in miliseconds for waiting for clamav port response
 
-    **port\_timeout**
+    > **Default:* **4s**
 
-    - timeout in miliseconds for waiting for clamav port response
+    - **results\_timeout**: timeout in miliseconds for waiting for clamav response
 
-    > ``*Default:***4s**
+    > **Default:* **20s**
 
-    **results\_timeout**
+    - **error\_time**: time in seconds during which we are counting errors
 
-    - timeout in miliseconds for waiting for clamav response
+    > **Default:* **10**
 
-    > ``*Default:***20s**
+    - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    **error\_time**
+    > **Default:* **300**
 
-    - time in seconds during which we are counting errors
-
-    > ``*Default:***10**
-
-    **dead\_time**
-
-    - time in seconds during which we are thinking that server is down
-
-    > ``*Default:***300**
-
-    **maxerrors**
-
-    - maximum number of errors that can occur during error\_time to make
+    - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > ``*Default:***10**
+    > **Default:* **10**
 
 -   Spamd section:
 
-    **servers**
-
-    - spamd (or rspamd) socket definitions in format:
+    - **servers**: spamd (or rspamd) socket definitions in format:
 
     1.  /path/to/file
     2.  host[:port]
     3.  r:/path/to/file - for rspamd protocol
     4.  r:host[:port] - for rspamd protocol
 
-    > `` sockets are separated by `,'  ``
+    > * sockets are separated by *,*
 
-    > ``*Default:***empty (spam checks disabled)**
+    > **Default:* **empty (spam checks disabled)**
 
-    **connect\_timeout**
+    - **connect\_timeout**: timeout in miliseconds for connecting to spamd
 
-    - timeout in miliseconds for connecting to spamd
+    > **Default:* **1s**
 
-    > ``*Default:***1s**
+    - **results\_timeout**: timeout in miliseconds for waiting for spamd response
 
-    **results\_timeout**
+    > **Default:* **20s**
 
-    - timeout in miliseconds for waiting for spamd response
+    - **error\_time**: time in seconds during which we are counting errors
 
-    > ``*Default:***20s**
+    > **Default:* **10**
 
-    **error\_time**
+    - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    - time in seconds during which we are counting errors
+    > **Default:* **300**
 
-    > ``*Default:***10**
-
-    **dead\_time**
-
-    - time in seconds during which we are thinking that server is down
-
-    > ``*Default:***300**
-
-    **maxerrors**
-
-    - maximum number of errors that can occur during error\_time to make
+    - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > ``*Default:***10**
+    > **Default:* **10**
 
-    **reject\_message**
+    - **reject\_message**: reject message for spam (quoted string)
 
-    - reject message for spam (quoted string)
-
-    > ``*Default: \`\`Spam message rejected; If*this is not spam contact
+    > **Default: \*\*Spam message rejected; If*this is not spam contact
     > abuse team ''
 
-    **spamd\_soft\_fail**
+    - **spamd\_soft\_fail**: if action is not reject use it for other actions (flag)
 
-    - if action is not reject use it for other actions (flag)
+    > **Default:* **true**
 
-    > ``*Default:***true**
+    - **spamd\_greylist**: greylist message only if action is greylist (flag)
 
-    **spamd\_greylist**
+    > **Default:* **true**
 
-    - greylist message only if action is greylist (flag)
-
-    > ``*Default:***true**
-
-    **spam\_header**
-
-    - add specified header if action is add\_header and
+    - **spam\_header**: add specified header if action is add\_header and
     spamd\_soft\_fail os turned on
 
-    > ``*Default: \`\`X-Spam''*
+    > **Default: \*\*X-Spam''*
 
-    **rspamd\_metric**
-
-    - rspamd metric that would define whether we reject message as spam
+    - **rspamd\_metric**: rspamd metric that would define whether we reject message as spam
     or not (quoted string)
 
-    > ``*Default: \`\`default''*
+    > **Default: \*\*default''*
 
-    **whitelist**
+    - **whitelist**: list of ips or nets that should be not checked with spamd
 
-    - list of ips or nets that should be not checked with spamd
+    > **Default:* **empty**
 
-    > ``*Default:***empty**
-
-    **extended\_spam\_headers**
-
-    - add extended spamd headers to messages, is useful for debugging or
+    - **extended\_spam\_headers**: add extended spamd headers to messages, is useful for debugging or
     private mail servers (flag)
 
-    > ``*Default:***false**
+    > **Default:* **false**
 
 -   Memcached section:
 
-    **servers\_grey**
+    - **servers\_grey**: memcached servers for greylisting in format:
 
-    - memcached servers for greylisting in format:
-
-    > `host Bo `:port Bc Bo , host Bo :port Bc Bc
+    > *host*[:port][, host[:port]]
     > **is possible to make memcached mirroring, its syntax is {server1,
     > server2}**
 
-    > ``*Default:***empty**
+    > **Default:* **empty**
 
-    **servers\_white**
-
-    - memcached servers for whitelisting in format similar to that is
+    - **servers\_white**: memcached servers for whitelisting in format similar to that is
     used in *servers\_grey*
 
-    > ``*Default:***empty**
+    > **Default:* **empty**
 
-    **servers\_limits**
+    - **servers\_limits**: memcached servers used for limits storing, can not be mirrored
 
-    - memcached servers used for limits storing, can not be mirrored
+    > **Default:* **empty**
 
-    > ``*Default:***empty**
+    - **connect\_timeout**: timeout in miliseconds for connecting to memcached
 
-    **connect\_timeout**
+    > **Default:* **1s**
 
-    - timeout in miliseconds for connecting to memcached
+    - **error\_time**: time in seconds during which we are counting errors
 
-    > ``*Default:***1s**
+    > **Default:* **10**
 
-    **error\_time**
+    - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    - time in seconds during which we are counting errors
+    > **Default:* **300**
 
-    > ``*Default:***10**
-
-    **dead\_time**
-
-    - time in seconds during which we are thinking that server is down
-
-    > ``*Default:***300**
-
-    **maxerrors**
-
-    - maximum number of errors that can occur during error\_time to make
+    - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > ``*Default:***10**
+    > **Default:* **10**
 
-    **protocol**
+    - **protocol**: protocol that is using for connecting to memcached (tcp or udp)
 
-    - protocol that is using for connecting to memcached (tcp or udp)
-
-    > ``*Default:***udp**
+    > **Default:* **udp**
 
 -   Beanstalk section:
 
-    **servers**
+    - **servers**: beanstalk servers for pushing headers in format:
 
-    - beanstalk servers for pushing headers in format:
-
-    > `host Bo `:port Bc Bo , host Bo :port Bc Bc
+    > *host*[:port][, host:port]
     >
-    > > ``*Default:***empty**
+    > > **Default:* **empty**
 
-    **copy\_server**
+    - **copy\_server**: address of server to which rmilter should send all messages copies
 
-    - address of server to which rmilter should send all messages copies
+    > **Default:* **empty**
 
-    > ``*Default:***empty**
-
-    **spam\_server**
-
-    - address of server to which rmilter should send spam messages
+    - **spam\_server**: address of server to which rmilter should send spam messages
     copies
 
-    > ``*Default:***empty**
+    > **Default:* **empty**
 
-    **connect\_timeout**
+    - **connect\_timeout**: timeout in miliseconds for connecting to beanstalk
 
-    - timeout in miliseconds for connecting to beanstalk
+    > **Default:* **1s**
 
-    > ``*Default:***1s**
+    - **error\_time**: time in seconds during which we are counting errors
 
-    **error\_time**
+    > **Default:* **10**
 
-    - time in seconds during which we are counting errors
+    - **dead\_time**: time in seconds during which we are thinking that server is down
 
-    > ``*Default:***10**
+    > **Default:* **300**
 
-    **dead\_time**
-
-    - time in seconds during which we are thinking that server is down
-
-    > ``*Default:***300**
-
-    **maxerrors**
-
-    - maximum number of errors that can occur during error\_time to make
+    - **maxerrors**: maximum number of errors that can occur during error\_time to make
     us thinking that this upstream is dead
 
-    > ``*Default:***10**
+    > **Default:* **10**
 
-    **id\_regexp**
-
-    - regexp that defines for which messages we should put the whole
+    - **id\_regexp**: regexp that defines for which messages we should put the whole
     message to beanstalk, not only headers, now this regexp checks only
     In-Reply-To headers
 
-    > ``*Default:***empty**
+    > **Default:* **empty**
 
-    **send\_beanstalk\_headers**
-
-    - defines whether we should send headers to beanstalk servers (from
+    - **send\_beanstalk\_headers**: defines whether we should send headers to beanstalk servers (from
     servers option)
 
-    > ``*Default:***no**
+    > **Default:* **no**
 
-    **send\_beanstalk\_copy**
-
-    - defines whether we should send copy of messages to beanstalk
+    - **send\_beanstalk\_copy**: defines whether we should send copy of messages to beanstalk
     server (from copy\_server option)
 
-    > ``*Default:***no**
+    > **Default:* **no**
 
-    **send\_beanstalk\_spam**
-
-    - defines whether we should send copy of spam messages to beanstalk
+    - **send\_beanstalk\_spam**: defines whether we should send copy of spam messages to beanstalk
     server (from spam\_server option)
 
-    > ``*Default:***no**
+    > **Default:* **no**
 
-    **protocol**
+    - **protocol**: protocol that is using for connecting to beanstalk (tcp or udp)
 
-    - protocol that is using for connecting to beanstalk (tcp or udp)
-
-    > ``*Default:***tcp**
+    > **Default:* **tcp**
 
 -   Greylisting section:
 
-    **timeout (required)**
+    - **timeout (required)**: time during which we mark message greylisted
 
-    - time during which we mark message greylisted
+    > **Default:* **300s**
 
-    > ``*Default:***300s**
+    - **expire (required)**: time during which we save a greylisting record
 
-    **expire (required)**
+    > **Default:* **empty (greylisting disabled)**
 
-    - time during which we save a greylisting record
-
-    > ``*Default:***empty (greylisting disabled)**
-
-    **whitelist**
-
-    - list of ip addresses or networks that should be whitelisted from
+    - **whitelist**: list of ip addresses or networks that should be whitelisted from
     greylisting
 
-    > ``*Default:***empty**
+    > **Default:* **empty**
 
-    **awl\_enable**
+    - **awl\_enable**: enable internal auto-whitelist mechanics
 
-    - enable internal auto-whitelist mechanics
+    > **Default:* **no**
 
-    > ``*Default:***no**
+    - **awl\_pool**: size for in-memory auto whitelist
 
-    **awl\_pool**
+    > **Default:* **10M**
 
-    - size for in-memory auto whitelist
-
-    > ``*Default:***10M**
-
-    **awl\_hits**
-
-    - number of messages (from this ip) that passes greylisting to put
+    - **awl\_hits**: number of messages (from this ip) that passes greylisting to put
     this ip into whitelist
 
-    > ``*Default:***10**
+    > **Default:* **10**
 
-    **awl\_ttl**
+    - **awl\_ttl**: time to live for ip address in auto whitelist
 
-    - time to live for ip address in auto whitelist
-
-    > ``*Default:***3600s**
+    > **Default:* **3600s**
 
 -   Limits section.
 
@@ -472,85 +353,61 @@ Directives that can be defined in config file:
                 \                  /
                  ----------------- .....      <----- rate (speed of emptying)
 
-    **limit\_whitelist\_ip**
+    - **limit\_whitelist\_ip**: don't check limits for specified ips
 
-    - don't check limits for specified ips
+    > **Default:* **empty**
 
-    > ``*Default:***empty**
+    - **limit\_whitelist\_rcpt**: don't check limits for specified recipients
 
-    **limit\_whitelist\_rcpt**
+    > **Default:* **no**
 
-    - don't check limits for specified recipients
+    - **limit\_bounce\_addrs**: list of address that require more strict limits
 
-    > ``*Default:***no**
-
-    **limit\_bounce\_addrs**
-
-    - list of address that require more strict limits
-
-    > ``*Default:***postmaster, mailer-daemon,
-    > symantec\_antivirus\_for\_smtp\_gateways, Aq**, null,
+    > **Default:* **postmaster, mailer-daemon,
+    > symantec\_antivirus\_for\_smtp\_gateways, null,
     > fetchmail-daemon
 
-    **limit\_bounce\_to**
+    - **limit\_bounce\_to**: limits bucket for bounce messages (only rcpt to)
 
-    - limits bucket for bounce messages (only rcpt to)
+    > **Default:* **5:0.000277778**
 
-    > ``*Default:***5:0.000277778**
+    - **limit\_bounce\_to\_ip**: limits bucket for bounce messages (only rcpt to per one source ip)
 
-    **limit\_bounce\_to\_ip**
+    > **Default:* **5:0.000277778**
 
-    - limits bucket for bounce messages (only rcpt to per one source ip)
+    - **limit\_to**: limits bucket for non-bounce messages (only rcpt to)
 
-    > ``*Default:***5:0.000277778**
+    > **Default:* **20:0.016666667**
 
-    **limit\_to**
-
-    - limits bucket for non-bounce messages (only rcpt to)
-
-    > ``*Default:***20:0.016666667**
-
-    **limit\_to\_ip**
-
-    - limits bucket for non-bounce messages (only rcpt to per one source
+    - **limit\_to\_ip**: limits bucket for non-bounce messages (only rcpt to per one source
     ip)
 
-    > ``*Default:***30:0.025**
+    > **Default:* **30:0.025**
 
-    **limit\_to\_ip\_from**
-
-    - limits bucket for non-bounce messages (msg from, rcpt to per one
+    - **limit\_to\_ip\_from**: limits bucket for non-bounce messages (msg from, rcpt to per one
     source ip)
 
-    > ``*Default:***100:0.033333333**
+    > **Default:* **100:0.033333333**
 
 -   DKIM section.
 
-    **Dkim can be used to sign messages by . Dkim support must be
-    provided with opendkim library and** **rmilter** must be configured
+    Dkim can be used to sign messages by. Dkim support must be
+    provided with opendkim library and **rmilter** must be configured
     with *--enable-dkim* option.
 
-    **header\_canon**
+    - **header\_canon**: canonization of headers (simple or relaxed)
 
-    - canonization of headers (simple or relaxed)
+    > **Default:* **simple**
 
-    > ``*Default:***simple**
+    - **body\_canon**: canonization of body (simple or relaxed)
 
-    **body\_canon**
+    > **Default:* **simple**
 
-    - canonization of body (simple or relaxed)
+    - **sign\_alg**: signature algorithm (sha1 for rsa-sha1 and sha256 for rsa-sha256)
 
-    > ``*Default:***simple**
+    > **Default:* **sha1**
 
-    **sign\_alg**
-
-    - signature algorithm (sha1 for rsa-sha1 and sha256 for rsa-sha256)
-
-    > ``*Default:***sha1**
-
-    **domain**
-
-    - domain entry must be enclosed in braces {}
+    - **domain**: domain entry must be enclosed in braces {}
 
     -   **key** - path to private key
     -   **domain** - domain to be used for signing (this matches with
@@ -559,8 +416,8 @@ Directives that can be defined in config file:
         domain *example.com* DNS TXT record should be for
         dkim.\_domainkey.example.com).
 
-EXAMPLE CONFIG
---------------
+Example configuration
+---------------------
 
     # pidfile - path to pid file
     # Default: pidfile = /var/run/rmilter.pid
@@ -789,8 +646,8 @@ Keys used in memcached:
 -   *rcpt* - bucket for rcpt filter
 -   *rcpt:ip* - bucket for rcpt\_ip filter
 -   *rcpt:ip:from* - bucket for rcpt\_ip\_from filter
--   *rcpt:<\>* - bucket for bounce\_rcpt filter
--   *rcpt:ip:<\>* - bucket for bounce\_rcpt\_ip filter
+-   *rcpt:* - bucket for bounce\_rcpt filter
+-   *rcpt:ip:* - bucket for bounce\_rcpt\_ip filter
 -   *md5(from . ip . to)* - key for greylisting triplet (hexed string of
     md5 value)
 
