@@ -242,7 +242,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 
 	}
 	else {
-		memcpy (ip_ptr, (char *)addr + 8, 8);
+		memcpy (ip_ptr + 8, (char *)addr + 8, 8);
 	}
 	inet_ntop (address_family, ip_ptr, ipout, sizeof (ipout));
 
