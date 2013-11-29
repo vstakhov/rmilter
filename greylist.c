@@ -330,10 +330,9 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 				cur_param.buf = (u_char *)&tm;
 				cur_param.bufsize = sizeof (tm);
 				r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->whitelisting_expire);
-				if (r != OK) {
-					msg_info ("check_greylisting: cannot write to memcached(%s): %s",
-							inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)),
-							memc_strerror (r));
+				if (r != 1) {
+					msg_info ("check_greylisting: cannot write to memcached(%s)",
+							inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)));
 				}
 			}
 		}
