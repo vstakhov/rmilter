@@ -100,6 +100,18 @@
 #define DEFAULT_GREYLISTED_MESSAGE "Try again later"
 #define DEFAULT_SPAM_HEADER "X-Spam"
 
+#define MD5_SIZE 16
+
+/* Logging in postfix style */
+#define msg_err(args...) syslog(LOG_ERR, ##args)
+#define msg_warn(args...)	syslog(LOG_WARNING, ##args)
+#define msg_info(args...)	syslog(LOG_INFO, ##args)
+#ifdef WITH_DEBUG
+#define msg_debug(args...) syslog(LOG_DEBUG, ##args)
+#else
+#define msg_debug(args...) do {} while(0)
+#endif
+
 #define yyerror parse_err
 #define yywarn parse_warn
 #define CFG_RLOCK() do { pthread_rwlock_rdlock (&cfg_mtx); } while (0) 
