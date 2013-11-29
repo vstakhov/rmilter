@@ -237,12 +237,12 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	if (address_family == AF_INET) {
 		/* Set Class C network */
 		uint32_t ip = *(uint32_t *)addr;
-		ip &= 0xFFFFFF00;
+		ip &= 0xFFFFFF;
 		memcpy (ip_ptr, &ip, sizeof (ip));
 
 	}
 	else {
-		memcpy (ip_ptr, addr, 8);
+		memcpy (ip_ptr, (char *)addr + 8, 8);
 	}
 	inet_ntop (address_family, ip_ptr, ipout, sizeof (ipout));
 
