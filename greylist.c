@@ -297,7 +297,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 		cur_param.buf = (u_char *)&tm;
 		cur_param.bufsize = sizeof (tm);
 		r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->greylisting_expire);
-		if (r == OK) {
+		if (r == 1) {
 			return GREY_GREYLISTED;
 		}
 		else {
