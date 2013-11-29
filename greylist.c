@@ -21,10 +21,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #ifdef HAVE_STDBOOL_H
 #include <stdbool.h>
 #endif
@@ -112,7 +113,7 @@ query_memcached_servers (struct config_file *cfg, struct memcached_server *srv,
 	r = memc_init_ctx_mirror (mctx, 2);
 	copy_alive (srv, mctx);
 	if (r == -1) {
-		msg_warn ("check_greylisting: cannot connect to memcached upstream: %s",
+		msg_warn ("query_memcached_servers: cannot connect to memcached upstream: %s",
 				inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)));
 		upstream_fail (&srv->up, conn_tv->tv_sec);
 		return -1;
@@ -130,7 +131,75 @@ query_memcached_servers (struct config_file *cfg, struct memcached_server *srv,
 			upstream_ok (&srv->up, conn_tv->tv_sec);
 			return 0;
 		}
+		upstream_fail (&srv->up, conn_tv->tv_sec);
 		memc_close_ctx_mirror (mctx, 2);
+	}
+
+	return -1;
+}
+
+static int
+push_memcached_servers (struct config_file *cfg,
+		struct memcached_server *srv, struct timeval *conn_tv,
+		memcached_param_t *param, time_t expire)
+{
+	memcached_ctx_t mctx[2];
+	char ipout[INET6_ADDRSTRLEN + 1];
+	size_t s = 1;
+	int r;
+
+	mctx[0].protocol = cfg->memcached_protocol;
+	memcpy (&mctx[0].addr, &srv->addr[0], sizeof(struct in_addr));
+	mctx[0].port = srv->port[0];
+	mctx[0].timeout = cfg->memcached_connect_timeout;
+	mctx[0].alive = srv->alive[0];
+	if (srv->num == 2) {
+		mctx[1].protocol = cfg->memcached_protocol;
+		memcpy (&mctx[1].addr, &srv->addr[1], sizeof(struct in_addr));
+		mctx[1].port = srv->port[1];
+		mctx[1].timeout = cfg->memcached_connect_timeout;
+		mctx[1].alive = srv->alive[0];
+	}
+	else {
+		mctx[1].alive = 0;
+	}
+	/* Reviving upstreams if all are dead */
+	if (mctx[0].alive == 0 && mctx[1].alive == 0) {
+		mctx[0].alive = 1;
+		mctx[1].alive = 1;
+		copy_alive (srv, mctx);
+	}
+#ifdef WITH_DEBUG
+	mctx[0].options = MEMC_OPT_DEBUG;
+	mctx[1].options = MEMC_OPT_DEBUG;
+#else
+	mctx[0].options = 0;
+	mctx[1].options = 0;
+#endif
+
+	r = memc_init_ctx_mirror (mctx, 2);
+	copy_alive (srv, mctx);
+	if (r == -1) {
+		msg_warn("push_memcached_servers: cannot connect to memcached upstream: %s",
+				inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)));
+		upstream_fail (&srv->up, conn_tv->tv_sec);
+		return -1;
+	}
+	else {
+		r = memc_set_mirror (mctx, 2, param, &s, expire);
+		copy_alive (srv, mctx);
+		if (r == OK) {
+			memc_close_ctx_mirror (mctx, 2);
+			upstream_ok (&srv->up, conn_tv->tv_sec);
+			return 1;
+		}
+		else {
+			msg_info ("push_memcached_servers: cannot write to memcached(%s): %s",
+					inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)),
+					memc_strerror (r));
+			upstream_fail (&srv->up, conn_tv->tv_sec);
+			memc_close_ctx_mirror (mctx, 2);
+		}
 	}
 
 	return -1;
@@ -143,10 +212,8 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	MD5_CTX mdctx;
 	u_char final[MD5_SIZE];
 	struct memcached_server *srv;
-	memcached_ctx_t mctx[2], mctx_white[2];
 	memcached_param_t cur_param;
 	struct timeval tm, tm1;
-	size_t s;
 	int r;
 	char ip_ptr[16];
 
@@ -226,19 +293,14 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 
 	/* Greylisting record does not exist, writing new one */
 	if (r == 0) {
-		s = 1;
 		/* Write record to memcached */
 		cur_param.buf = (u_char *)&tm;
 		cur_param.bufsize = sizeof (tm);
-		r = memc_set_mirror (mctx, 2, &cur_param, &s, cfg->greylisting_expire);
-		copy_alive (srv, mctx);
+		r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->greylisting_expire);
 		if (r == OK) {
-			upstream_ok (&srv->up, tm.tv_sec);
-			memc_close_ctx_mirror (mctx, 2);
 			return GREY_GREYLISTED;
 		}
 		else {
-			memc_close_ctx_mirror (mctx, 2);
 			msg_info ("check_greylisting: cannot write to memcached: %s", memc_strerror (r));
 		}
 	}
@@ -246,8 +308,6 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	else if (r == 1) {
 		if ((unsigned int)tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
 			/* Client comes too early */
-			memc_close_ctx_mirror (mctx, 2);
-			upstream_ok (&srv->up, tm.tv_sec);
 			return GREY_GREYLISTED;
 		}
 		else {
@@ -266,69 +326,18 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 				}
 			}
 			else {
-				mctx_white[0].protocol = cfg->memcached_protocol;
-				memcpy(&mctx_white[0].addr, &srv->addr[0], sizeof (struct in_addr));
-				mctx_white[0].port = srv->port[0];
-				mctx_white[0].timeout = cfg->memcached_connect_timeout;
-				mctx_white[0].alive = srv->alive[0];
-				if (srv->num == 2) {
-					mctx_white[1].protocol = cfg->memcached_protocol;
-					memcpy(&mctx_white[1].addr, &srv->addr[1], sizeof (struct in_addr));
-					mctx_white[1].port = srv->port[1];
-					mctx_white[1].timeout = cfg->memcached_connect_timeout;
-					mctx_white[1].alive = srv->alive[0];
-				}
-				else {
-					mctx_white[1].alive = 0;
-				}
-				/* Reviving upstreams if all are dead */
-				if (mctx_white[0].alive == 0 && mctx_white[1].alive == 0) {
-					mctx_white[0].alive = 1;
-					mctx_white[1].alive = 1;
-					copy_alive (srv, mctx_white);
-				}
-#ifdef WITH_DEBUG
-				mctx_white[0].options = MEMC_OPT_DEBUG;
-				mctx_white[1].options = MEMC_OPT_DEBUG;
-#else
-				mctx_white[0].options = 0;
-				mctx_white[1].options = 0;
-#endif
-				r = memc_init_ctx_mirror (mctx_white, 2);
-				copy_alive (srv, mctx_white);
-				if (r == -1) {
-					msg_warn ("check_greylisting: cannot connect to memcached whitelist upstream: %s",
-							inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)));
-					upstream_fail (&srv->up, tm.tv_sec);
-				}
-				else {
-					make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
-					s = 1;
-					cur_param.buf = (u_char *)&tm;
-					cur_param.bufsize = sizeof (tm);
-					r = memc_set_mirror (mctx_white, 2, &cur_param, &s, cfg->whitelisting_expire);
-					copy_alive (srv, mctx_white);
-					if (r == OK) {
-						memc_close_ctx_mirror (mctx_white, 2);
-						upstream_ok (&srv->up, tm.tv_sec);
-					}
-					else {
-						msg_info ("check_greylisting: cannot write to memcached(%s): %s",
-								inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)),
-								memc_strerror (r));
-						memc_close_ctx_mirror (mctx_white, 2);
-						upstream_fail (&srv->up, tm.tv_sec);
-					}
-					memc_close_ctx_mirror (mctx_white, 2);
+				make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
+				cur_param.buf = (u_char *)&tm;
+				cur_param.bufsize = sizeof (tm);
+				r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->whitelisting_expire);
+				if (r != OK) {
+					msg_info ("check_greylisting: cannot write to memcached(%s): %s",
+							inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)),
+							memc_strerror (r));
 				}
 			}
 		}
 	}
-	/* Error getting greylisting record */
-	else {
-		upstream_fail (&srv->up, tm.tv_sec);
-	}
-	memc_close_ctx_mirror (mctx, 2);
 
 	return GREY_WHITELISTED;
 }

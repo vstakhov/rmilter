@@ -336,9 +336,10 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 			cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		msg_debug ("mlfi_data: %s: checking greylisting", priv->mlfi_id);
-		ptr = priv->priv_addr.family == AF_INET6 ? &priv->priv_addr.addr.sa6.sin6_addr :
-				&priv->priv_addr.addr.sa4.sin_addr.s_addr;
-		r = check_greylisting (cfg, ptr, priv->priv_addr.family, &priv->conn_tm, priv->priv_from, priv->rcpts.lh_first->r_addr);
+		ptr = priv->priv_addr.family == AF_INET6 ? (void *)&priv->priv_addr.addr.sa6.sin6_addr :
+				(void *)&priv->priv_addr.addr.sa4.sin_addr;
+		r = check_greylisting (cfg, ptr, priv->priv_addr.family, &priv->conn_tm,
+				priv->priv_from, priv->rcpts.lh_first->r_addr);
 		switch (r) {
 		case GREY_GREYLISTED:
 			if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, cfg->greylisted_message) != MI_SUCCESS) {
