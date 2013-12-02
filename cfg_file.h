@@ -96,7 +96,7 @@
 #define MEMCACHED_SERVER_WHITE 2
 #define MEMCACHED_SERVER_ID 3
 
-#define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
+#define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse team"
 #define DEFAULT_GREYLISTED_MESSAGE "Try again later"
 #define DEFAULT_SPAM_HEADER "X-Spam"
 
@@ -371,6 +371,7 @@ struct config_file {
 	u_char dkim_relaxed_header;
 	u_char dkim_relaxed_body;
 	u_char dkim_sign_sha256;
+	u_char dkim_auth_only;
 #ifdef ENABLE_DKIM
 	DKIM_LIB *dkim_lib;
 	struct dkim_hash_entry *headers;

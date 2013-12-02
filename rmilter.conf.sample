@@ -17,7 +17,7 @@ clamav {
 	# host[:port]
 	# sockets are separated by ','
 	# Default: empty
-	servers = clam5.rambler.ru, clam6.rambler.ru, clam8.rambler.ru;
+	servers = clam1.example.com, clam2.example.com;
 	# connect_timeout - timeout in miliseconds for connecting to clamav
 	# Default: 1s
 	connect_timeout = 1s;
@@ -51,10 +51,10 @@ spamd {
 	# sockets are separated by ','
 	# is server name is prefixed with r: it is rspamd server
 	# Default: empty
-	servers = clam5.rambler.ru, clam6.rambler.ru, clam8.rambler.ru;
+	servers = clam5.example.com, clam6.example.com, clam8.example.com;
 
 	# also_check - extra spamd servers to check
-	#also_check = r:clam10.rambler.ru;
+	#also_check = r:clam10.example.com;
 
 	# diff_dir - path where to write messages that have different results from main and extra checks
 	#diff_dir = /var/run/rmilter/diffmsg;
@@ -81,8 +81,8 @@ spamd {
 	maxerrors = 10;
 
 	# reject_message - reject message for spam
-	# Default: "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
-	reject_message = "Spam message rejected; If this is not spam contact abuse at rambler-co.ru";
+	# Default: "Spam message rejected; If this is not spam contact abuse team"
+	reject_message = "Spam message rejected; If this is not spam contact abuse at example.com";
 
 	# whitelist - list of ips or nets that should be not checked with spamd
 	# Default: empty
@@ -97,17 +97,17 @@ memcached {
 	# servers_grey - memcached servers for greylisting in format:
 	# host[:port][, host[:port]]
 	# It is possible to make memcached mirroring, its syntax is {server1, server2}
-	servers_grey = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
+	servers_grey = {localhost, memc1.example.com}, memc2.example.com:11211;
 
 	# servers_white - memcached servers for whitelisting in format similar to that is used
 	# in servers_grey
-	# servers_white = {localhost, mcgi12.rambler.ru}, mcgi18.rambler.ru:11211;
+	# servers_white = {localhost, memc.example.com}, memc.example.com:11211;
 	
 	# servers_limits - memcached servers used for limits storing, can not be mirrored
-	servers_limits = mcgi12.rambler.ru, mcgi18.rambler.ru:11211;
+	servers_limits = memc1.example.com, memc2.example.com:11211;
 
 	# servers_id - memcached servers used for message id storing, can not be mirrored
-	servers_id = mcgi12.rambler.ru, mcgi18.rambler.ru:11211;
+	servers_id = memc1.example.com, memc2.example.com:11211;
 
 	# id_prefix - prefix for extracting message ids from memcached
 	# Default: empty (no prefix is prepended to key)
@@ -153,7 +153,7 @@ bind_socket = unix:/var/lib/rmilter/rmilter.sock;
 # tempdir - path to directory that contains temporary files
 # Default: $TMPDIR
 
-tempdir = /spool/tmp;
+tempdir = /tmp;
 
 # max_size - maximum size of scanned mail with clamav and dcc
 # Default: 0 (no limit)
@@ -162,7 +162,7 @@ max_size = 10M;
 # spf_domains - path to file that contains hash of spf domains
 # Default: empty
 
-spf_domains = rambler.ru, mail.ru;
+spf_domains = example.com, mail.ru;
 
 # use_dcc - whether use or not dcc system
 # Default: no

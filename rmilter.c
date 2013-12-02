@@ -691,7 +691,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char *tmpfrom, *domain_pos;
 	struct mlfi_priv *priv;
 	struct rule *act;
-	unsigned int i, to_sign = 0;
+	unsigned int i;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -731,29 +731,35 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		else {
 			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
 		}
-		if (dkim_domain && dkim_domain->is_loaded) {
-			priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
-					(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
-					(u_char *)dkim_domain->domain,
-					cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-							cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-									cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
-			if (statp != DKIM_STAT_OK) {
-				msg_info ("dkim sign failed: %d", statp);
-				if (priv->dkim) {
-					dkim_free (priv->dkim);
+		if (!cfg->dkim_auth_only || *priv->priv_user != '\0') {
+			if (dkim_domain && dkim_domain->is_loaded) {
+				priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
+						(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
+						(u_char *)dkim_domain->domain,
+						cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+								cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+										cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+				if (statp != DKIM_STAT_OK) {
+					msg_info ("dkim sign failed: %d", statp);
+					if (priv->dkim) {
+						dkim_free (priv->dkim);
+					}
+					priv->dkim = NULL;
 				}
-				priv->dkim = NULL;
+				else {
+					msg_info ("try to add signature for %s domain", dkim_domain->domain);
+				}
 			}
 			else {
-				msg_info ("try to add signature for %s domain", dkim_domain->domain);
+				priv->dkim = try_wildcard_dkim (domain_pos + 1, priv);
+				if (priv->dkim) {
+					msg_info ("try to add signature for %s domain", domain_pos + 1);
+				}
 			}
 		}
 		else {
-			priv->dkim = try_wildcard_dkim (domain_pos + 1, priv);
-			if (priv->dkim) {
-				msg_info ("try to add signature for %s domain", domain_pos + 1);
-			}
+			priv->dkim = NULL;
+			msg_info ("do not add dkim signature for unauthorized user");
 		}
 	}
 	CFG_UNLOCK();

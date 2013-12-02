@@ -83,7 +83,7 @@ uint8_t cur_flags = 0;
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
-%token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 COPY_PROBABILITY
+%token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -1486,6 +1486,7 @@ dkimcmd:
 	| dkim_header_canon
 	| dkim_body_canon
 	| dkim_sign_alg
+	| dkim_auth_only
 	;
 
 dkim_domain:
@@ -1626,6 +1627,17 @@ dkim_sign_alg:
 	}
 	| DKIM_SIGN_ALG EQSIGN DKIM_SHA256 {
 		cfg->dkim_sign_sha256 = 1;
+	}
+	;
+
+dkim_auth_only:
+	DKIM_AUTH_ONLY EQSIGN FLAG {
+		if ($3) {
+			cfg->dkim_auth_only = 1;
+		}
+		else {
+			cfg->dkim_auth_only = 0;
+		}
 	}
 	;
 

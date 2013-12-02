@@ -659,6 +659,8 @@ init_defaults (struct config_file *cfg)
 	cfg->spamd_soft_fail = 1;
 	cfg->spamd_greylist = 1;
 
+	cfg->dkim_auth_only = 1;
+
 #if 0
 	/* Init static defaults */
 	white_from_abuse.addr = "abuse";

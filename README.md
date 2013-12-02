@@ -400,6 +400,10 @@ Directives that can be defined in config file:
     - **sign\_alg**: signature algorithm (sha1 for rsa-sha1 and sha256 for rsa-sha256)
 
         > *Default:* **sha1**
+    
+    - **auth\_only**: sign mail for authorized users only
+
+        > *Default:* **yes**
 
     - **domain**: domain entry must be enclosed in braces {}
 
@@ -481,8 +485,8 @@ Example configuration
             maxerrors = 10;
 
             # reject_message - reject message for spam
-            # Default: "Spam message rejected; If this is not spam contact abuse at rambler-co.ru"
-            reject_message = "Spam message rejected; If this is not spam contact abuse at rambler-co.ru";
+            # Default: "Spam message rejected; If this is not spam contact abuse team"
+            reject_message = "Spam message rejected; If this is not spam contact abuse team";
 
             # whitelist - list of ips or nets that should be not checked with spamd
             # Default: empty
@@ -611,6 +615,7 @@ Example configuration
         header_canon = relaxed;
         body_canon = relaxed;
         sign_alg = sha256;
+        auth_only = yes;
     };
 
 NOTES
