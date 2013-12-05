@@ -1148,7 +1148,7 @@ mlfi_eom(SMFICTX * ctx)
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
-	msg_warn ("mlfi_eom: %s: tempfile=%s, size=%lu", priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
+	msg_info ("mlfi_eom: %s: tempfile=%s, size=%lu", priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
 
 	if (!priv->strict) {
 		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; skip dcc, spamd", priv->mlfi_id, 
