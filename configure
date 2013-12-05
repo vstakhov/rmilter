@@ -474,7 +474,7 @@ check_lib()
 check_os()
 {
 	_OS=`uname -s`
-	_PROCESSOR=`uname -p`
+	_PROCESSOR=`uname -m`
 	case "$_OS" in
 		FreeBSD*)
 				OS="freebsd"
@@ -494,7 +494,7 @@ check_os()
 				;;
 		Linux*)	
 				OS="linux"
-				CFLAGS="${CFLAGS} -I/usr/include/${_PROCESSOR}-linux-gnu/ -DLINUX -D_GNU_SOURCE" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" 
+				CFLAGS="${CFLAGS} \"-I/usr/include/${_PROCESSOR}-linux-gnu/\" -DLINUX -D_GNU_SOURCE" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" 
 				PTHREAD_LDFLAGS="-pthread" 
 				;;
 		*)		OS="unknown" PTHREAD_LDFLAGS="" PTHREAD_CFLAGS="$PTHREAD_CFLAGS -pthread" ;;
