@@ -1252,7 +1252,7 @@ mlfi_eom(SMFICTX * ctx)
 				send_beanstalk_copy (priv, cfg->spam_server);
 			}
 			if (! cfg->spamd_soft_fail || r == METRIC_ACTION_REJECT) {
-				msg_warn ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
+				msg_info ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
 				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
 				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
 				CFG_UNLOCK();
