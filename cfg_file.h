@@ -321,6 +321,7 @@ struct config_file {
 	char send_beanstalk_copy;
 	char send_beanstalk_spam;
 	char send_beanstalk_headers;
+	char send_beanstalk_extra_diff;
 
 	memc_proto_t beanstalk_protocol;
 	unsigned int beanstalk_error_time;

@@ -207,6 +207,7 @@ send_beanstalk_copy				return SEND_BEANSTALK_COPY;
 send_beanstalk_headers			return SEND_BEANSTALK_HEADERS;
 send_beanstalk_spam				return SEND_BEANSTALK_SPAM;
 copy_probability				return COPY_PROBABILITY;
+send_beanstalk_spam_extra_diff	return SEND_BEANSTALK_SPAM_EXTRA_DIFF;
 
 dkim							return DKIM_SECTION;
 key								return DKIM_KEY;

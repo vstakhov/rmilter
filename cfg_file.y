@@ -84,6 +84,7 @@ uint8_t cur_flags = 0;
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
+%token  SEND_BEANSTALK_SPAM_EXTRA_DIFF
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -1192,6 +1193,7 @@ beanstalkcmd:
 	| send_beanstalk_spam
 	| send_beanstalk_copy
 	| beanstalk_copy_prob
+	| beanstalk_extra_diff
 	;
 
 beanstalk_servers:
@@ -1354,6 +1356,17 @@ beanstalk_copy_prob:
 	}
 	| COPY_PROBABILITY EQSIGN FLOAT {
 		cfg->beanstalk_copy_prob = $3;	
+	}
+	;
+	
+beanstalk_extra_diff:
+	SEND_BEANSTALK_SPAM_EXTRA_DIFF EQSIGN FLAG {
+		if ($3) {
+			cfg->send_beanstalk_extra_diff = 1;
+		}
+		else {
+			cfg->send_beanstalk_extra_diff = 0;
+		}
 	}
 	;
 	

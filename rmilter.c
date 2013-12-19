@@ -1242,6 +1242,9 @@ mlfi_eom(SMFICTX * ctx)
 			}
 			else if (r != er) {
 				msg_warn ("mlfi_eom: spamd_extra_scan returned %d and normal scan returned %d", er, r);
+				if (cfg->spam_server && cfg->send_beanstalk_extra_diff) {
+					send_beanstalk_copy (priv, cfg->spam_server);
+				}
 			}
 		}
 		if (r < 0) {
