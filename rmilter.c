@@ -346,7 +346,6 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 				msg_err("mlfi_data: %s: smfi_setreply failed", priv->mlfi_id);
 			}
 			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
 			break;
 		case GREY_ERROR:
@@ -873,6 +872,7 @@ mlfi_data(SMFICTX *ctx)
 {
 	struct mlfi_priv *priv;
 	char *id;
+	int r;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -894,7 +894,11 @@ mlfi_data(SMFICTX *ctx)
 	CFG_UNLOCK();
 
 	if (!cfg->spamd_greylist) {
-		return check_greylisting_ctx (ctx, priv);
+		if ((r = check_greylisting_ctx (ctx, priv)) != SMFIS_CONTINUE) {
+			msg_info ("mlfi_eom: %s: greylisting message", priv->mlfi_id);
+			mlfi_cleanup (ctx, false);
+			return r;
+		}
 	}
 
 	return SMFIS_CONTINUE;
@@ -1082,7 +1086,11 @@ mlfi_eom(SMFICTX * ctx)
 #if (SMFI_PROT_VERSION < 4)
 	/* Do greylisting here if DATA callback is not available */
 	if (!cfg->spamd_greylist) {
-		return check_greylisting_ctx (ctx, priv);
+		if ((r = check_greylisting_ctx (ctx, priv)) != SMFIS_CONTINUE) {
+			msg_info ("mlfi_eom: %s: greylisting message", priv->mlfi_id);
+			mlfi_cleanup (ctx, false);
+			return r;
+		}
 	}
 #endif
 
@@ -1270,6 +1278,7 @@ mlfi_eom(SMFICTX * ctx)
 					CFG_UNLOCK();
 					if (check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
 						msg_info ("mlfi_eom: %s: greylisting message according to spamd action", priv->mlfi_id);
+						mlfi_cleanup (ctx, false);
 						return SMFIS_TEMPFAIL;
 					}
 					CFG_RLOCK();
