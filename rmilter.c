@@ -396,7 +396,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 		return;
 	}
 
-	if ((map = mmap (NULL, st.st_size, PROT_READ, 0, fd, 0)) == MAP_FAILED) {
+	if ((map = mmap (NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
 		msg_err ("send_beanstalk_copy: cannot mmap file %s, %s", priv->file, strerror (errno));
 		close (fd);
 		return;
@@ -474,7 +474,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 		return;
 	}
 
-	if ((map = mmap (NULL, priv->eoh_pos, PROT_READ, 0, fd, 0)) == MAP_FAILED) {
+	if ((map = mmap (NULL, priv->eoh_pos, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
 		msg_err ("send_beanstalk: cannot mmap file %s, %s", priv->file, strerror (errno));
 		close (fd);
 		return;
