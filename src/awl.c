@@ -24,16 +24,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <strings.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <syslog.h>
+#include "config.h"
 
 #ifdef _THREAD_SAFE
-#include <pthread.h>
 #define A_LOCK(num, hash) do { pthread_mutex_lock (&(hash)->locks[(num)]); } while (0)
 #define A_UNLOCK(num, hash) do { pthread_mutex_unlock (&(hash)->locks[(num)]); } while (0)
 #else

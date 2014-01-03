@@ -24,21 +24,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/syslog.h>
-#include <sys/mman.h>
-
-#include "spf2/spf.h"
 #include "cfg_file.h"
-#include "spf.h"
 #include "rmilter.h"
+#include "spf2/spf.h"
+#include "spf.h"
 
 /* Defined in rmilter.c */
 extern int my_strcmp (const void *, const void *);
@@ -61,7 +50,7 @@ spf_check(struct mlfi_priv *priv, struct config_file *cfg)
 	 */
 	if (fromp[0] == '<')
 		fromp++; /* strip leading < */
-	strlcpy (from, fromp, NS_MAXDNAME);
+	rmilter_strlcpy (from, fromp, NS_MAXDNAME);
 	len = strlen(from);
 	if (fromp[len - 1] == '>')
 		from[len - 1] = '\0'; /* strip trailing > */

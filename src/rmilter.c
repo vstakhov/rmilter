@@ -24,32 +24,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <sysexits.h>
-#include <unistd.h>
-#include <syslog.h>
+#include "config.h"
 
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <pthread.h>
-#include <errno.h>
-#include <fcntl.h>
-#include "md5.h"
-#ifdef HAVE_STDBOOL_H
-#include <stdbool.h>
-#endif
-
-/* XXX hack to work on FreeBSD < 7 */
-#include <libmilter/mfapi.h>
-
-#ifndef DISABLE_SPF
+#ifdef WITH_SPF
 #include "spf2/spf.h"
 #include "spf.h"
 #endif
@@ -176,7 +153,7 @@ create_temp_file (struct mlfi_priv *priv)
 	int fd;
 
 	snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
-	strlcpy (priv->file, buf, sizeof (priv->file));
+	rmilter_strlcpy (priv->file, buf, sizeof (priv->file));
 	/* mkstemp is based on arc4random (3) and is not reentrable
 	 * so acquire mutex for it
 	 */
@@ -266,7 +243,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	c = cur_param.key;
 	s = sizeof (cur_param.key);
 	if (cfg->id_prefix) {
-		s = strlcpy (c, cfg->id_prefix, s);
+		s = rmilter_strlcpy (c, cfg->id_prefix, s);
 		c += s;
 	}
 	if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
@@ -312,7 +289,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		memc_close_ctx (&mctx);
 		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
 		priv->strict = 0;
-		strlcpy (priv->reply_id, header, sizeof (priv->reply_id));
+		rmilter_strlcpy (priv->reply_id, header, sizeof (priv->reply_id));
 		return;
 	}
 	else if (r != NOT_EXISTS) {
@@ -533,10 +510,10 @@ format_spamd_reply (char *result, size_t len, char *format, char *symbols)
 		else if (*(s + 1) == 's') {
 			/* Paste symbols */
 			if (symbols != NULL) {
-				pos += strlcpy (pos, symbols, len - (pos - result));
+				pos += rmilter_strlcpy (pos, symbols, len - (pos - result));
 			}
 			else {
-				pos += strlcpy (pos, "no symbols", len - (pos - result));
+				pos += rmilter_strlcpy (pos, "no symbols", len - (pos - result));
 			}
 		}
 	}
@@ -586,14 +563,14 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 			memcpy (&priv->priv_addr.addr.sa6, &addr_storage->sa6, sizeof (struct sockaddr_in6));
 			break;
 		default:
-			strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
+			rmilter_strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
 			memcpy (&priv->priv_addr.addr.sa, &addr_storage->sa, sizeof (struct sockaddr));
 			break;
 		}
 	}
 
 	if (hostname != NULL) {
-		strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
+		rmilter_strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
 	}
 	else {
 		priv->priv_hostname[0] = '\0';
@@ -611,13 +588,13 @@ mlfi_helo(SMFICTX *ctx, char *helostr)
 
 	priv = (struct mlfi_priv *) smfi_getpriv (ctx);
 
-	strlcpy (priv->priv_helo, helostr, ADDRLEN);
+	rmilter_strlcpy (priv->priv_helo, helostr, ADDRLEN);
 	msg_debug ("mlfi_helo: got helo value: %s", priv->priv_helo);
 
 	return SMFIS_CONTINUE;
 }
 
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 static DKIM*
 try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 {
@@ -715,7 +692,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
 
 	/* Check whether we need to sign this message */
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	CFG_RLOCK();
 	DKIM_STAT statp;
 	struct dkim_domain_entry *dkim_domain;
@@ -767,11 +744,11 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (priv->priv_hostname[0] == '\0') {
 		tmpfrom = smfi_getsymval(ctx, "{client_name}");
 		if (tmpfrom != NULL) {
-			strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
+			rmilter_strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
 			msg_debug ("mlfi_envfrom: got host value: %s", priv->priv_hostname);
 		}
 		else {
-			strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+			rmilter_strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
 		}
 	}
 
@@ -784,7 +761,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 			priv->strict = 0;
 		}
 #endif
-		strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
+		rmilter_strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
 	}
 
 
@@ -834,7 +811,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		msg_err ("malloc failed: %s", strerror (errno));
 		return SMFIS_TEMPFAIL;
 	}
-	strlcpy (newrcpt->r_addr, tmprcpt, sizeof (newrcpt->r_addr));
+	rmilter_strlcpy (newrcpt->r_addr, tmprcpt, sizeof (newrcpt->r_addr));
 
 	CFG_RLOCK();
 
@@ -885,10 +862,10 @@ mlfi_data(SMFICTX *ctx)
 
 	CFG_RLOCK();
 	if (id) {
-		strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+		rmilter_strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 	}
 	else {
-		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
+		rmilter_strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
 		msg_info ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
 	}
 	CFG_UNLOCK();
@@ -957,7 +934,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		}
 	}
 
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	struct dkim_hash_entry *e;
 	u_char *tmp;
 	int tmplen, r;
@@ -1032,7 +1009,7 @@ mlfi_eoh(SMFICTX * ctx)
 		fprintf (priv->fileh, "\r\n");
 		priv->eoh_pos = ftell (priv->fileh);
 	}
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	int r;
 
 	if (priv->dkim) {
@@ -1075,10 +1052,10 @@ mlfi_eom(SMFICTX * ctx)
 	id = smfi_getsymval(ctx, "i");
 
 	if (id) {
-		strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+		rmilter_strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
 	}
 	else {
-		strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
+		rmilter_strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
 		msg_info ("mlfi_eom: cannot get queue id, set to 'NOQUEUE'");
 	}
 
@@ -1106,7 +1083,7 @@ mlfi_eom(SMFICTX * ctx)
 	else {
 		msg_warn ("mlfi_eom: %s: config was reloaded, not checking rules", priv->mlfi_id);
 	}
-#ifndef DISABLE_SPF
+#ifdef WITH_SPF
 	/*
 	 * Is the sender address SPF-compliant?
 	 */
@@ -1333,7 +1310,7 @@ mlfi_eom(SMFICTX * ctx)
 
 	}
 #endif
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	/* Add dkim signature */
 	char *hdr;
 	size_t len;
@@ -1411,7 +1388,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->strict = 1;
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	if (priv->dkim) {
 		dkim_free (priv->dkim);
 	}
@@ -1474,7 +1451,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 		priv->matched_rules[STAGE_BODY] = act;
 	}
 	/* continue processing */
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	int r;
 
 	if (priv->dkim) {

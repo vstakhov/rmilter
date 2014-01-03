@@ -28,28 +28,7 @@
 #ifndef CFG_FILE_H
 #define CFG_FILE_H
 
-#include <sys/types.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-#ifndef OWN_QUEUE_H
-#include <sys/queue.h>
-#else
-#include "queue.h"
-#endif
-#ifdef HAVE_STRLCPY_H
-#include "strlcpy.h"
-#endif
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <pthread.h>
-#ifdef ENABLE_DKIM
-#include "opendkim/dkim.h"
-#endif
-
+#include "util.h"
 #include "pcre.h"
 #include "upstream.h"
 #include "memcached.h"
@@ -57,7 +36,11 @@
 #include "radix.h"
 #include "awl.h"
 
-#include "uthash/uthash.h"
+#include "uthash.h"
+
+#ifdef WITH_DKIM
+#include <dkim.h>
+#endif
 
 #define COND_CONNECT_FLAG 0x1
 #define COND_HELO_FLAG 0x2
@@ -373,7 +356,7 @@ struct config_file {
 	u_char dkim_relaxed_body;
 	u_char dkim_sign_sha256;
 	u_char dkim_auth_only;
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	DKIM_LIB *dkim_lib;
 	struct dkim_hash_entry *headers;
 #endif

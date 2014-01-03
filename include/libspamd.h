@@ -25,21 +25,9 @@
  */
 
 #ifndef LIBSPAMD_H
-#define LIBSPAMD_H 1
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
+#define LIBSPAMD_H
 
-#include <libmilter/mfapi.h>
-#ifndef OWN_QUEUE_H
-#include <sys/queue.h>
-#else
-#include "queue.h"
-#endif
-
+#include "config.h"
 
 struct config_file;
 struct mlfi_priv;

@@ -27,8 +27,7 @@
 #ifndef BEANSTALK_H
 #define BEANSTALK_H
 
-#include <sys/types.h>
-#include <netinet/in.h>
+#include "config.h"
 
 typedef enum bean_error {
 	BEANSTALK_OK,

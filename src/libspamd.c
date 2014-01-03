@@ -24,38 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef _THREAD_SAFE
-#include <pthread.h>
-#endif
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#ifdef HAVE_PATH_MAX
-#include <limits.h>
-#endif
-#ifdef HAVE_MAXPATHLEN
-#include <sys/param.h>
-#endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <sysexits.h>
-#include <unistd.h>
-#include <syslog.h>
-
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <sys/socket.h>
-#include <sys/poll.h>
-#include <netdb.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <math.h>
-
-#ifdef LINUX
-#include <sys/sendfile.h>
-#endif
+#include "config.h"
 
 #include "cfg_file.h"
 #include "rmilter.h"
@@ -306,7 +275,8 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		return -1;
 	}
 
-#if defined(FREEBSD) || defined(HAVE_SENDFILE)
+#ifdef HAVE_SENDFILE
+#if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("rspamd: sendfile (%s), %d: %m", srv->name, errno);
 		close(fd);
@@ -321,6 +291,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		close(s);
 		return -1;		
 	}
+#endif
 #else 
 	while ((r = read (fd, buf, sizeof (buf))) > 0) {
 		write (s, buf, r);
@@ -438,7 +409,7 @@ do {																				\
 					msg_err ("malloc failed: %s", strerror (errno));
 					return -1;
 				}
-				strlcpy (cur->metric_name, p, c - p + 1);
+				rmilter_strlcpy (cur->metric_name, p, c - p + 1);
 				remain -= c - p + 1;
 				p = c + 1;
 				/* Now skip result from rspamd, just extract 2 numbers */
@@ -549,7 +520,7 @@ do {																				\
 					msg_err ("malloc failed: %s", strerror (errno));
 					return -1;
 				}
-				strlcpy (cur_symbol->symbol, p, toklen + 1);
+				rmilter_strlcpy (cur_symbol->symbol, p, toklen + 1);
 				TAILQ_INSERT_HEAD (&cur->symbols, cur_symbol, entry);
 				/* Skip to the end of line */
 				toklen = strcspn (p, "\r\n");
@@ -594,7 +565,7 @@ do {																				\
 				/* Parse message id */
 				toklen = strcspn (p, "\r\n");
 				*mid = malloc (toklen + 1);
-				strlcpy (*mid, p, toklen + 1);
+				rmilter_strlcpy (*mid, p, toklen + 1);
 				remain -= toklen;
 				p += toklen;
 				next_state = 4;
@@ -605,7 +576,7 @@ do {																				\
 				toklen = strcspn (p, "\r\n");
 				if (cur) {
 					cur->subject = malloc (toklen + 1);
-					strlcpy (cur->subject, p, toklen + 1);
+					rmilter_strlcpy (cur->subject, p, toklen + 1);
 				}
 				remain -= toklen;
 				p += toklen;
@@ -723,7 +694,8 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		return -1;
 	}
 
-#if defined(FREEBSD) || defined(HAVE_SENDFILE)
+#ifdef HAVE_SENDFILE
+#if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
 		close(fd);
@@ -738,6 +710,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		close(s);
 		return -1;		
 	}
+#endif
 #else 
 	while ((r = read (fd, buf, sizeof (buf))) > 0) {
 		write (s, buf, r);
@@ -850,7 +823,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	char rbuf[BUFSIZ], hdrbuf[BUFSIZ];
 	char *prefix = "s", *mid = NULL, *c;
 	rspamd_result_t res;
-	struct rspamd_metric_result *cur = NULL, *tmp, *res_metric;
+	struct rspamd_metric_result *cur = NULL, *tmp;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
 	
@@ -949,7 +922,6 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 		}
 		if (cur->action > res_action) {
 			res_action = cur->action;
-			res_metric = cur;
 			if (res_action == METRIC_ACTION_REWRITE_SUBJECT && cur->subject != NULL) {
 				/* Copy subject as it would be freed further */
 				if (*subject != NULL) {

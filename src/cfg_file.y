@@ -26,22 +26,6 @@
 
 %{
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/queue.h>
-#include <syslog.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-
 #include "pcre.h"
 #include "cfg_file.h"
 
@@ -75,7 +59,7 @@ uint8_t cur_flags = 0;
 %token	AND OR NOT
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
-%token  BINDSOCK SOCKCRED DOMAIN IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
+%token  BINDSOCK SOCKCRED DOMAIN_STR IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
@@ -96,7 +80,7 @@ uint8_t cur_flags = 0;
 %type 	<string>	ip_net memcached_hosts beanstalk_hosts clamav_addr spamd_addr
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
-%type	<string>	DOMAIN
+%type	<string>	DOMAIN_STR
 %type	<limit>		SIZELIMIT
 %type	<flag>		FLAG
 %type	<bucket>	BUCKET;
@@ -362,7 +346,7 @@ clamav_addr:
 	| IPADDR{
 		$$ = $1;
 	}
-	| DOMAIN {
+	| DOMAIN_STR {
 		$$ = $1;
 	}
 	| HOSTPORT {
@@ -489,7 +473,7 @@ check_symbols:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->check_symbols, c, len + 1);
+		rmilter_strlcpy (cfg->check_symbols, c, len + 1);
 
 		free ($3);
 	}
@@ -541,7 +525,7 @@ spamd_addr:
 	| IPADDR{
 		$$ = $1;
 	}
-	| DOMAIN {
+	| DOMAIN_STR {
 		$$ = $1;
 	}
 	| HOSTPORT {
@@ -598,7 +582,7 @@ spamd_reject_message:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->spamd_reject_message, c, len + 1);
+		rmilter_strlcpy (cfg->spamd_reject_message, c, len + 1);
 
 		free ($3);
 	}
@@ -642,7 +626,7 @@ spamd_rspamd_metric:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->rspamd_metric, c, len + 1);
+		rmilter_strlcpy (cfg->rspamd_metric, c, len + 1);
 
 		free ($3);
 	}
@@ -695,7 +679,7 @@ spamd_spam_header:
 				yyerror ("yyparse: malloc failed");
 				YYERROR;
 			}
-			strlcpy (cfg->spam_header, c, len + 1);
+			rmilter_strlcpy (cfg->spam_header, c, len + 1);
 	
 			free ($3);
 		}
@@ -724,7 +708,7 @@ trace_symbol:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->trace_symbol, c, len + 1);
+		rmilter_strlcpy (cfg->trace_symbol, c, len + 1);
 
 		free ($3);
 
@@ -753,7 +737,7 @@ trace_addr:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->trace_addr, c, len + 1);
+		rmilter_strlcpy (cfg->trace_addr, c, len + 1);
 
 		free ($3);
 
@@ -770,7 +754,7 @@ spf_params:
 	;
 
 spf_domain:
-	DOMAIN {
+	DOMAIN_STR {
 		if (!add_spf_domain (cfg, $1)) {
 			yyerror ("yyparse: add_spf_domain");
 			YYERROR;
@@ -917,7 +901,7 @@ greylisted_message:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->greylisted_message, c, len + 1);
+		rmilter_strlcpy (cfg->greylisted_message, c, len + 1);
 
 		free ($3);
 	}
@@ -1047,7 +1031,7 @@ memcached_id_params:
 memcached_hosts:
 	STRING
 	| IPADDR
-	| DOMAIN
+	| DOMAIN_STR
 	| HOSTPORT
 	;
 memcached_error_time:
@@ -1107,7 +1091,7 @@ memcached_id_prefix:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->id_prefix, c, len + 1);
+		rmilter_strlcpy (cfg->id_prefix, c, len + 1);
 
 		free ($3);
 	}
@@ -1135,7 +1119,7 @@ memcached_grey_prefix:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->grey_prefix, c, len + 1);
+		rmilter_strlcpy (cfg->grey_prefix, c, len + 1);
 
 		free ($3);
 	}
@@ -1163,7 +1147,7 @@ memcached_white_prefix:
 			yyerror ("yyparse: malloc failed");
 			YYERROR;
 		}
-		strlcpy (cfg->white_prefix, c, len + 1);
+		rmilter_strlcpy (cfg->white_prefix, c, len + 1);
 
 		free ($3);
 	}
@@ -1237,7 +1221,7 @@ beanstalk_spam_server:
 beanstalk_hosts:
 	STRING
 	| IPADDR
-	| DOMAIN
+	| DOMAIN_STR
 	| HOSTPORT
 	;
 

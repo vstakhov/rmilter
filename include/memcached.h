@@ -27,8 +27,7 @@
 #ifndef MEMCACHED_H
 #define MEMCACHED_H
 
-#include <sys/types.h>
-#include <netinet/in.h>
+#include "config.h"
 
 #define MAXKEYLEN 250
 

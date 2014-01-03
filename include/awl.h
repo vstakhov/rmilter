@@ -27,18 +27,7 @@
 #ifndef AWL_H
 #define AWL_H
 
-#include <sys/types.h>
-
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
-
-#ifdef _THREAD_SAFE
-#include <pthread.h>
-#endif
+#include "config.h"
 
 #define NEST_NUMBER 2048 / sizeof (uintptr_t)
 

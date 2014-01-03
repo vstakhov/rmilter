@@ -27,13 +27,7 @@
 #ifndef RADIX_H
 #define RADIX_H
 
-#include <sys/types.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_INTTYPES_H
-#include <inttypes.h>
-#endif
+#include "config.h"
 
 #define RADIX_NO_VALUE   (unsigned char)-1
 
@@ -53,7 +47,7 @@ typedef struct {
 } radix_tree_t;
 
 
-radix_tree_t *radix_tree_create();
+radix_tree_t *radix_tree_create(void);
 int radix32tree_insert(radix_tree_t *tree,
     uint32_t key, uint32_t mask, unsigned char value);
 int radix32tree_delete(radix_tree_t *tree,

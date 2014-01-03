@@ -21,18 +21,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#ifdef HAVE_STDBOOL_H
-#include <stdbool.h>
-#endif
-#include <stdio.h>
-#include <unistd.h>
-#include <syslog.h>
-#include "md5.h"
+#include "config.h"
 #include "radix.h"
 #include "upstream.h"
 #include "memcached.h"
@@ -60,7 +49,7 @@ make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[MD5_SIZ
 
 	c = key;
 	if (prefix) {
-		s = strlcpy (c, prefix, keylen);
+		s = rmilter_strlcpy (c, prefix, keylen);
 		c += s;
 	}
 	if (keylen - s > sizeof (md5_out)) {

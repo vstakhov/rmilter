@@ -24,21 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <ctype.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <libmilter/mfapi.h>
-#include <sys/un.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <syslog.h>
-#include <netdb.h>
-#include <math.h>
-#include <sys/mman.h>
-#include <stdarg.h>
+#include "config.h"
 
 #include "pcre.h"
 #include "cfg_file.h"
@@ -56,7 +42,7 @@ parse_err (const char *fmt, ...)
 	int r;
 	
 	va_start (aq, fmt);
-	strlcpy (readbuf, yytext, sizeof (readbuf));
+	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
 
 	r = snprintf (logbuf, sizeof (logbuf), "config file parse error! line: %d, text: %s, reason: ", yylineno, readbuf);
 	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
@@ -74,7 +60,7 @@ parse_warn (const char *fmt, ...)
 	int r;
 	
 	va_start (aq, fmt);
-	strlcpy (readbuf, yytext, sizeof (readbuf));
+	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
 
 	r = snprintf (logbuf, sizeof (logbuf), "config file parse warning! line: %d, text: %s, reason: ", yylineno, readbuf);
 	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
@@ -104,7 +90,7 @@ copy_regexp (char **dst, const char *src)
 	*dst = malloc (len + 1);
 	if (!*dst) return 0;
 
-	return strlcpy (*dst, src, len + 1);
+	return rmilter_strlcpy (*dst, src, len + 1);
 }
 
 int
@@ -492,7 +478,7 @@ create_action (enum action_type type, const char *message)
 
 	if (new->message == NULL) return NULL;
 
-	strlcpy (new->message, message, len + 1);
+	rmilter_strlcpy (new->message, message, len + 1);
 
 	return new;
 }
@@ -671,7 +657,7 @@ init_defaults (struct config_file *cfg)
 	LIST_INSERT_HEAD (&cfg->whitelist_static, &white_from_postmaster, next);
 #endif
 
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	cfg->dkim_lib = dkim_init (NULL, NULL);
 	/* Add recommended by rfc headers */
 	add_hashed_header ("from", &cfg->headers);
@@ -829,7 +815,7 @@ free_config (struct config_file *cfg)
 	}
 
 
-#ifdef ENABLE_DKIM
+#ifdef WITH_DKIM
 	struct dkim_hash_entry *curh, *tmph;
 	struct dkim_domain_entry *curd, *tmpd;
 
@@ -897,7 +883,7 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 	}
 
 	len = strcspn (str, ">");
-	strlcpy (rcptbuf, str, MIN (len + 1, sizeof (rcptbuf)));
+	rmilter_strlcpy (rcptbuf, str, MIN (len + 1, sizeof (rcptbuf)));
 	if (len > 0) {
 		if (is_global) {
 			list = cfg->wlist_rcpt_global;

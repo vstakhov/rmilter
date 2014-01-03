@@ -24,29 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifdef _THREAD_SAFE
-#include <pthread.h>
-#endif
-
-#include <stdarg.h>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/param.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sysexits.h>
-#include <unistd.h>
-#include <syslog.h>
-
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <sys/poll.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <sys/uio.h>
+#include "config.h"
 
 #include "memcached.h"
 

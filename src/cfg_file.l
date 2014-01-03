@@ -27,11 +27,6 @@
 %x incl
 
 %{
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <syslog.h>
 #include "cfg_file.h"
 #include "cfg_yacc.h"
 
@@ -285,7 +280,7 @@ inet:[0-9]+@[a-zA-Z0-9.-]+		yylval.string=strdup(yytext); return SOCKCRED;
 [0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\/[0-9]{1,2}	yylval.string=strdup(yytext); return IPNETWORK;
 \/[^/\n]+\/						yylval.string=strdup(yytext); return REGEXP;
 [a-zA-Z<@][.a-zA-Z@+>_-]*			yylval.string=strdup(yytext); return STRING;
-[a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN;
+[a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN_STR;
 r?:?[a-zA-Z0-9.-]+:[0-9]{1,5}	yylval.string=strdup(yytext); return HOSTPORT;
 r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 <incl>[ \t]*      				/* eat the whitespace */

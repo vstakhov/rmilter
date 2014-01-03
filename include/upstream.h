@@ -27,8 +27,7 @@
 #ifndef UPSTREAM_H
 #define UPSTREAM_H
 
-#include <sys/types.h>
-
+#include "config.h"
 
 struct upstream {
 	unsigned int errors;

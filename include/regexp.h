@@ -27,8 +27,6 @@
 #ifndef REGEXP_H
 #define REGEXP_H
 
-
-#include <sys/types.h>
 #include "rmilter.h"
 #include "cfg_file.h"
 

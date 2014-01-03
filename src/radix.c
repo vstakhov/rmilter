@@ -24,15 +24,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <sys/types.h>
-#include <stdlib.h>
+#include "config.h"
 
 #include "radix.h"
 
 static void *radix_alloc(radix_tree_t *tree);
 
 radix_tree_t *
-radix_tree_create()
+radix_tree_create(void)
 {
     radix_tree_t  *tree;
 

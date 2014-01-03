@@ -1,0 +1,348 @@
+#ifndef RMILTER_CONFIG_H_IN
+#define RMILTER_CONFIG_H_IN
+
+#cmakedefine HAVE_SYS_TYPES_H    1
+
+#cmakedefine HAVE_SYS_TIME_H     1
+
+#cmakedefine HAVE_SYS_UIO_H      1
+
+#cmakedefine HAVE_FCNTL_H        1
+
+#cmakedefine HAVE_MATH_H         1
+
+#cmakedefine HAVE_STDIO_H        1
+
+#cmakedefine HAVE_STDLIB_H       1
+
+#cmakedefine HAVE_STRING_H       1
+
+#cmakedefine HAVE_STRINGS_H      1
+
+#cmakedefine HAVE_TIME_H         1
+
+#cmakedefine HAVE_UNISTD_H       1
+
+#cmakedefine HAVE_SYSEXITS_H     1
+
+#cmakedefine HAVE_STDINT_H       1
+
+#cmakedefine HAVE_INTTYPES_H     1
+
+#cmakedefine HAVE_STDBOOL_H      1
+
+#cmakedefine HAVE_ARPA_INET_H    1
+#cmakedefine HAVE_NETINET_IN_H   1
+
+#cmakedefine HAVE_NETDB_H        1
+
+#cmakedefine HAVE_POLL_H         1
+
+#cmakedefine HAVE_SYSLOG_H       1
+
+#cmakedefine HAVE_SIGINFO_H      1
+
+#cmakedefine HAVE_LIBUTIL_H      1
+
+#cmakedefine HAVE_LIBGEN_H       1
+
+#cmakedefine HAVE_SEARCH_H       1
+
+#cmakedefine HAVE_LOCALE_H       1
+
+#cmakedefine HAVE_GRP_H          1
+#cmakedefine HAVE_PWD_H          1
+
+#cmakedefine HAVE_GLOB_H         1
+
+#cmakedefine HAVE_ENDIAN_H       1
+#cmakedefine HAVE_SYS_ENDIAN_H   1
+#cmakedefine HAVE_MACHINE_ENDIAN_H  1
+#cmakedefine HAVE_SYS_CDEFS_H    1
+
+ #ifdef HAVE_ENDIAN_H
+ #include <endian.h>
+ #else 
+ #ifdef HAVE_SYS_ENDIAN_H
+ #include <sys/endian.h>
+ #else
+ #ifdef HAVE_MACHINE_ENDIAN_H
+ #include <machine/endian.h>
+ #else
+ #define LITTLE_ENDIAN   1234    
+ #define BIG_ENDIAN      4321    
+ #if defined(i386) || defined(__i386) || defined(__amd64) || \
+ 	 defined(BIT_ZERO_ON_RIGHT) || defined(__x86__)
+ #define BYTE_ORDER      LITTLE_ENDIAN
+ #endif
+ 
+ #if defined(__sparc) || defined(__sparc__) || defined(__powerpc__)
+ #define BYTE_ORDER      BIG_ENDIAN
+ #endif
+ 
+ #endif /* HAVE_MACHINE_ENDIAN_H */
+ #endif /* HAVE_SYS_ENDIAN_H */
+ #endif /* HAVE_ENDIAN_H */
+ 
+ #if !defined(BYTE_ORDER) || (BYTE_ORDER != BIG_ENDIAN && BYTE_ORDER != LITTLE_ENDIAN)
+ # error "Undefined or unknown BYTE_ORDER"
+ #endif
+ 
+
+
+#cmakedefine HAVE_SYS_QUEUE_H    1
+#cmakedefine HAVE_SYS_MMAN_H     1
+#cmakedefine HAVE_SYS_SOCKET_H   1
+#cmakedefine HAVE_SYS_UN_H       1
+#cmakedefine HAVE_SYS_STAT_H     1
+#cmakedefine HAVE_SYS_WAIT_H     1
+#cmakedefine HAVE_SYS_PARAM_H    1
+#cmakedefine HAVE_SYS_FILE_H     1
+#cmakedefine HAVE_SYS_RESOURCE_H 1
+#cmakedefine HAVE_SYS_TIMEB_H    1
+#cmakedefine HAVE_SYS_UTSNAME_H  1
+
+#cmakedefine HAVE_PIDFILE        1
+
+#cmakedefine HAVE_PIDFILE_FILENO 1
+
+#cmakedefine HAVE_SETPROCTITLE   1
+
+#cmakedefine HAVE_GETPAGESIZE    1
+
+#cmakedefine HAVE_NANOSLEEP      1
+
+#cmakedefine HAVE_PATH_MAX       1
+
+#cmakedefine HAVE_MAXPATHLEN     1
+
+#cmakedefine HAVE_MMAP_SHARED    1
+
+#cmakedefine HAVE_MMAP_ANON      1
+
+#cmakedefine HAVE_MMAP_NOCORE    1
+
+#cmakedefine HAVE_O_DIRECT       1
+
+#cmakedefine HAVE_FADVISE        1
+
+#cmakedefine HAVE_FALLOCATE      1
+#cmakedefine HAVE_POSIX_FALLOCATE 1
+
+#cmakedefine HAVE_FDATASYNC      1
+#cmakedefine HAVE_COMPATIBLE_QUEUE_H    1
+
+#cmakedefine HAVE_SC_NPROCESSORS_ONLN 1
+
+#cmakedefine HAVE_VFORK          1
+
+#cmakedefine HAVE_WAIT4          1
+
+#cmakedefine HAVE_WAITPID        1
+
+#cmakedefine HAVE_FLOCK          1
+
+#cmakedefine HAVE_SA_SIGINFO     1
+
+#cmakedefine DEBUG_MODE          1
+
+#cmakedefine HAVE_CLOCK_VIRTUAL  1
+#cmakedefine HAVE_CLOCK_PROCESS_CPUTIME_ID  1
+
+#cmakedefine HAVE_SETITIMER      1
+
+#cmakedefine HAVE_INET_PTON      1
+
+#define      WITHOUT_PERL        1
+
+#cmakedefine WITH_DKIM           1
+
+#cmakedefine WITH_SPF            1
+
+#cmakedefine HAVE_SENDFILE       1
+#cmakedefine HAVE_SYS_SENDFILE_H 1
+
+#cmakedefine HAVE_MKSTEMP        1
+
+#cmakedefine HAVE_CLOCK_GETTIME  1
+
+#cmakedefine HAVE_OPENSSL		 1
+
+
+#if (defined(__i386__) || defined(__x86_64__)  || defined(_M_IX86))
+/* Use murmur hash for UTHash for these platforms */
+#define HASH_FUNCTION HASH_MUR
+#define HASH_USING_NO_STRICT_ALIASING
+#endif
+
+
+#define MVERSION          "${RMILTER_VERSION}"
+#define RMILTER_MASTER_SITE_URL "${RMILTER_MASTER_SITE_URL}"
+
+/* sys/types */
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+
+/* cdefs */
+#ifdef HAVE_SYS_CDEFS_H
+#include <sys/cdefs.h>
+#endif
+
+/* sys/param */
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
+
+/* stdint */
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#elif defined(HAVE_INTTYPES_H)
+#include <inttypes.h>
+#endif
+
+/* stdbool */
+#ifdef HAVE_STDBOOL_H
+#include <stdbool.h>
+#endif
+
+/* sys/socket */
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+
+/* sys/file.h */
+#ifdef HAVE_SYS_FILE_H
+#include <sys/file.h>
+#endif
+
+/* sys/uio.h */
+#ifdef HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
+
+/* sys/mman */
+#ifdef HAVE_SYS_MMAN_H
+#include <sys/mman.h>
+#endif
+
+/* netinet issues */
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
+
+/* unix sockets */
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif
+
+/* netdb */
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+
+/* stdlib */
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+
+/* stdio */
+#ifdef HAVE_STDIO_H
+#include <stdio.h>
+#endif
+
+/* time */
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+
+/* sysexits */
+#ifdef HAVE_SYSEXITS_H
+#include <sysexits.h>
+#endif
+
+/* unistd */
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+
+/* string */
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
+
+/* strings */
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
+
+/* fcntl */
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+
+/* poll */
+#ifdef HAVE_POLL_H
+#include <poll.h>
+#endif
+
+/* sys/stat */
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
+/* sys/wait */
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>
+#endif
+
+/* sys/resource.h */
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
+
+/* math */
+#ifdef HAVE_MATH_H
+#include <math.h>
+#endif
+
+
+/* syslog */
+#ifdef HAVE_SYSLOG_H
+#include <syslog.h>
+#endif
+
+#ifdef HAVE_LIBGEN_H
+#include <libgen.h>
+#define HAVE_DIRNAME 1
+#endif
+
+#ifdef HAVE_SYS_SENDFILE_H
+#include <sys/sendfile.h>
+#endif
+
+#include <errno.h>
+#include <signal.h>
+#include <stdarg.h>
+#ifdef HAVE_SIGINFO_H
+# include <siginfo.h>
+#endif
+
+#include <pthread.h>
+#define _THREAD_SAFE
+#include <mfapi.h>
+#include <ctype.h>
+
+/* compat */
+#include "queue.h"
+#include "md5.h"
+
+#endif
