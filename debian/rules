@@ -9,5 +9,6 @@ include /usr/share/cdbs/1/class/cmake.mk
 
 DEB_CMAKE_NORMAL_ARGS+= -DENABLE_SPF=ON \
 						-DENABLE_DKIM=ON \
+						-DMANDIR=/usr/share/man \
 						-DRMILTER_GROUP=rmilter \
 						-DRMILTER_USER=rmilter
