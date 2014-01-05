@@ -353,7 +353,7 @@ CHECK_SYMBOL_EXISTS(MAP_NOCORE sys/mman.h HAVE_MMAP_NOCORE)
 
 ################################ SOURCES SECTION ###########################
 SET(RMILTERSRC
-                compat/md5.c
+                compat/blake2b-ref.c
                 src/upstream.c
                 src/util.c 
                 src/regexp.c 

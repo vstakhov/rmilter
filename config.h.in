@@ -343,6 +343,5 @@
 
 /* compat */
 #include "queue.h"
-#include "md5.h"
 
 #endif

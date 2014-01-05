@@ -42,6 +42,7 @@
 #endif
 #include "ratelimit.h"
 #include "greylist.h"
+#include "blake2.h"
 
 #ifndef HAVE_STDBOOL_H
 #  ifndef bool
@@ -203,9 +204,9 @@ dkim_stripcr (char *str)
 static void
 check_message_id (struct mlfi_priv *priv, char *header) 
 {
-	MD5_CTX mdctx;
-	u_char final[MD5_SIZE], param = '0';
-	char md5_out[MD5_SIZE * 2 + 1], *c, ipout[INET_ADDRSTRLEN + 1];
+	blake2b_state mdctx;
+	u_char final[BLAKE2B_OUTBYTES], param = '0';
+	char md5_out[BLAKE2B_OUTBYTES * 2 + 1], *c, ipout[INET_ADDRSTRLEN + 1];
 	struct memcached_server *selected;
 	memcached_ctx_t mctx;
 	memcached_param_t cur_param;
@@ -228,15 +229,15 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	cur_param.buf = &param;
 	cur_param.bufsize = sizeof (param);
 
-	MD5Init(&mdctx);
+	blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
 	/* Check reply message id in memcached */
 	/* Make hash from message id */
-	MD5Update(&mdctx, (const u_char *)header, s);
-	MD5Final(final, &mdctx);
+	blake2b_update (&mdctx, (const u_char *)header, s);
+	blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
 
 	/* Format md5 output */
 	s = sizeof (md5_out);
-	for (r = 0; r < MD5_SIZE; r ++){
+	for (r = 0; r < BLAKE2B_OUTBYTES; r ++){
 		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
 	}
 
@@ -251,6 +252,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	}
 	else {
 		msg_warn ("check_id: id_prefix(%s) too long for memcached key, error in configure", cfg->id_prefix);
+		memcpy (c, md5_out, sizeof (cur_param.key) - s);
 	}
 
 	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_id,

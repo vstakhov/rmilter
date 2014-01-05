@@ -26,6 +26,7 @@
 #include "upstream.h"
 #include "memcached.h"
 #include "greylist.h"
+#include "blake2.h"
 
 static inline void
 copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
@@ -35,15 +36,15 @@ copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
 }
 
 static void
-make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[MD5_SIZE])
+make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[BLAKE2B_OUTBYTES])
 {
 	size_t s;
 	int i;
-	char md5_out[MD5_SIZE * 2 + 1], *c;
+	char md5_out[BLAKE2B_OUTBYTES * 2 + 1], *c;
 
 	/* Format md5 output */
 	s = sizeof (md5_out);
-	for (i = 0; i < MD5_SIZE; i ++){
+	for (i = 0; i < BLAKE2B_OUTBYTES; i ++){
 		s -= snprintf (md5_out + i * 2, s, "%02x", md5[i]);
 	}
 
@@ -57,7 +58,7 @@ make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[MD5_SIZ
 	}
 	else {
 		msg_warn ("make_greylisting_key: prefix(%s) too long for memcached key, error in configure", prefix);
-		memcpy (key, md5_out, sizeof (md5_out));
+		memcpy (key, md5_out, keylen - s);
 	}
 }
 
@@ -198,8 +199,8 @@ int
 check_greylisting (struct config_file *cfg, void *addr, int address_family, struct timeval *conn_tv,
 		const char *from, const char *rcpt)
 {
-	MD5_CTX mdctx;
-	u_char final[MD5_SIZE];
+	blake2b_state mdctx;
+	u_char final[BLAKE2B_OUTBYTES];
 	struct memcached_server *srv;
 	memcached_param_t cur_param;
 	struct timeval tm, tm1;
@@ -236,12 +237,12 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	inet_ntop (address_family, ip_ptr, ipout, sizeof (ipout));
 
 	bzero (&cur_param, sizeof (cur_param));
-	MD5Init(&mdctx);
+	blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
 	/* Make hash from components: envfrom, ip address, envrcpt */
-	MD5Update(&mdctx, (const u_char *)from, strlen(from));
-	MD5Update(&mdctx, (const u_char *)ipout, strlen(ipout));
-	MD5Update(&mdctx, (const u_char *)rcpt, strlen(rcpt));
-	MD5Final(final, &mdctx);
+	blake2b_update (&mdctx, (const u_char *)from, strlen(from));
+	blake2b_update (&mdctx, (const u_char *)ipout, strlen(ipout));
+	blake2b_update (&mdctx, (const u_char *)rcpt, strlen(rcpt));
+	blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
 
 	tm.tv_sec = conn_tv->tv_sec;
 	tm.tv_usec = conn_tv->tv_usec;
@@ -255,7 +256,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	srv = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
 			cfg->memcached_servers_white_num, sizeof (struct memcached_server),
 			(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-			(char *)final, MD5_SIZE);
+			(char *)final, BLAKE2B_OUTBYTES);
 	if (srv == NULL) {
 		if (cfg->memcached_servers_white_num != 0) {
 			msg_err ("check_greylisting: cannot get memcached upstream");
@@ -272,7 +273,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	srv = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_grey,
 			cfg->memcached_servers_grey_num, sizeof (struct memcached_server),
 			(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-			(char *)final, MD5_SIZE);
+			(char *)final, BLAKE2B_OUTBYTES);
 	if (srv == NULL) {
 		msg_err ("check_greylisting: cannot get memcached upstream");
 		return GREY_ERROR;
@@ -308,7 +309,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 			srv = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
 					cfg->memcached_servers_white_num, sizeof (struct memcached_server),
 					(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-					(char *)final, MD5_SIZE);
+					(char *)final, BLAKE2B_OUTBYTES);
 			if (srv == NULL) {
 				if (cfg->memcached_servers_white_num != 0) {
 					msg_warn ("check_greylisting: cannot get memcached upstream for whitelisting");
