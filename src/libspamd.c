@@ -234,6 +234,17 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		}
 		r += written;
 	}
+	if (priv->priv_hostname[0] != '\0' && memcmp (priv->priv_hostname, "unknown", 8) != 0) {
+		to_write = sizeof (buf) - r;
+		written = snprintf (buf + r, to_write, "Hostname: %s\r\n", priv->priv_hostname);
+		if (written > to_write) {
+			msg_warn("rspamd: buffer overflow while filling buffer (%s)", srv->name);
+			close(fd);
+			close(s);
+			return -1;
+		}
+		r += written;
+	}
 	if (priv->priv_ip[0] != '\0') {
 		to_write = sizeof (buf) - r;
 		written = snprintf (buf + r, to_write, "IP: %s\r\n", priv->priv_ip);
