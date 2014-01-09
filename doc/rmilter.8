@@ -265,6 +265,10 @@ r:host[:port] - for rspamd protocol
 - add specified header if action is add_header and spamd_soft_fail os turned on
 .Dl Em Default: Dq X-Spam
 .It 
+.Sy spam_header_value
+- add specified value for spam_header
+.Dl Em Default: Dq yes
+.It 
 .Sy rspamd_metric
 - rspamd metric that would define whether we reject message as spam or not (quoted string)
 .Dl Em Default: Dq default
