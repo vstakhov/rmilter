@@ -82,6 +82,7 @@
 #define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse team"
 #define DEFAULT_GREYLISTED_MESSAGE "Try again later"
 #define DEFAULT_SPAM_HEADER "X-Spam"
+#define DEFAULT_SPAM_HEADER_VALUE "yes"
 
 #define MD5_SIZE 16
 
@@ -278,6 +279,7 @@ struct config_file {
 	char *trace_symbol;
 	char *trace_addr;
 	char *spam_header;
+	char *spam_header_value;
 	u_char extended_spam_headers;
 
 	pcre* special_mid_re;

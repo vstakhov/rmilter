@@ -1264,12 +1264,12 @@ mlfi_eom(SMFICTX * ctx)
 				}
 				if (r == METRIC_ACTION_ADD_HEADER) {
 					msg_info ("mlfi_eom: %s: add spam header to message according to spamd action", priv->mlfi_id);
-					smfi_chgheader (ctx, cfg->spam_header, 1, "yes");
+					smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
 					msg_info ("mlfi_eom: %s: rewriting spam subject and adding spam header", priv->mlfi_id);
 
-					smfi_chgheader (ctx, cfg->spam_header, 1, "yes");
+					smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
 					if (subject == NULL) {
 						/* Use own settings */
 						if (priv->priv_subject) {

@@ -65,7 +65,7 @@ uint8_t cur_flags = 0;
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
 %token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
 %token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
-%token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
+%token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAM_HEADER_VALUE SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF
@@ -414,6 +414,7 @@ spamdcmd:
 	| trace_symbol
 	| trace_addr
 	| spamd_spam_header
+	| spamd_spam_header_value
 	| spamd_greylist
 	| extended_spam_headers
 	;
@@ -680,6 +681,36 @@ spamd_spam_header:
 				YYERROR;
 			}
 			rmilter_strlcpy (cfg->spam_header, c, len + 1);
+	
+			free ($3);
+		}
+	}
+	;
+
+spamd_spam_header_value:
+	SPAM_HEADER_VALUE EQSIGN QUOTEDSTRING {
+		if ($3) {
+			size_t len = strlen ($3);
+			char *c = $3;
+	
+			/* Trim quotes */
+			if (*c == '"') {
+				c++;
+				len--;
+			}
+			if (c[len - 1] == '"') {
+				len--;
+			}
+	
+			if (cfg->spam_header_value) {
+				free (cfg->spam_header_value);
+			}
+			cfg->spam_header_value = (char *)malloc (len + 1);
+			if (!cfg->spam_header_value) {
+				yyerror ("yyparse: malloc failed");
+				YYERROR;
+			}
+			rmilter_strlcpy (cfg->spam_header_value, c, len + 1);
 	
 			free ($3);
 		}
