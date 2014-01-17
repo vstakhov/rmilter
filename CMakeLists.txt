@@ -146,7 +146,7 @@ ELSE()
     MESSAGE(FATAL_ERROR "rmilter requires openssl for build")
 ENDIF()
 
-ProcessPackage(PCRE libpcre)
+ProcessPackage(PCRE libpcre libpcre3 pcre pcre3)
 
 FIND_LIBRARY(LIBMILTER_LIBRARY NAMES milter PATH_SUFFIXES lib64 lib lib/libmilter lib64/libmilter
                   PATHS
