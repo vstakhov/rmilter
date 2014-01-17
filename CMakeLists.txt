@@ -39,7 +39,7 @@ FIND_PACKAGE(BISON)
 FIND_PACKAGE(FLEX)
 
 MACRO(ProcessPackage var _name0)
-    PKG_SEARCH_MODULE(${var} REQUIRED "${_name0}" ${ARGN})
+    PKG_SEARCH_MODULE(${var} "${_name0}" ${ARGN})
     IF(${var}_FOUND)
         SET(WITH_${var} 1)
         SET(_XPREFIX "${var}")
@@ -147,6 +147,38 @@ ELSE()
 ENDIF()
 
 ProcessPackage(PCRE libpcre libpcre3 pcre pcre3)
+IF(NOT PCRE_FOUND)
+    FIND_LIBRARY(LIBPCRE_LIBRARY NAMES pcre PATH_SUFFIXES lib64 lib lib/libpcre lib64/lipcre
+                      PATHS
+                          ~/Library/Frameworks
+                          /Library/Frameworks
+                          /usr/local
+                          /usr
+                          /sw
+                          /opt/local
+                          /opt/csw
+                          /opt
+                     DOC "Path where the pcre library can be found")
+    
+    FIND_PATH(LIBPCRE_INCLUDE pcre.h PATH_SUFFIXES include include/pcre3 
+                    PATHS   ~/Library/Frameworks
+                          /Library/Frameworks
+                          /usr/local
+                          /usr
+                          /sw
+                          /opt/local
+                          /opt/csw
+                          /opt
+                    DOC "Path where the pcre header files can be found")
+    IF(NOT LIBPCRE_LIBRARY OR NOT LIBPCRE_INCLUDE)
+    	MESSAGE(FATAL_ERROR "libpcre is required for building rmilter")
+    ENDIF()
+    LIST(APPEND RMILTER_REQUIRED_LIBRARIES "pcre")
+    
+    GET_FILENAME_COMPONENT(LIBPCRE_PATH "${LIBPCRE_LIBRARY}" PATH)
+    INCLUDE_DIRECTORIES("${LIBPCRE_INCLUDE}")
+    LINK_DIRECTORIES("${LIBPCRE_PATH}")
+ENDIF(NOT PCRE_FOUND)
 
 FIND_LIBRARY(LIBMILTER_LIBRARY NAMES milter PATH_SUFFIXES lib64 lib lib/libmilter lib64/libmilter
                   PATHS
