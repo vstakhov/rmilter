@@ -693,6 +693,29 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	priv->priv_from[i] = '\0';
 	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
 
+	if (priv->priv_hostname[0] == '\0') {
+		tmpfrom = smfi_getsymval(ctx, "{client_name}");
+		if (tmpfrom != NULL) {
+			rmilter_strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
+			msg_debug ("mlfi_envfrom: got host value: %s", priv->priv_hostname);
+		}
+		else {
+			rmilter_strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
+		}
+	}
+
+
+	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
+	if (tmpfrom != NULL) {
+#ifndef STRICT_AUTH
+		if (!cfg->strict_auth) {
+			msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
+			priv->strict = 0;
+		}
+#endif
+		rmilter_strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
+	}
+
 	/* Check whether we need to sign this message */
 #ifdef WITH_DKIM
 	CFG_RLOCK();
@@ -742,30 +765,6 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	}
 	CFG_UNLOCK();
 #endif
-
-	if (priv->priv_hostname[0] == '\0') {
-		tmpfrom = smfi_getsymval(ctx, "{client_name}");
-		if (tmpfrom != NULL) {
-			rmilter_strlcpy (priv->priv_hostname, tmpfrom, sizeof (priv->priv_hostname));
-			msg_debug ("mlfi_envfrom: got host value: %s", priv->priv_hostname);
-		}
-		else {
-			rmilter_strlcpy (priv->priv_hostname, "unknown", sizeof (priv->priv_hostname));
-		}
-	}
-
-
-	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
-	if (tmpfrom != NULL) {
-#ifndef STRICT_AUTH
-		if (!cfg->strict_auth) {
-			msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
-			priv->strict = 0;
-		}
-#endif
-		rmilter_strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
-	}
-
 
 	CFG_RLOCK();
 	/* Check connect */
