@@ -760,7 +760,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		}
 		else {
 			priv->dkim = NULL;
-			msg_info ("do not add dkim signature for unauthorized user");
+			msg_debug ("do not add dkim signature for unauthorized user");
 		}
 	}
 	CFG_UNLOCK();
