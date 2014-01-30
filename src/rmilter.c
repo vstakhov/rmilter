@@ -637,12 +637,12 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 										(u_char *)keymap,  (u_char *)dkim_domain->selector,
 										(u_char *)domain,
 										cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-												cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-														cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+										cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+										cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
 								/* It is safe to unmap memory here */
 								munmap (keymap, st.st_size);
 								if (statp != DKIM_STAT_OK) {
-									msg_info ("dkim sign failed: %d", statp);
+									msg_info ("dkim sign failed: %s", dkim_geterror (d));
 									if (d) {
 										dkim_free (d);
 									}
@@ -741,7 +741,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 								cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
 										cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
 				if (statp != DKIM_STAT_OK) {
-					msg_info ("dkim sign failed: %d", statp);
+					msg_info ("dkim sign failed: %s", dkim_geterror (priv->dkim));
 					if (priv->dkim) {
 						dkim_free (priv->dkim);
 					}
@@ -949,7 +949,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 				snprintf ((char *)tmp, tmplen, "%s: %s", headerf, headerv);
 				r = dkim_header (priv->dkim, tmp, tmplen - 1);
 				if (r != DKIM_STAT_OK) {
-					msg_info ("dkim_header failed: %d", r);
+					msg_info ("dkim_header failed: %s", dkim_geterror (priv->dkim));
 				}
 				free (tmp);
 			}
@@ -1016,7 +1016,7 @@ mlfi_eoh(SMFICTX * ctx)
 	if (priv->dkim) {
 		r = dkim_eoh (priv->dkim);
 		if (r != DKIM_STAT_OK) {
-			msg_info ("dkim_eoh failed: %d", r);
+			msg_info ("<%s> dkim_eoh failed: %s", priv->mlfi_id, dkim_geterror (priv->dkim));
 		}
 	}
 #endif
@@ -1325,11 +1325,11 @@ mlfi_eom(SMFICTX * ctx)
 				smfi_addheader (ctx, DKIM_SIGNHEADER, dkim_stripcr (hdr));
 			}
 			else {
-				msg_info ("<%s> sign failed: %d", priv->mlfi_id, r);
+				msg_info ("<%s> sign failed: %s", priv->mlfi_id, dkim_geterror (priv->dkim));
 			}
 		}
 		else {
-			msg_info ("<%s> dkim_eom failed: %d", priv->mlfi_id, r);
+			msg_info ("<%s> dkim_eom failed: %s", priv->mlfi_id, dkim_geterror (priv->dkim));
 		}
 	}
 #endif
@@ -1458,7 +1458,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	if (priv->dkim) {
 		r = dkim_body (priv->dkim, bodyp, bodylen);
 		if (r != DKIM_STAT_OK) {
-			msg_info ("<%s>: dkim_body failed: %d", priv->mlfi_id, r);
+			msg_info ("<%s>: dkim_body failed: %s", priv->mlfi_id, dkim_geterror (priv->dkim));
 		}
 	}
 #endif
