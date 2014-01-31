@@ -1331,24 +1331,24 @@ mlfi_eom(SMFICTX * ctx)
 			r = dkim_getsighdr_d (priv->dkim, 0, (u_char **)&hdr, &len);
 			if (r == DKIM_STAT_OK) {
 				msg_info ("<%s> d=%s, s=%s, added DKIM signature",
+						priv->mlfi_id,
 						dkim_getdomain (priv->dkim),
-						priv->dkim_domain->selector,
-						priv->mlfi_id);
+						priv->dkim_domain->selector);
 				smfi_addheader (ctx, DKIM_SIGNHEADER, dkim_stripcr (hdr));
 			}
 			else {
 				msg_info ("<%s> d=%s, s=%s, sign failed: %s",
+						priv->mlfi_id,
 						dkim_getdomain (priv->dkim),
 						priv->dkim_domain->selector,
-						priv->mlfi_id,
 						dkim_geterror (priv->dkim));
 			}
 		}
 		else {
 			msg_info ("<%s> d=%s, s=%s, dkim_eom failed: %s",
+					priv->mlfi_id,
 					dkim_getdomain (priv->dkim),
 					priv->dkim_domain->selector,
-					priv->mlfi_id,
 					dkim_geterror (priv->dkim));
 		}
 	}
