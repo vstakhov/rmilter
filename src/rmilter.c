@@ -649,6 +649,7 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 									return NULL;
 								}
 								else {
+									priv->dkim_domain = dkim_domain;
 									return d;
 								}
 							}
@@ -748,13 +749,14 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 					priv->dkim = NULL;
 				}
 				else {
-					msg_info ("try to add signature for %s domain", dkim_domain->domain);
+					msg_debug ("try to add signature for %s domain", dkim_domain->domain);
+					priv->dkim_domain = dkim_domain;
 				}
 			}
 			else {
 				priv->dkim = try_wildcard_dkim (domain_pos + 1, priv);
 				if (priv->dkim) {
-					msg_info ("try to add signature for %s domain", domain_pos + 1);
+					msg_debug ("try to add signature for %s domain", domain_pos + 1);
 				}
 			}
 		}
@@ -1321,15 +1323,24 @@ mlfi_eom(SMFICTX * ctx)
 		if (r == DKIM_STAT_OK) {
 			r = dkim_getsighdr_d (priv->dkim, 0, (u_char **)&hdr, &len);
 			if (r == DKIM_STAT_OK) {
-				msg_info ("<%s> added DKIM signature", priv->mlfi_id);
+				msg_info ("<%s> d=%s, s=%s, added DKIM signature",
+						dkim_getdomain (priv->dkim),
+						priv->dkim_domain->selector,
+						priv->mlfi_id);
 				smfi_addheader (ctx, DKIM_SIGNHEADER, dkim_stripcr (hdr));
 			}
 			else {
-				msg_info ("<%s> sign failed: %s", priv->mlfi_id, dkim_geterror (priv->dkim));
+				msg_info ("<%s> d=%s, s=%s, sign failed: %s",
+						dkim_getdomain (priv->dkim),
+						priv->dkim_domain->selector,
+						priv->mlfi_id, dkim_geterror (priv->dkim));
 			}
 		}
 		else {
-			msg_info ("<%s> dkim_eom failed: %s", priv->mlfi_id, dkim_geterror (priv->dkim));
+			msg_info ("<%s> d=%s, s=%s, dkim_eom failed: %s",
+					dkim_getdomain (priv->dkim),
+					priv->dkim_domain->selector,
+					priv->mlfi_id, dkim_geterror (priv->dkim));
 		}
 	}
 #endif

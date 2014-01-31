@@ -105,6 +105,7 @@ struct mlfi_priv {
 	short int has_whitelisted;
 #ifdef WITH_DKIM
 	DKIM *dkim;
+	struct dkim_domain_entry *dkim_domain;
 #endif
 };
 
