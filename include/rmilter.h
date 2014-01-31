@@ -96,13 +96,14 @@ struct mlfi_priv {
 	int filed;
 	struct timeval conn_tm;
 	struct rule* matched_rules[STAGE_MAX];
-	short int strict;
 	long eoh_pos;
+	short int strict;
 	/* Config serial */
 	short int serial;
 	short int has_return_path;
 	short int complete_to_beanstalk;
 	short int has_whitelisted;
+	short int authenticated;
 #ifdef WITH_DKIM
 	DKIM *dkim;
 	struct dkim_domain_entry *dkim_domain;

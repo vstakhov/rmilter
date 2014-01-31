@@ -292,6 +292,14 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
 		priv->strict = 0;
 		rmilter_strlcpy (priv->reply_id, header, sizeof (priv->reply_id));
+		msg_info ("check_message_id: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; "
+				"skip dcc and spamd checks",
+						priv->mlfi_id,
+						priv->priv_hostname,
+						priv->priv_ip,
+						priv->priv_from,
+						priv->rcpts.lh_first->r_addr,
+						priv->reply_id);
 		return;
 	}
 	else if (r != NOT_EXISTS) {
@@ -710,12 +718,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 	tmpfrom = smfi_getsymval(ctx, "{auth_authen}");
 	if (tmpfrom != NULL) {
-#ifndef STRICT_AUTH
-		if (!cfg->strict_auth) {
-			msg_info ("mlfi_envfrom: turn off strict checks for authenticated sender: %s", tmpfrom);
-			priv->strict = 0;
-		}
-#endif
+		priv->authenticated = 1;
 		rmilter_strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
 	}
 
@@ -735,7 +738,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		else {
 			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
 		}
-		if (!cfg->dkim_auth_only || *priv->priv_user != '\0') {
+		if (!cfg->dkim_auth_only || priv->authenticated) {
 			if (dkim_domain && dkim_domain->is_loaded) {
 				priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
 						(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
@@ -875,8 +878,15 @@ mlfi_data(SMFICTX *ctx)
 	}
 	CFG_UNLOCK();
 
+	if (priv->authenticated && !cfg->strict_auth) {
+		msg_info ("mlfi_envfrom: %s: turn off strict checks for authenticated sender: %s",
+				priv->mlfi_id, priv->priv_user);
+		priv->strict = 0;
+	}
+
 	if (!cfg->spamd_greylist) {
-		if ((r = check_greylisting_ctx (ctx, priv)) != SMFIS_CONTINUE) {
+		if (!priv->authenticated &&
+				(r = check_greylisting_ctx (ctx, priv)) != SMFIS_CONTINUE) {
 			msg_info ("mlfi_eom: %s: greylisting message", priv->mlfi_id);
 			mlfi_cleanup (ctx, false);
 			return r;
@@ -1144,8 +1154,7 @@ mlfi_eom(SMFICTX * ctx)
 			priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
 
 	if (!priv->strict) {
-		msg_info ("mlfi_eom: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; skip dcc, spamd", priv->mlfi_id, 
-				priv->priv_hostname, priv->priv_ip, priv->priv_from, priv->rcpts.lh_first->r_addr, priv->reply_id);
+
 	}
 
 #ifdef HAVE_DCC
@@ -1226,7 +1235,7 @@ mlfi_eom(SMFICTX * ctx)
 				if (r >= METRIC_ACTION_GREYLIST && cfg->spamd_greylist) {
 					/* Perform greylisting */
 					CFG_UNLOCK();
-					if (check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
+					if (!priv->authenticated && check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
 						msg_info ("mlfi_eom: %s: greylisting message according to spamd action", priv->mlfi_id);
 						mlfi_cleanup (ctx, false);
 						return SMFIS_TEMPFAIL;
@@ -1455,7 +1464,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 
 	if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
-			msg_err ("mlfi_eoh: cannot create temp file");
+			msg_err ("mlfi_body: %s: cannot create temp file", priv->mlfi_id);
 			mlfi_cleanup (ctx, false);
 			return SMFIS_TEMPFAIL;
 		}
