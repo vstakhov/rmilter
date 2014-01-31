@@ -1333,14 +1333,16 @@ mlfi_eom(SMFICTX * ctx)
 				msg_info ("<%s> d=%s, s=%s, sign failed: %s",
 						dkim_getdomain (priv->dkim),
 						priv->dkim_domain->selector,
-						priv->mlfi_id, dkim_geterror (priv->dkim));
+						priv->mlfi_id,
+						dkim_geterror (priv->dkim));
 			}
 		}
 		else {
 			msg_info ("<%s> d=%s, s=%s, dkim_eom failed: %s",
 					dkim_getdomain (priv->dkim),
 					priv->dkim_domain->selector,
-					priv->mlfi_id, dkim_geterror (priv->dkim));
+					priv->mlfi_id,
+					dkim_geterror (priv->dkim));
 		}
 	}
 #endif
