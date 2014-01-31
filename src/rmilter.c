@@ -1172,48 +1172,13 @@ mlfi_eom(SMFICTX * ctx)
 	}
 #endif
 
-	/* Check clamav */
-	if (cfg->clamav_servers_num != 0) {
-		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
-		r = check_clamscan (priv->file, strres, sizeof (strres));
-		if (r < 0) {
-			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
-		}
-		if (*strres) {
-			msg_warn ("mlfi_eom: %s: rejecting virus %s", priv->mlfi_id, strres);
-			snprintf (buf, sizeof (buf), "Infected: %s", strres);
-			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_REJECT;
-		}
-	}
-	/* Write message to beanstalk */
-	if (cfg->beanstalk_servers_num > 0 && cfg->send_beanstalk_headers) {
-		send_beanstalk (priv);
-	}
-	/* Maybe write its copy */
-	if (cfg->copy_server && cfg->send_beanstalk_copy) {
-		prob_cur = cfg->beanstalk_copy_prob;
-		/* Normalize */
-		prob_max = 100;
-		while (prob_cur < 1.0) {
-			prob_max *= 10;
-			prob_cur *= 10;
-		}
-		if (rand () % prob_max <= prob_cur) {
-			send_beanstalk_copy (priv, cfg->copy_server);
-		}
-	}
 	if (priv->priv_addr.family == AF_INET) {
 		if (radix32tree_find (cfg->spamd_whitelist,
 				ntohl((uint32_t)priv->priv_addr.addr.sa4.sin_addr.s_addr)) != RADIX_NO_VALUE) {
 			ip_whitelisted = true;
 		}
 	}
+
 	/* Check spamd */
 	if (cfg->spamd_servers_num != 0 && !priv->has_whitelisted && priv->strict
 			&& !ip_whitelisted &&
@@ -1287,7 +1252,44 @@ mlfi_eom(SMFICTX * ctx)
 				}
 			}
 		}
+	}
 
+	/* Write message to beanstalk */
+	if (cfg->beanstalk_servers_num > 0 && cfg->send_beanstalk_headers) {
+		send_beanstalk (priv);
+	}
+	/* Maybe write its copy */
+	if (cfg->copy_server && cfg->send_beanstalk_copy) {
+		prob_cur = cfg->beanstalk_copy_prob;
+		/* Normalize */
+		prob_max = 100;
+		while (prob_cur < 1.0) {
+			prob_max *= 10;
+			prob_cur *= 10;
+		}
+		if (rand () % prob_max <= prob_cur) {
+			send_beanstalk_copy (priv, cfg->copy_server);
+		}
+	}
+
+	/* Check clamav */
+	if (cfg->clamav_servers_num != 0) {
+		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
+		r = check_clamscan (priv->file, strres, sizeof (strres));
+		if (r < 0) {
+			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
+			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
+			return SMFIS_TEMPFAIL;
+		}
+		if (*strres) {
+			msg_warn ("mlfi_eom: %s: rejecting virus %s", priv->mlfi_id, strres);
+			snprintf (buf, sizeof (buf), "Infected: %s", strres);
+			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
+			CFG_UNLOCK();
+			mlfi_cleanup (ctx, false);
+			return SMFIS_REJECT;
+		}
 	}
 
 	/* Update rate limits for message */
