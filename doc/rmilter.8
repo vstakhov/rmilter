@@ -41,7 +41,7 @@ MTA. It provides several filter and mail scan features, among them are:
 .It
 Clamav scanning (via unix or tcp socket).
 .It
-Spamassasin scanning
+Spamd scanning (supports rspamd and spamassassin)
 .It
 Spf checking (via libspf2)
 .It
@@ -119,7 +119,7 @@ Common sections:
 .It
 clamav - clamav definitions
 .It
-spamd - spamassassin definitions
+spamd - spamd (spamassassin or rspamd) definitions
 .It
 limits - limits definitions
 .It
@@ -735,9 +735,9 @@ Message size (EOM) if failed, skip clamav, dcc and spamd checks
 .It
 DCC (EOM)
 .It
-Clamav (EOM)
+Spamd (EOM)
 .It
-Spamassassin (EOM)
+Clamav (EOM)
 .It
 Beanstalk (EOM)
 .It 
