@@ -358,6 +358,7 @@ struct config_file {
 	u_char dkim_relaxed_body;
 	u_char dkim_sign_sha256;
 	u_char dkim_auth_only;
+	u_char dkim_fold_header;
 #ifdef WITH_DKIM
 	DKIM_LIB *dkim_lib;
 	struct dkim_hash_entry *headers;
