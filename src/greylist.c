@@ -184,7 +184,7 @@ push_memcached_servers (struct config_file *cfg,
 			return 1;
 		}
 		else {
-			msg_info ("push_memcached_servers: cannot write to memcached(%s): %s",
+			msg_err ("push_memcached_servers: cannot write to memcached(%s): %s",
 					inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)),
 					memc_strerror (r));
 			upstream_fail (&srv->up, conn_tv->tv_sec);
@@ -291,7 +291,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 			return GREY_GREYLISTED;
 		}
 		else {
-			msg_info ("check_greylisting: cannot write to memcached: %s", memc_strerror (r));
+			msg_err ("check_greylisting: cannot write to memcached: %s", memc_strerror (r));
 		}
 	}
 	/* Greylisting record exists, checking time */
@@ -321,7 +321,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 				cur_param.bufsize = sizeof (tm);
 				r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->whitelisting_expire);
 				if (r != 1) {
-					msg_info ("check_greylisting: cannot write to memcached(%s)",
+					msg_err ("check_greylisting: cannot write to memcached(%s)",
 							inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)));
 				}
 			}
