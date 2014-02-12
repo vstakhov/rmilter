@@ -182,7 +182,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg,
 	s = 1;
 	r = memc_get (&mctx, &cur_param, &s);
 	if (r != OK && r != NOT_EXISTS) {
-		msg_info ("check_specific_limit: got error on 'get' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
+		msg_err ("check_specific_limit: got error on 'get' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 		memc_close_ctx (&mctx);
 		upstream_fail (&selected->up, floor (tm));
 		return -1;
@@ -205,7 +205,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg,
 		if (mctx.sock != -1) {
 			s = 1;
 			if (memc_delete (&mctx, &cur_param, &s) != OK) {
-				msg_info ("check_specific_limit: got error on 'delete' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
+				msg_err ("check_specific_limit: got error on 'delete' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
@@ -218,7 +218,7 @@ check_specific_limit (struct mlfi_priv *priv, struct config_file *cfg,
 		if (mctx.sock != -1) {
 			s = 1;
 			if ((r = memc_set (&mctx, &cur_param, &s, EXPIRE_TIME)) != OK) {
-				msg_info ("check_specific_limit: got error on 'set' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
+				msg_err ("check_specific_limit: got error on 'set' command from memcached server(%s): %s, key: %s", inet_ntoa(selected->addr[0]), memc_strerror (r), cur_param.key);
 				memc_close_ctx (&mctx);
 				upstream_fail (&selected->up, floor (tm));
 				return -1;
