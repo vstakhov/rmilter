@@ -303,7 +303,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		return;
 	}
 	else if (r != NOT_EXISTS) {
-		msg_info ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
+		msg_err ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		memc_close_ctx (&mctx);
 		return;
@@ -419,7 +419,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 		return;
 	}
 	else {
-		msg_info ("send_beanstalk_copy: cannot put data to beanstalk: %s", bean_strerror (r));
+		msg_err ("send_beanstalk_copy: cannot put data to beanstalk: %s", bean_strerror (r));
 		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
 		bean_close_ctx (&bctx);
 		return;
@@ -500,7 +500,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 		return;
 	}
 	else {
-		msg_info ("send_beanstalk: cannot put data to beanstalk: %s", bean_strerror (r));
+		msg_err ("send_beanstalk: cannot put data to beanstalk: %s", bean_strerror (r));
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		bean_close_ctx (&bctx);
 		return;
@@ -874,7 +874,7 @@ mlfi_data(SMFICTX *ctx)
 	}
 	else {
 		rmilter_strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
-		msg_info ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
+		msg_err ("mlfi_data: cannot get queue id, set to 'NOQUEUE'");
 	}
 	CFG_UNLOCK();
 
@@ -1071,7 +1071,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	else {
 		rmilter_strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
-		msg_info ("mlfi_eom: cannot get queue id, set to 'NOQUEUE'");
+		msg_err ("mlfi_eom: cannot get queue id, set to 'NOQUEUE'");
 	}
 
 
