@@ -166,6 +166,11 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 			msg_warn("clamav: realpath, %d: %m", errno);
 			return -1;
 		}
+
+        /* Set temp file permissions if them specified in config */
+        if (cfg->clamav_file_mode)
+            chmod(path, cfg->clamav_file_mode);
+
 		/* unix socket, use 'SCAN <filename>' command on clamd */
 		r = snprintf(buf, sizeof(buf), "SCAN %s\n", path);
 
