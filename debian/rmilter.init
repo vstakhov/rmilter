@@ -13,8 +13,6 @@
 # Description: another spam-defense service
 ### END INIT INFO
 
-
-
 # Based on skeleton by Miquel van Smoorenburg and Ian Murdock
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
@@ -25,8 +23,7 @@ DESC="Rmilter Mail Filter Daemon"
 PIDFILE="/var/run/$NAME.pid"
 PNAME="rmilter"
 USER="rmilter"
-SOCKET=/var/lib/rmilter/rmilter.sock
-
+SOCKET=/var/spool/postfix/rmilter/rmilter.sock
 
 [ -x $DAEMON ] || DAEMON=/usr/sbin/rmilter
 [ -x $DAEMON ] || exit 0
@@ -68,7 +65,7 @@ set -e
 case "$1" in
   start)
 	echo -n "Starting $DESC: "
-	rm -f /var/lib/rmilter/rmilter.sock
+	rm -f $SOCKET
 	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
 		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
 		$OPTIONS $DOPTIONS
@@ -78,7 +75,13 @@ case "$1" in
   stop)
 	echo -n "Stopping $DESC: "
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME --oknodo
-	rm -f /var/lib/rmilter/rmilter.sock
+	rm -f $SOCKET
+	echo "$NAME."
+	;;
+
+  reload)
+	echo -n "Reloading $DESC: "
+	kill -HUP `cat $PIDFILE`
 	echo "$NAME."
 	;;
 
@@ -86,19 +89,7 @@ case "$1" in
 	echo -n "Restarting $DESC: "
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
 	    --retry 5 --oknodo
-	rm -f /var/lib/rmilter/rmilter.sock
-	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
-		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
-		$OPTIONS $DOPTIONS
-
-	echo "$NAME."
-	;;
-
-  reload)
-	echo -n "Restarting $DESC: "
-	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
-	    --retry 5 --oknodo
-	rm -f /var/lib/rmilter/rmilter.sock
+	rm -f $SOCKET
 	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
 		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
 		$OPTIONS $DOPTIONS

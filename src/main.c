@@ -252,12 +252,9 @@ main(int argc, char *argv[])
 	srand (time (NULL));
 #endif
 
-    /*
-     * Hack to set milter unix socket permissions, but it also affect
-     * temporary file too :( temporary directory shuld be owned by user
-     * rmilter-clam and have permissions 700
-     */
-    umask(0007);
+	/* Set unix socket permissions if specified in config */
+	if (cfg->sock_cred_mode)
+        	umask(0777 & ~cfg->sock_cred_mode);
 
 	smfi_setconn(cfg->sock_cred);
 	if (smfi_register(smfilter) == MI_FAILURE) {

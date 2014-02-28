@@ -248,10 +248,12 @@ struct config_file {
 	char *temp_dir;
 
 	char *sock_cred;
+	unsigned int sock_cred_mode;
 	size_t sizelimit;
 	
 	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
 	size_t clamav_servers_num;
+	unsigned int clamav_file_mode;
 	unsigned int clamav_error_time;
 	unsigned int clamav_dead_time;
 	unsigned int clamav_maxerrors;

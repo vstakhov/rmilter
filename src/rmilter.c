@@ -172,6 +172,11 @@ create_temp_file (struct mlfi_priv *priv)
 		msg_warn ("create_temp_file: %s: can't open tempfile, %d: %m", priv->mlfi_id, errno);
 		return -1;
 	}
+
+	/* Set temp file permissions if them specified in config */
+	if (cfg->clamav_file_mode)
+		chmod(priv->file, cfg->clamav_file_mode);
+
 	fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\r\n",
 			priv->priv_helo, priv->priv_hostname, priv->priv_ip);
 

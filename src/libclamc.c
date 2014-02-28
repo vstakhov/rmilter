@@ -166,6 +166,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 			msg_warn("clamav: realpath, %d: %m", errno);
 			return -1;
 		}
+
 		/* unix socket, use 'SCAN <filename>' command on clamd */
 		r = snprintf(buf, sizeof(buf), "SCAN %s\n", path);
 
