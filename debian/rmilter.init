@@ -79,7 +79,13 @@ case "$1" in
 	echo "$NAME."
 	;;
 
-  restart|reload|force-reload)
+  reload)
+	echo -n "Reloading $DESC: "
+	kill -HUP `cat $PIDFILE`
+	echo "$NAME."
+	;;
+
+  restart|force-reload)
 	echo -n "Restarting $DESC: "
 	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
 	    --retry 5 --oknodo
