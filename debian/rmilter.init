@@ -27,10 +27,7 @@ USER="rmilter"
 SOCKET=/var/lib/rmilter/rmilter.sock
 SCRIPTNAME=/etc/init.d/$NAME
 
-
-[ -x $DAEMON ] || DAEMON=/usr/sbin/rmilter
 [ -x $DAEMON ] || exit 0
-
 
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
