@@ -23,7 +23,7 @@ NAME=rmilter
 DESC="Rmilter Mail Filter Daemon"
 PIDFILE="/var/run/$NAME.pid"
 PNAME="rmilter"
-USER="rmilter"
+USER=_rmilter
 SOCKET=/var/lib/rmilter/rmilter.sock
 SCRIPTNAME=/etc/init.d/$NAME
 
