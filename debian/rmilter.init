@@ -21,8 +21,6 @@ PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 DAEMON=/usr/sbin/rmilter
 NAME=rmilter
 DESC="Rmilter Mail Filter Daemon"
-PIDFILE="/var/run/$NAME.pid"
-PNAME="rmilter"
 USER=_rmilter
 SOCKET=/var/lib/rmilter/rmilter.sock
 SCRIPTNAME=/etc/init.d/$NAME
@@ -37,15 +35,15 @@ NICE=
 
 test -f /etc/default/rmilter && . /etc/default/rmilter
 
-if [ ! -d /var/run/$PNAME ]; then
-  mkdir /var/run/$PNAME
-  chown $USER: /var/run/$PNAME
-  chmod 755 /var/run/$PNAME
+if [ ! -d /var/run/$NAME ]; then
+  mkdir /var/run/$NAME
+  chown $USER: /var/run/$NAME
+  chmod 755 /var/run/$NAME
 fi
 
 set -e
 
-SSD="start-stop-daemon --pidfile $PIDFILE --name $PNAME"
+SSD="start-stop-daemon --pidfile /var/run/$NAME.pid --name rmilter"
 
 do_start()
 {
