@@ -41,7 +41,7 @@ DOPTIONS="-c /etc/rmilter.conf"
 
 if [ ! -d /var/run/$PNAME ]; then
   mkdir /var/run/$PNAME
-  chown rmilter:rmilter /var/run/$PNAME
+  chown $USER: /var/run/$PNAME
   chmod 755 /var/run/$PNAME
 fi
 
