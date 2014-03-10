@@ -47,32 +47,38 @@ fi
 
 set -e
 
+SSD="start-stop-daemon --pidfile $PIDFILE --name $PNAME"
+
+do_start()
+{
+	rm -f $SOCKET
+	$SSD --start --background --make-pidfile --chuid $USER $NICE --oknodo \
+		--startas $DAEMON -- $OPTIONS $DOPTIONS
+}
+
+do_stop()
+{
+	$SSD --stop --oknodo "$@"
+        rm -f $SOCKET
+}
+
 case "$1" in
   start)
 	echo -n "Starting $DESC: "
-	rm -f $SOCKET
-	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
-		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
-		$OPTIONS $DOPTIONS
+        do_start
 	echo "$NAME."
 	;;
 
   stop)
 	echo -n "Stopping $DESC: "
-	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME --oknodo
-	rm -f $SOCKET
+        do_stop
 	echo "$NAME."
 	;;
 
   restart|force-reload)
 	echo -n "Restarting $DESC: "
-	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
-	    --retry 5 --oknodo
-	rm -f $SOCKET
-	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
-		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
-		$OPTIONS $DOPTIONS
-
+        do_stop --retry 5
+        do_start
 	echo "$NAME."
 	;;
 
