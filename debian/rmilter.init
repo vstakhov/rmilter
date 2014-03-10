@@ -76,18 +76,6 @@ case "$1" in
 	echo "$NAME."
 	;;
 
-  reload)
-	echo -n "Restarting $DESC: "
-	start-stop-daemon --stop --pidfile $PIDFILE --name $PNAME \
-	    --retry 5 --oknodo
-	rm -f /var/lib/rmilter/rmilter.sock
-	start-stop-daemon --start --background --make-pidfile --pidfile $PIDFILE \
-		--chuid $USER --name $PNAME $NICE --oknodo --startas $DAEMON -- \
-		$OPTIONS $DOPTIONS
-
-	echo "$NAME."
-	;;
-
   status)
   	PID=`pidof $DAEMON`
 	if [ x$PID = x ]; then
@@ -97,7 +85,7 @@ case "$1" in
 	fi
 	;;
   *)
-	echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload|status}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
 	exit 1
 	;;
 esac
