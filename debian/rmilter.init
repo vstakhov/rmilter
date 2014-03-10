@@ -35,18 +35,12 @@ SOCKET=/var/lib/rmilter/rmilter.sock
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
 
-ENABLED=0
 OPTIONS=""
 NICE=
 
 test -f /etc/default/rmilter && . /etc/default/rmilter
 
 DOPTIONS="-c /etc/rmilter.conf"
-
-if [ "$ENABLED" = "0" ]; then
-    echo "$DESC: disabled, see /etc/default/rmilter"
-    exit 0
-fi
 
 if ! getent passwd | grep -q "^rmilter:"; then
   echo "$0: rmilter user does not exist. Aborting" >&2
