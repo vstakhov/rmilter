@@ -39,15 +39,6 @@ test -f /etc/default/rmilter && . /etc/default/rmilter
 
 DOPTIONS="-c /etc/rmilter.conf"
 
-if ! getent passwd | grep -q "^rmilter:"; then
-  echo "$0: rmilter user does not exist. Aborting" >&2
-  exit 1
-fi
-if ! getent group | grep -q "^rmilter:" ; then
-  echo "$0: rmilter group does not exist. Aborting" >&2
-  exit 1
-fi
-
 if [ ! -d /var/run/$PNAME ]; then
   mkdir /var/run/$PNAME
   chown rmilter:rmilter /var/run/$PNAME
