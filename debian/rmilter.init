@@ -20,12 +20,12 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
 DAEMON=/usr/sbin/rmilter
 NAME=rmilter
-SNAME=rmilter
 DESC="Rmilter Mail Filter Daemon"
 PIDFILE="/var/run/$NAME.pid"
 PNAME="rmilter"
 USER="rmilter"
 SOCKET=/var/lib/rmilter/rmilter.sock
+SCRIPTNAME=/etc/init.d/$NAME
 
 
 [ -x $DAEMON ] || DAEMON=/usr/sbin/rmilter
@@ -109,8 +109,7 @@ case "$1" in
 	fi
 	;;
   *)
-	N=/etc/init.d/$SNAME
-	echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
+	echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload|status}" >&2
 	exit 1
 	;;
 esac
