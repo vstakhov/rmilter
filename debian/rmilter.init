@@ -37,8 +37,6 @@ NICE=
 
 test -f /etc/default/rmilter && . /etc/default/rmilter
 
-DOPTIONS="-c /etc/rmilter.conf"
-
 if [ ! -d /var/run/$PNAME ]; then
   mkdir /var/run/$PNAME
   chown $USER: /var/run/$PNAME
@@ -53,7 +51,7 @@ do_start()
 {
 	rm -f $SOCKET
 	$SSD --start --background --make-pidfile --chuid $USER $NICE --oknodo \
-		--startas $DAEMON -- $OPTIONS $DOPTIONS
+		--startas $DAEMON -- $OPTIONS -c /etc/rmilter.conf
 }
 
 do_stop()
