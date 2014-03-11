@@ -13,8 +13,6 @@
 # Description: another spam-defense service
 ### END INIT INFO
 
-
-
 # Based on skeleton by Miquel van Smoorenburg and Ian Murdock
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin
@@ -27,6 +25,9 @@ SOCKET=$RUNDIR/$NAME.sock
 SCRIPTNAME=/etc/init.d/$NAME
 
 [ -x $DAEMON ] || exit 0
+
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
 
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
@@ -52,36 +53,27 @@ do_stop()
 
 case "$1" in
   start)
-	echo -n "Starting $DESC: "
-        do_start
-	echo "$NAME."
-	;;
-
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+    do_start;;
   stop)
-	echo -n "Stopping $DESC: "
-        do_stop
-	echo "$NAME."
-	;;
-
+    [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+    do_stop;;
   restart|force-reload)
-	echo -n "Restarting $DESC: "
-        do_stop --retry 5
-        do_start
-	echo "$NAME."
-	;;
-
+    [ "$VERBOSE" != no ] && log_daemon_msg "Restarting $DESC" "$NAME"
+    do_stop --retry 5 && do_start;;
   status)
-  	PID=`pidof $DAEMON`
-	if [ x$PID = x ]; then
-	  echo "$DAEMON is not running"
-	else
-	  echo "$DESC is running with pid[$PID]"
-	fi
-	;;
+    PID=`pidof $DAEMON`
+    if [ x$PID = x ]; then
+        echo "$DAEMON is not running"
+    else
+      echo "$DESC is running with pid[$PID]"
+    fi
+    exit 0;;
   *)
-	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
-	exit 1
-	;;
+    echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
+    exit 1;;
 esac
 
-exit 0
+RET=$?
+[ "$VERBOSE" != no ] && log_end_msg $RET
+exit $RET
