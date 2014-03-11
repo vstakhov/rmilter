@@ -22,7 +22,7 @@ DAEMON=/usr/sbin/rmilter
 NAME=rmilter
 DESC="Rmilter Mail Filter Daemon"
 USER=_rmilter
-SOCKET=/var/lib/rmilter/rmilter.sock
+SOCKET=/run/rmilter/rmilter.sock
 SCRIPTNAME=/etc/init.d/$NAME
 
 [ -x $DAEMON ] || exit 0
