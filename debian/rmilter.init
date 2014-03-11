@@ -30,8 +30,6 @@ SCRIPTNAME=/etc/init.d/$NAME
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
 
-NICE=
-
 if [ ! -d /var/run/$NAME ]; then
   mkdir /var/run/$NAME
   chown $USER: /var/run/$NAME
@@ -45,7 +43,7 @@ SSD="start-stop-daemon --pidfile /var/run/$NAME.pid --name rmilter"
 do_start()
 {
 	rm -f $SOCKET
-	$SSD --start --background --make-pidfile --chuid $USER $NICE --oknodo \
+	$SSD --start --background --make-pidfile --chuid $USER --oknodo \
 		--startas $DAEMON -- -c /etc/rmilter.conf
 }
 
