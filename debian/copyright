@@ -5,6 +5,28 @@ Source: https://bitbucket.org/vstakhov/rmilter
 Files: uthash/*
 Copyright: 2008-2012, Troy D. Hanson
 License: BSD-1-clause
+
+Files: compat/md5.*
+Copyright: 1991-1992 RSA Data Security
+License: RSA
+
+Files: compat/queue.h
+Copyright: 1991, 1993 The Regents of the University of California
+License: BSD-3-clause
+
+Files: compat/strlcpy.*
+Copyright: 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+License: BSD-3-clause
+
+Files: *
+Copyright: 2007-2012 Vsevolod Stakhov <vsevolod@highsecure.ru>
+License: BSD-2-clause
+
+Files: debian/*
+Copyright: 2014 Mikhail Gusarov <dottedmag@debian.org>
+License: BSD-2-clause
+
+License: BSD-1-clause
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
  .
@@ -23,62 +45,30 @@ License: BSD-1-clause
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files: compat/md5.*
-Copyright: 1991-1992 RSA Data Security
-License: Other
- License to copy and use this software is granted provided that it
- is identified as the "RSA Data Security, Inc. MD5 Message-Digest
- Algorithm" in all material mentioning or referencing this software
- or this function.
- .
- License is also granted to make and use derivative works provided
- that such works are identified as "derived from the RSA Data
- Security, Inc. MD5 Message-Digest Algorithm" in all material
- mentioning or referencing the derived work.
- .
- RSA Data Security, Inc. makes no representations concerning either
- the merchantability of this software or the suitability of this
- software for any particular purpose. It is provided "as is"
- without express or implied warranty of any kind.
- .
- These notices must be retained in any copies of any part of this
- documentation and/or software.
- .
- This code is the same as the code published by RSA Inc.  It has been
- edited for clarity and style only.
-
-Files: compat/queue.h
-Copyright: 1991, 1993 The Regents of the University of California
-License: BSD-3-clause
+License: BSD-2-clause
  Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions
- are met:
+ modification, are permitted provided that the following conditions are met:
  .
- 1. Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
+ Redistributions of source code must retain the above copyright notice, this
+ list of conditions and the following disclaimer.
  .
- 2. Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
+ Redistributions in binary form must reproduce the above copyright notice, this
+ list of conditions and the following disclaimer in the documentation and/or
+ other materials provided with the distribution. Neither the name of the author
+ nor the names of its contributors may be used to endorse or promote products
+ derived from this software without specific prior written permission.
  .
- 4. Neither the name of the University nor the names of its contributors
-    may be used to endorse or promote products derived from this software
-    without specific prior written permission.
- .
- THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
  FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- SUCH DAMAGE.
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Files: compat/strlcpy.*
-Copyright: 1998 Todd C. Miller <Todd.Miller@courtesan.com>
 License: BSD-3-clause
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions
@@ -107,55 +97,24 @@ License: BSD-3-clause
  OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  SUCH DAMAGE.
 
-
-Files: *
-Copyright: 2007-2012 Vsevolod Stakhov <vsevolod@highsecure.ru>
-License: BSD-2-clause
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are met:
+License: RSA
+ License to copy and use this software is granted provided that it
+ is identified as the "RSA Data Security, Inc. MD5 Message-Digest
+ Algorithm" in all material mentioning or referencing this software
+ or this function.
  .
- Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer.
+ License is also granted to make and use derivative works provided
+ that such works are identified as "derived from the RSA Data
+ Security, Inc. MD5 Message-Digest Algorithm" in all material
+ mentioning or referencing the derived work.
  .
- Redistributions in binary form must reproduce the above copyright notice, this
- list of conditions and the following disclaimer in the documentation and/or
- other materials provided with the distribution. Neither the name of the author
- nor the names of its contributors may be used to endorse or promote products
- derived from this software without specific prior written permission.
+ RSA Data Security, Inc. makes no representations concerning either
+ the merchantability of this software or the suitability of this
+ software for any particular purpose. It is provided "as is"
+ without express or implied warranty of any kind.
  .
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-Files: debian/*
-Copyright: 2014 Mikhail Gusarov <dottedmag@debian.org>
-License: BSD-2-clause
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are met:
+ These notices must be retained in any copies of any part of this
+ documentation and/or software.
  .
- Redistributions of source code must retain the above copyright notice, this
- list of conditions and the following disclaimer.
- .
- Redistributions in binary form must reproduce the above copyright notice, this
- list of conditions and the following disclaimer in the documentation and/or
- other materials provided with the distribution. Neither the name of the author
- nor the names of its contributors may be used to endorse or promote products
- derived from this software without specific prior written permission.
- .
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
- ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
- FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ This code is the same as the code published by RSA Inc.  It has been
+ edited for clarity and style only.
