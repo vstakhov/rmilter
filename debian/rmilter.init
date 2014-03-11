@@ -30,15 +30,15 @@ SCRIPTNAME=/etc/init.d/$NAME
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
 
-if [ ! -d /var/run/$NAME ]; then
-  mkdir /var/run/$NAME
-  chown $USER: /var/run/$NAME
-  chmod 755 /var/run/$NAME
+if [ ! -d /run/$NAME ]; then
+  mkdir /run/$NAME
+  chown $USER: /run/$NAME
+  chmod 755 /run/$NAME
 fi
 
 set -e
 
-SSD="start-stop-daemon --pidfile /var/run/$NAME.pid --name rmilter"
+SSD="start-stop-daemon --pidfile /run/$NAME.pid --name rmilter"
 
 do_start()
 {
