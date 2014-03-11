@@ -3,21 +3,15 @@ set -e
 
 case "$1" in
     configure)
-       SERVER_HOME=/var/lib/rmilter
-       SERVER_USER=_rmilter
-
        adduser --quiet \
                --system \
                --group \
-               --home $SERVER_HOME \
+               --home /run/rmilter \
                --no-create-home \
                --disabled-login \
                --gecos "rmilter" \
                --force-badname \
-               $SERVER_USER
-
-       chown $SERVER_USER:adm $SERVER_HOME
-       chmod 2750 $SERVER_HOME
+               _rmilter
     ;;
 
     abort-*)

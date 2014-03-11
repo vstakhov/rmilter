@@ -22,7 +22,8 @@ DAEMON=/usr/sbin/rmilter
 NAME=rmilter
 DESC="Rmilter Mail Filter Daemon"
 USER=_rmilter
-SOCKET=/run/rmilter/rmilter.sock
+RUNDIR=/run/$NAME
+SOCKET=$RUNDIR/$NAME.sock
 SCRIPTNAME=/etc/init.d/$NAME
 
 [ -x $DAEMON ] || exit 0
@@ -30,18 +31,15 @@ SCRIPTNAME=/etc/init.d/$NAME
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
 
-if [ ! -d /run/$NAME ]; then
-  mkdir /run/$NAME
-  chown $USER: /run/$NAME
-  chmod 755 /run/$NAME
-fi
-
 set -e
 
 SSD="start-stop-daemon --pidfile /run/$NAME.pid --name rmilter"
 
 do_start()
 {
+	mkdir -m750 -p $RUNDIR
+	chown $USER:adm $RUNDIR
+	chmod g+s $RUNDIR
 	rm -f $SOCKET
 	$SSD --start --background --make-pidfile --chuid $USER --oknodo \
 		--startas $DAEMON -- -c /etc/rmilter.conf
@@ -50,7 +48,6 @@ do_start()
 do_stop()
 {
 	$SSD --stop --oknodo "$@"
-        rm -f $SOCKET
 }
 
 case "$1" in
