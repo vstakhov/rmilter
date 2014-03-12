@@ -1,11 +1,12 @@
 Source: rmilter
 Section: mail
 Priority: extra
-Maintainer: Vsevolod Stakhov <vsevolod@highsecure.ru>
-Build-Depends: debhelper (>= 8.0.0), dpkg-dev (>= 1.16.1~), cmake, cdbs, libpcre3-dev, libssl-dev (>= 1.0), libopendkim-dev, libmilter-dev, libspf2-dev, bison, flex, libpcre3-dev
+Maintainer: Mikhail Gusarov <dottedmag@debian.org>
+Build-Depends: debhelper (>= 9), dpkg-dev (>= 1.16.1~), cmake, libpcre3-dev, libssl-dev (>= 1.0), libopendkim-dev, libmilter-dev, libspf2-dev, bison, flex
 Standards-Version: 3.9.5
 Homepage: https://github.com/vstakhov/rmilter
-#Vcs-GIT: https://github.com/vstakhov/rmilter
+Vcs-Git: git://github.com/vstakhov/rmilter.git
+Vcs-Browser: https://github.com/vstakhov/rmilter
 
 Package: rmilter
 Architecture: any
