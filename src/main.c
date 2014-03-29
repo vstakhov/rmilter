@@ -31,6 +31,7 @@
 /* config options here... */
 
 struct config_file *cfg;
+bool daemonize;
 extern struct smfiDesc smfilter;
 
 pthread_cond_t cfg_cond = PTHREAD_COND_INITIALIZER;
@@ -48,7 +49,8 @@ static void
 usage (void)
 {
 	printf ("Rapid Milter Version " MVERSION "\n"
-			"Usage: rmilter [-h] -c <config_file>\n"
+			"Usage: rmilter [-h] [-d] -c <config_file>\n"
+			"-d - daemonize\n"
 			"-h - this help message\n"
 			"-c - path to config file\n");
 	exit (0);
@@ -164,7 +166,7 @@ main(int argc, char *argv[])
     int c, r;
 	extern int yynerrs;
 	extern FILE *yyin;
-    const char *args = "c:h";
+    const char *args = "c:hd";
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
@@ -182,6 +184,9 @@ main(int argc, char *argv[])
 				cfg_file = strdup (optarg);
 			}
 	    	break;
+		case 'd':
+			daemonize = 1;
+			break;
 		case 'h':
 		default:
 			usage ();
@@ -267,6 +272,16 @@ main(int argc, char *argv[])
 
 	if (pthread_create (&reload_thr, NULL, reload_thread, NULL)) {
 		msg_warn ("main: cannot start reload thread, ignoring error");
+	}
+
+	if (smfi_opensocket(0) == MI_FAILURE) {
+		msg_err("Unable to open listening socket");
+		exit(EX_UNAVAILABLE);
+	}
+
+	if (daemonize && daemon (0, 0) == -1) {
+		msg_err("Unable to daemonize");
+		exit(EX_UNAVAILABLE);
 	}
 
     r = smfi_main();
