@@ -1,0 +1,16 @@
+[Unit]
+Description=another sendmail filter
+
+[Service]
+Type=forking
+
+# Replace Pre/Post with RuntimeDirectory once it is available
+PermissionsStartOnly=true
+ExecStartPre=/bin/mkdir -p -m750 /run/rmilter
+ExecStartPre=/bin/chown _rmilter:adm /run/rmilter
+ExecStartPre=/bin/chmod g+s /run/rmilter
+ExecStartPre=/bin/rm -f /run/rmilter/rmilter.sock
+
+User=_rmilter
+ExecStart=/usr/sbin/rmilter -d -c /etc/rmilter.conf
+ExecReload=/bin/kill -HUP $MAINPID
