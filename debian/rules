@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
 %:
-	dh $@
+	dh $@ --with systemd
 
 export DEB_LDFLAGS_MAINT_APPEND=-Wl,--as-needed
 
@@ -8,3 +8,6 @@ override_dh_auto_configure:
 	dh_auto_configure -- -DENABLE_SPF=ON \
 		-DENABLE_DKIM=ON \
 		-DMANDIR=/usr/share/man
+
+override_dh_systemd_start:
+	dh_systemd_start --restart-after-upgrade
