@@ -15,7 +15,7 @@
 . /etc/rc.subr
 
 name="rmilter"
-rcvar=`set_rcvar`
+rcvar=rmilter_enable
 procname="/usr/local/sbin/rmilter"
 
 load_rc_config $name
