@@ -50,7 +50,7 @@ usage (void)
 {
 	printf ("Rapid Milter Version " MVERSION "\n"
 			"Usage: rmilter [-h] [-d] -c <config_file>\n"
-			"-d - daemonize\n"
+			"-n - do not daemonize on startup\n"
 			"-h - this help message\n"
 			"-c - path to config file\n");
 	exit (0);
@@ -166,10 +166,11 @@ main(int argc, char *argv[])
     int c, r;
 	extern int yynerrs;
 	extern FILE *yyin;
-    const char *args = "c:hd";
+    const char *args = "c:hn";
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
+	daemonize = 1;
 
     /* Process command line options */
     while ((c = getopt(argc, argv, args)) != -1) {
@@ -184,8 +185,8 @@ main(int argc, char *argv[])
 				cfg_file = strdup (optarg);
 			}
 	    	break;
-		case 'd':
-			daemonize = 1;
+		case 'n':
+			daemonize = 0;
 			break;
 		case 'h':
 		default:

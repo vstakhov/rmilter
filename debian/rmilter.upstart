@@ -3,7 +3,7 @@ description "rmilter - sendmail filter"
 start on filesystem
 stop on runlevel [016] or unmounting-filesystem
 
-exec start-stop-daemon -S -q -c _rmilter -x /usr/sbin/rmilter -- -c /etc/rmilter.conf
+exec start-stop-daemon -S -q -c _rmilter -x /usr/sbin/rmilter -- -c /etc/rmilter.conf -n
 
 pre-start script
 	install -o _rmilter -g adm -m 750 -d /run/rmilter
