@@ -2,6 +2,10 @@ Format: http://dep.debian.net/deps/dep5
 Upstream-Name: rmilter
 Source: https://bitbucket.org/vstakhov/rmilter
 
+Files: *
+Copyright: 2007-2012 Vsevolod Stakhov <vsevolod@highsecure.ru>
+License: BSD-2-clause
+
 Files: uthash/*
 Copyright: 2008-2012, Troy D. Hanson
 License: BSD-1-clause
@@ -14,16 +18,8 @@ Files: compat/queue.h
 Copyright: 1991, 1993 The Regents of the University of California
 License: BSD-3-clause
 
-Files: compat/strlcpy.*
-Copyright: 1998 Todd C. Miller <Todd.Miller@courtesan.com>
-License: BSD-3-clause
-
-Files: *
-Copyright: 2007-2012 Vsevolod Stakhov <vsevolod@highsecure.ru>
-License: BSD-2-clause
-
 Files: debian/*
-Copyright: 2014 Mikhail Gusarov <dottedmag@debian.org>
+Copyright: 2014-2015 Mikhail Gusarov <dottedmag@debian.org>
 License: BSD-2-clause
 
 License: BSD-1-clause
