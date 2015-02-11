@@ -10,7 +10,7 @@ Vcs-Browser: https://github.com/vstakhov/rmilter
 
 Package: rmilter
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, adduser
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, libmilter1.0.1 (>= 8.14.4-6)
 Recommends: sendmail | postfix
 Description: Another sendmail milter for different mail checks
  rmilter is a standalone application that provides the following features:
