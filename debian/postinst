@@ -23,6 +23,15 @@ case "$1" in
     ;;
 esac
 
+if [ -x /etc/init.d/rmilter ]; then
+    update-rc.d rmilter defaults >/dev/null
+    if [ -d /run/systemd/system ]; then
+        systemctl --system daemon-reload >/dev/null || true
+    else
+        invoke-rc.d rmilter start || exit $?
+    fi
+fi
+
 #DEBHELPER#
 
 exit 0
