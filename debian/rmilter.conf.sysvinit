@@ -1,0 +1,5 @@
+# sysvinit-specific settings for rmilter
+
+.include /etc/rmilter.conf.common 
+
+bind_socket = unix:/run/rmilter/rmilter.sock;

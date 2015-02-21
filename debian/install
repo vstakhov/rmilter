@@ -1,1 +1,3 @@
+debian/rmilter.conf.common /etc
 debian/rmilter.conf /etc
+debian/rmilter.conf.sysvinit /etc

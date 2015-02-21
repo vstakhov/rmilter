@@ -43,7 +43,7 @@ do_start()
 	chmod g+s $RUNDIR
 	rm -f $SOCKET
 	$SSD --start --background --make-pidfile --chuid $USER --oknodo \
-		--startas $DAEMON -- -c /etc/rmilter.conf
+		--startas $DAEMON -- -c /etc/rmilter.conf.sysvinit
 }
 
 do_stop()

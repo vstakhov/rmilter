@@ -1,9 +1,9 @@
-rmilter (1.6.2) UNRELEASED; urgency=low
+rmilter (1.6.2) unstable; urgency=low
 
-  * New version.
-  * systemd support.
+  * Use systemd socket activation.
+  * Bump Standards-Version to 3.9.6, no changes required
 
- -- Mikhail Gusarov <dottedmag@debian.org>  Sun, 30 Mar 2014 11:16:47 +0200
+ -- Mikhail Gusarov <dottedmag@debian.org>  Sat, 21 Feb 2015 18:40:13 +0100
 
 rmilter (1.6.1) unstable; urgency=medium
 
