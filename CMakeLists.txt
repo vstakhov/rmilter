@@ -18,6 +18,10 @@ IF(NOT SYSTEMDDIR)
 	SET(SYSTEMDDIR ${CMAKE_INSTALL_PREFIX}/lib/systemd/system)
 ENDIF(NOT SYSTEMDDIR)
 
+IF(NOT SBINDIR)
+	SET(SBINDIR "sbin")
+ENDIF(NOT SBINDIR)
+
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 
 ############################# OPTIONS SECTION #############################################
@@ -422,7 +426,7 @@ TARGET_LINK_LIBRARIES(rmilter ${RMILTER_REQUIRED_LIBRARIES})
 ##################### INSTALLATION ##########################################
 
 # Binaries
-INSTALL(TARGETS rmilter RUNTIME DESTINATION sbin)
+INSTALL(TARGETS rmilter RUNTIME DESTINATION ${SBINDIR})
 INSTALL(FILES "doc/rmilter.8" DESTINATION ${MANDIR}/man8)
 
 # systemd unit
