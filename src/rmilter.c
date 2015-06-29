@@ -1216,10 +1216,13 @@ mlfi_eom(SMFICTX * ctx)
 		}
 		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: spamdscan() failed, %d", priv->mlfi_id, r);
-			smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
+
+			if (cfg->spamd_temp_fail) {
+				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
+				CFG_UNLOCK();
+				mlfi_cleanup (ctx, false);
+				return SMFIS_TEMPFAIL;
+			}
 
 		}
 		else if (r != METRIC_ACTION_NOACTION) {
