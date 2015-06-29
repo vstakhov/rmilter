@@ -66,6 +66,8 @@
 /* Spamd timeouts */
 #define DEFAULT_SPAMD_CONNECT_TIMEOUT 1000
 #define DEFAULT_SPAMD_RESULTS_TIMEOUT 20000
+#define DEFAULT_SPAMD_RETRY_TIMEOUT 5000
+#define DEFAULT_SPAMD_RETRY_COUNT 5
 #define DEFAULT_RSPAMD_METRIC "default"
 /* Memcached timeouts */
 #define DEFAULT_MEMCACHED_CONNECT_TIMEOUT 1000
@@ -281,6 +283,9 @@ struct config_file {
 	char *spam_header;
 	char *spam_header_value;
 	u_char extended_spam_headers;
+	unsigned int spamd_retry_timeout;
+	unsigned int spamd_retry_count;
+	u_char spamd_temp_fail;
 
 	pcre* special_mid_re;
 

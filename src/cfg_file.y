@@ -68,7 +68,7 @@ uint8_t cur_flags = 0;
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAM_HEADER_VALUE SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
-%token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER
+%token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL 
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -417,6 +417,9 @@ spamdcmd:
 	| spamd_spam_header_value
 	| spamd_greylist
 	| extended_spam_headers
+	| spamd_retry_count
+	| spamd_retry_timeout
+	| spamd_tempfail
 	;
 
 diff_dir :
@@ -772,6 +775,21 @@ trace_addr:
 
 		free ($3);
 
+	}
+	;
+spamd_retry_timeout:
+	SPAMD_RETRY_TIMEOUT EQSIGN SECONDS {
+		cfg->spamd_retry_timeout = $3;
+	}
+	;
+spamd_retry_count:
+	SPAMD_RETRY_COUNT EQSIGN NUMBER {
+		cfg->spamd_retry_count = $3;
+	}
+	;
+spamd_tempfail:
+	SPAMD_TEMPFAIL EQSIGN FLAG {
+		cfg->spamd_temp_fail = $3;
 	}
 	;
 	

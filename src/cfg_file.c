@@ -620,6 +620,9 @@ init_defaults (struct config_file *cfg)
 	cfg->rspamd_metric = strdup (DEFAULT_RSPAMD_METRIC);
 	cfg->spam_header = strdup (DEFAULT_SPAM_HEADER);
 	cfg->spam_header_value = strdup (DEFAULT_SPAM_HEADER_VALUE);
+	cfg->spamd_retry_count = DEFAULT_SPAMD_RETRY_COUNT;
+	cfg->spamd_retry_timeout = DEFAULT_SPAMD_RETRY_TIMEOUT;
+	cfg->spamd_temp_fail = 0;
 
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
