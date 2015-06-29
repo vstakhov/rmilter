@@ -280,6 +280,18 @@ r:host[:port] - for rspamd protocol
 .Sy extended_spam_headers
 - add extended spamd headers to messages, is useful for debugging or private mail servers (flag)
 .Dl Em Default: Li false
+.It 
+.Sy retry_timeout
+- timeout in miliseconds to retry check if the current check has failed
+.Dl Em Default: Li 1s
+.It 
+.Sy retry_count
+- number of retries before giving up
+.Dl Em Default: Li 5
+.It 
+.Sy tempfail_on_error
+- send temporary SMTP error if we have failed to scan a message for spam
+.Dl Em Default: Li false
 .El
 .It
 .\" Memcached section
