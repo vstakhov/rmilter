@@ -827,7 +827,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 int 
 spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject, int extra)
 {
-	int retry = 5, r = -2, hr = 0, to_trace = 0;
+	int retry, r = -2, hr = 0, to_trace = 0;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
@@ -837,10 +837,14 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	struct rspamd_metric_result *cur = NULL, *tmp;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
+	struct timespec sleep_ts;
 	
 
 	gettimeofday(&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
+	retry = cfg->spamd_retry_count;
+	sleep_ts.tv_sec = cfg->spamd_retry_timeout / 1000;
+	sleep_ts.tv_nsec = (cfg->spamd_retry_timeout % 1000) * 1000000ULL;
 
 	TAILQ_INIT(&res);
 
@@ -882,8 +886,9 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 			msg_warn("%spamdscan: retry limit exceeded, %s, %s", prefix, selected->name, priv->file);
 			break;
 		}
+
 		msg_warn("%spamdscan: failed to scan, retry, %s, %s", prefix, selected->name, priv->file);
-		sleep(1);
+		nanosleep (&sleep_ts, NULL);
 	}
 
 	/*
@@ -1020,7 +1025,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	}
 
 
-	return res_action;
+	return (r > 0 ? res_action : r);
 }
 
 /* 
