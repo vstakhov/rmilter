@@ -12,5 +12,5 @@ ExecStartPre=/bin/chmod g+s /run/rmilter
 ExecStartPre=/bin/rm -f /run/rmilter/rmilter.sock
 
 User=_rmilter
-ExecStart=/usr/sbin/rmilter -d -c /etc/rmilter.conf
+ExecStart=/usr/sbin/rmilter -d -c /etc/rmilter/rmilter.conf
 ExecReload=/bin/kill -HUP $MAINPID

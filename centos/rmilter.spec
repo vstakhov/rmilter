@@ -168,7 +168,7 @@ fi
 %{_sbindir}/rmilter
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.common
-%config(noreplace) %{_sysconfdir}/rmilter/%{name}.sysvinit.conf
+%config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.sysvinit
 
 %changelog
 * Mon Jul 06 2015 Vsevolod Stakhov <vsevolod-at-highsecure.ru> 1.6.3-1

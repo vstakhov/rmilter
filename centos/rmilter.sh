@@ -21,7 +21,7 @@
 rmilter="/usr/bin/rmilter"
 prog=$(basename $rmilter)
 
-rmilter_CONF_FILE="/etc/rmilter/rmilter.sysvinit.conf"
+rmilter_CONF_FILE="/etc/rmilter/rmilter.conf.sysvinit"
 rmilter_USER="rmilter"
 rmilter_GROUP="rmilter"
 
