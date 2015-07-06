@@ -33,6 +33,7 @@
 struct config_file *cfg;
 bool daemonize;
 extern struct smfiDesc smfilter;
+const char *_rmilter_progname;
 
 pthread_cond_t cfg_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t cfg_reload_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -225,6 +226,14 @@ main(int argc, char *argv[])
 	}
 
 	fclose (f);
+
+	if (argv[0] && strrchr (argv[0], '/') != NULL) {
+		_rmilter_progname = strrchr (argv[0], '/') + 1;
+	}
+	else {
+		_rmilter_progname = argv[0];
+	}
+
 	cfg->cfg_name = strdup (cfg_file);
 
 	/* Strictly set temp dir */

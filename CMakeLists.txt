@@ -30,6 +30,7 @@ OPTION(DEBUG_MODE          "Enable debug output [default: ON]"                  
 OPTION(ENABLE_OPTIMIZATION "Enable optimization [default: OFF]"                 OFF)
 OPTION(ENABLE_DKIM         "Enable dkim signatures [default: OFF]"              OFF)
 OPTION(ENABLE_SPF          "Enable SPF checks [default: OFF]"                   OFF)
+OPTION(WANT_SYSTEMD_UNITS  "Install systemd unit files on Linux [default: OFF]" OFF)
 
 ############################# INCLUDE SECTION #############################################
 
@@ -519,5 +520,6 @@ INSTALL(TARGETS rmilter RUNTIME DESTINATION ${SBINDIR})
 INSTALL(FILES "doc/rmilter.8" DESTINATION ${MANDIR}/man8)
 
 # systemd unit
-
-INSTALL(FILES "rmilter.service" DESTINATION ${SYSTEMDDIR})
+IF(WANT_SYSTEMD_UNITS MATCHES "ON")
+	INSTALL(FILES "rmilter.service" DESTINATION ${SYSTEMDDIR})
+ENDIF()

@@ -38,4 +38,23 @@
  */
 size_t rmilter_strlcpy (char *dst, const char *src, size_t siz);
 
+typedef struct rmilter_pidfh_s {
+	int pf_fd;
+#ifdef HAVE_PATH_MAX
+	char pf_path[PATH_MAX + 1];
+#elif defined(HAVE_MAXPATHLEN)
+	char pf_path[MAXPATHLEN + 1];
+#else
+	char pf_path[1024 + 1];
+#endif
+	dev_t pf_dev;
+	ino_t pf_ino;
+} rmilter_pidfh_t;
+rmilter_pidfh_t * rmilter_pidfile_open (const char *path,
+	mode_t mode,
+	pid_t *pidptr);
+int rmilter_pidfile_write (rmilter_pidfh_t *pfh);
+int rmilter_pidfile_close (rmilter_pidfh_t *pfh);
+int rmilter_pidfile_remove (rmilter_pidfh_t *pfh);
+
 #endif /* UTIL_H_ */
