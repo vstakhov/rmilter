@@ -101,7 +101,7 @@ rm -rf %{buildroot}
 
 %pre
 %{_sbindir}/groupadd -r %{rmilter_group} 2>/dev/null || :
-%{_sbindir}/useradd -g %{rmilter_group} -c "Rmilter user" -s /bin/false -r -d %{rmilter_home} %{rmilter_user} 2>/dev/null || :
+%{_sbindir}/useradd -g %{rmilter_group} -c "Rmilter user" -s /bin/false -r %{rmilter_user} 2>/dev/null || :
 
 %if 0%{?suse_version}
 %service_add_pre %{name}.service
@@ -109,7 +109,6 @@ rm -rf %{buildroot}
 %endif
 
 %post
-#to allow easy upgrade from 0.8.1
 %{__chown} -R %{rmilter_user}:%{rmilter_group} %{rmilter_home}
 %if 0%{?suse_version}
 %service_add_post %{name}.service
