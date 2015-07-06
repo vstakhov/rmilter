@@ -22,8 +22,8 @@ rmilter="/usr/sbin/rmilter"
 prog=$(basename $rmilter)
 
 rmilter_CONF_FILE="/etc/rmilter/rmilter.conf.sysvinit"
-rmilter_USER="rmilter"
-rmilter_GROUP="rmilter"
+rmilter_USER="_rmilter"
+rmilter_GROUP="adm"
 
 [ -f /etc/sysconfig/rmilter ] && . /etc/sysconfig/rmilter
 
