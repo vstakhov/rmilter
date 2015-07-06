@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "util.h"
+#include <stdbool.h>
 
 extern const char *_rmilter_progname;
 
