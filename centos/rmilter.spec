@@ -88,7 +88,7 @@ rm -rf %{buildroot} || true
 %install
 %{__make} install DESTDIR=%{buildroot} INSTALLDIRS=vendor
 
-%{__install} -p -d -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p -d -D -m 0644 %{buildroot}%{_sysconfdir}/%{name}
 %{__install} -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}/
 %{__install} -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}/
 %{__install} -p -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}/
