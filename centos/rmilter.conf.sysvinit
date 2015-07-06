@@ -1,5 +1,5 @@
 # sysvinit-specific settings for rmilter
 
-.include /etc/rmilter.conf.common 
+.include /etc/rmilter/rmilter.conf.common 
 
 bind_socket = tcp:localhost:10200;
