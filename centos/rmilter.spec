@@ -87,9 +87,9 @@ It provides several filter and mail scan features.
 %install
 %{__make} install DESTDIR=%{buildroot} INSTALLDIRS=vendor
 
-%{__install} -p -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}
 %if 0%{?el6}
 %{__install} -p -D -m 0755 %{SOURCE4} %{buildroot}%{_initrddir}/%{name}
 %endif
@@ -167,3 +167,7 @@ fi
 %config(noreplace) %{rmilter_confdir}/%{name}.conf
 %config(noreplace) %{rmilter_confdir}/%{name}.conf.common
 %config(noreplace) %{rmilter_confdir}/%{name}.sysvinit.conf
+
+%changelog
+* Mon Jul 06 2015 Vsevolod Stakhov <vsevolod-at-highsecure.ru> 1.6.3-1
+- Update to 1.6.3
