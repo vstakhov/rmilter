@@ -1,5 +1,5 @@
 %define rmilter_user      _rmilter
-%define rmilter_group     %{rmilter_user}
+%define rmilter_group     adm
 
 Name:           rmilter
 Version:        1.6.3
@@ -101,7 +101,7 @@ rm -rf %{buildroot}
 
 %pre
 %{_sbindir}/groupadd -r %{rmilter_group} 2>/dev/null || :
-%{_sbindir}/useradd -g %{rmilter_group} -c "Rspamd user" -s /bin/false -r -d %{rmilter_home} %{rmilter_user} 2>/dev/null || :
+%{_sbindir}/useradd -g %{rmilter_group} -c "Rmilter user" -s /bin/false -r -d %{rmilter_home} %{rmilter_user} 2>/dev/null || :
 
 %if 0%{?suse_version}
 %service_add_pre %{name}.service

@@ -18,7 +18,7 @@
 # Check that networking is up.
 [ "$NETWORKING" = "no" ] && exit 0
 
-rmilter="/usr/bin/rmilter"
+rmilter="/usr/sbin/rmilter"
 prog=$(basename $rmilter)
 
 rmilter_CONF_FILE="/etc/rmilter/rmilter.conf.sysvinit"
