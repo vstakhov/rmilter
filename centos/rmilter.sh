@@ -33,7 +33,7 @@ start() {
     [ -x $rmilter ] || exit 5
     [ -f $rmilter_CONF_FILE ] || exit 6
     echo -n $"Starting $prog: "
-    daemon $rmilter -c $RMILTER_CONF_FILE -u $RMILTER_USER -g $RMILTER_GROUP
+    daemon --user=$rmilter_USER $rmilter -c $rmilter_CONF_FILE
     retval=$?
     echo
     [ $retval -eq 0 ] && touch $lockfile
