@@ -109,7 +109,6 @@ rm -rf %{buildroot}
 %endif
 
 %post
-%{__chown} -R %{rmilter_user}:%{rmilter_group} %{rmilter_home}
 %if 0%{?suse_version}
 %service_add_post %{name}.service
 %service_add_post %{name}.socket
