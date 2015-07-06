@@ -55,6 +55,7 @@ It provides several filter and mail scan features.
 
 %prep
 %setup -q
+rm -rf %{buildroot} || true
 %if 0%{?el7}
 %patch0 -p0
 %endif
@@ -87,9 +88,9 @@ It provides several filter and mail scan features.
 %install
 %{__make} install DESTDIR=%{buildroot} INSTALLDIRS=vendor
 
-%{__install} -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}
-%{__install} -p -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}/
+%{__install} -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}/
+%{__install} -p -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}/
 %if 0%{?el6}
 %{__install} -p -D -m 0755 %{SOURCE4} %{buildroot}%{_initrddir}/%{name}
 %endif
