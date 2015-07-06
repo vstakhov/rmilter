@@ -4,7 +4,7 @@ PROJECT(rmilter C)
 
 SET(RMILTER_VERSION_MAJOR 1)
 SET(RMILTER_VERSION_MINOR 6)
-SET(RMILTER_VERSION_PATCH 2)
+SET(RMILTER_VERSION_PATCH 3)
 
 SET(RMILTER_VERSION         "${RMILTER_VERSION_MAJOR}.${RMILTER_VERSION_MINOR}.${RMILTER_VERSION_PATCH}")
 SET(RMILTER_MASTER_SITE_URL "https://rspamd.com")
@@ -47,25 +47,114 @@ FIND_PACKAGE(BISON)
 FIND_PACKAGE(FLEX)
 
 MACRO(ProcessPackage var _name0)
-    PKG_SEARCH_MODULE(${var} "${_name0}" ${ARGN})
-    IF(${var}_FOUND)
-        SET(WITH_${var} 1)
-        SET(_XPREFIX "${var}")
-        FOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
-            INCLUDE_DIRECTORIES("${_arg}")
-        ENDFOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
-        FOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
-            LINK_DIRECTORIES("${_arg}")
-        ENDFOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
-        # Handle other CFLAGS and LDFLAGS
-        FOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
-            SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_arg}")
-        ENDFOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
-        FOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
-            SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_arg}")
-        ENDFOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
-        LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${_XPREFIX}_LIBRARIES}")
-    ENDIF(${var}_FOUND)
+	IF(NOT RMILTER_SEARCH_PATH)
+	    PKG_SEARCH_MODULE(${var} "${_name0}" ${ARGN})
+	    IF(${var}_FOUND)
+	        SET(WITH_${var} 1)
+	        IF(ENABLE_STATIC MATCHES "ON")
+	            SET(_XPREFIX "${var}_STATIC")
+	        ELSE(ENABLE_STATIC MATCHES "ON")
+	            SET(_XPREFIX "${var}")
+	        ENDIF(ENABLE_STATIC MATCHES "ON")
+	        FOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
+	            INCLUDE_DIRECTORIES("${_arg}")
+	            SET(${var}_INCLUDE "${_arg}")
+	        ENDFOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
+	        FOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
+	            LINK_DIRECTORIES("${_arg}")
+	            SET(${var}_LIBRARY "${_arg}")
+	        ENDFOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
+	        # Handle other CFLAGS and LDFLAGS
+	        FOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
+	            SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_arg}")
+	        ENDFOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
+	        FOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
+	            SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_arg}")
+	        ENDFOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
+	        LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${_XPREFIX}_LIBRARIES}")
+	    ELSE(${var}_FOUND)
+	 		# Try some more heuristic
+			FIND_LIBRARY(_lib NAMES "${_name0}" ${ARGN}
+						HINTS
+						"${RMILTER_SEARCH_PATH}"
+						PATH_SUFFIXES lib64 lib
+						PATHS ${RMILTER_DEFAULT_LIBRARY_PATHS})
+			IF(NOT _lib)
+				MESSAGE(FATAL_ERROR "Packages ${_name0} ${ARGN} could not be found, no library")
+			ENDIF(NOT _lib)
+			
+			FIND_PATH(_incl "${_name0}.h" 
+							HINTS "${RMILTER_SEARCH_PATH}"
+							PATH_SUFFIXES "include" "include/${_name0}" ${ARGN}
+							PATHS 	${RMILTER_DEFAULT_INCLUDE_PATHS})
+			IF(NOT _incl)
+				MESSAGE(FATAL_ERROR "Packages ${_name0} ${ARGN} could not be found, no header")
+			ENDIF(NOT _incl)
+			
+			GET_FILENAME_COMPONENT(_lib_path "${_lib}" PATH)
+			INCLUDE_DIRECTORIES("${_incl}")
+			LINK_DIRECTORIES("${_lib_path}")
+			LIST(APPEND RMILTER_REQUIRED_LIBRARIES ${_lib})
+			SET(${var}_INCLUDE "${_incl}")
+			SET(${var}_LIBRARY "${_lib_path}")
+			MESSAGE(STATUS "Found ${_name0} ${ARGN} in '${_lib_path}' (library) and '${_incl}' (include).")
+		ENDIF(${var}_FOUND)
+	ELSE(NOT RMILTER_SEARCH_PATH)
+ 		# Try heuristic first
+		FIND_LIBRARY(_lib NAMES "${_name0}" ${ARGN}
+					HINTS
+					"${RMILTER_SEARCH_PATH}"
+					PATH_SUFFIXES lib64 lib
+					PATHS ${RMILTER_DEFAULT_LIBRARY_PATHS})
+		IF(_lib)
+			FIND_PATH(_incl "${_name0}.h" 
+							HINTS "${RMILTER_SEARCH_PATH}"
+							PATH_SUFFIXES "include" "include/${_name0}" ${ARGN}
+							PATHS 	${RMILTER_DEFAULT_INCLUDE_PATHS})
+			IF(_incl)
+				GET_FILENAME_COMPONENT(_lib_path "${_lib}" PATH)
+				INCLUDE_DIRECTORIES("${_incl}")
+				LINK_DIRECTORIES("${_lib_path}")
+				MESSAGE(STATUS "Found ${_name0} ${ARGN} in '${_lib_path}' (library) and '${_incl}' (include).")
+				SET(${var}_INCLUDE "${_incl}")
+				SET(${var}_LIBRARY "${_lib_path}")
+				LIST(APPEND RMILTER_REQUIRED_LIBRARIES ${_lib})
+			ENDIF(_incl)
+		ENDIF(_lib)
+		
+		IF(NOT _incl OR NOT _lib)
+			PKG_SEARCH_MODULE(${var} "${_name0}" ${ARGN})
+		    IF(${var}_FOUND)
+		        SET(WITH_${var} 1)
+		        IF(ENABLE_STATIC MATCHES "ON")
+		            SET(_XPREFIX "${var}_STATIC")
+		        ELSE(ENABLE_STATIC MATCHES "ON")
+		            SET(_XPREFIX "${var}")
+		        ENDIF(ENABLE_STATIC MATCHES "ON")
+		        FOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
+		            INCLUDE_DIRECTORIES("${_arg}")
+		            SET(${var}_INCLUDE "${_arg}")
+		        ENDFOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
+		        FOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
+		            LINK_DIRECTORIES("${_arg}")
+		            SET(${var}_LIBRARY "${_arg}")
+		        ENDFOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
+		        # Handle other CFLAGS and LDFLAGS
+		        FOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
+		            SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_arg}")
+		        ENDFOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
+		        FOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
+		            SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_arg}")
+		        ENDFOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
+		        LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${_XPREFIX}_LIBRARIES}")
+			ELSE(${var}_FOUND)
+				MESSAGE(FATAL_ERROR "Packages ${_name0} ${ARGN} could not be found")
+			ENDIF(${var}_FOUND)
+		ENDIF(NOT _incl OR NOT _lib)
+	ENDIF(NOT RMILTER_SEARCH_PATH)
+	# Cleanup
+	UNSET(_lib CACHE)
+	UNSET(_incl CACHE)
 ENDMACRO(ProcessPackage name)
 
 ############################# OS SECTION #############################################
