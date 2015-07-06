@@ -2,4 +2,4 @@
 
 .include /etc/rmilter/rmilter.conf.common 
 
-bind_socket = tcp:localhost:10200;
+bind_socket = unix:/var/run/rmilter/rmilter.sock;

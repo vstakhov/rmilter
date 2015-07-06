@@ -1,5 +1,6 @@
 %define rmilter_user      _rmilter
 %define rmilter_group     adm
+%define rmilter_home      %{_localstatedir}/run/rmilter
 
 Name:           rmilter
 Version:        1.6.3
@@ -94,6 +95,7 @@ rm -rf %{buildroot} || true
 %{__install} -p -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}/
 %if 0%{?el6}
 %{__install} -p -D -m 0755 %{SOURCE4} %{buildroot}%{_initrddir}/%{name}
+%{__install} -p -D -d -m 0755 %{buildroot}%{rmilter_home}
 %endif
 
 %clean
@@ -109,6 +111,7 @@ rm -rf %{buildroot}
 %endif
 
 %post
+%{__chown} -R %{rmilter_user}:%{rmilter_group} %{rmilter_home}
 %if 0%{?suse_version}
 %service_add_post %{name}.service
 %service_add_post %{name}.socket
@@ -164,6 +167,7 @@ fi
 %endif
 %{_mandir}/man8/%{name}.*
 %{_sbindir}/rmilter
+%attr(-, _rmilter, adm) %dir %{rmilter_home}
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.common
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.sysvinit
