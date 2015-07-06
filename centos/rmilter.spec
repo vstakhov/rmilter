@@ -166,9 +166,9 @@ fi
 %endif
 %{_mandir}/man8/%{name}.*
 %{_sbindir}/rmilter
-%config(noreplace) %{rmilter_confdir}/%{name}.conf
-%config(noreplace) %{rmilter_confdir}/%{name}.conf.common
-%config(noreplace) %{rmilter_confdir}/%{name}.sysvinit.conf
+%config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf
+%config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.common
+%config(noreplace) %{_sysconfdir}/rmilter/%{name}.sysvinit.conf
 
 %changelog
 * Mon Jul 06 2015 Vsevolod Stakhov <vsevolod-at-highsecure.ru> 1.6.3-1
