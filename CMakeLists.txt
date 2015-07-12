@@ -45,119 +45,114 @@ INCLUDE(CheckCSourceCompiles)
 INCLUDE(CheckLibraryExists)
 INCLUDE(FindPkgConfig)
 INCLUDE(CheckCCompilerFlag)
-INCLUDE(FindOpenSSL)
 INCLUDE(FindThreads)
 
 FIND_PACKAGE(BISON)
 FIND_PACKAGE(FLEX)
 
-MACRO(ProcessPackage var _name0)
-	IF(NOT RMILTER_SEARCH_PATH)
-	    PKG_SEARCH_MODULE(${var} "${_name0}" ${ARGN})
-	    IF(${var}_FOUND)
-	        SET(WITH_${var} 1)
-	        IF(ENABLE_STATIC MATCHES "ON")
-	            SET(_XPREFIX "${var}_STATIC")
-	        ELSE(ENABLE_STATIC MATCHES "ON")
-	            SET(_XPREFIX "${var}")
-	        ENDIF(ENABLE_STATIC MATCHES "ON")
-	        FOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
-	            INCLUDE_DIRECTORIES("${_arg}")
-	            SET(${var}_INCLUDE "${_arg}")
-	        ENDFOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
-	        FOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
-	            LINK_DIRECTORIES("${_arg}")
-	            SET(${var}_LIBRARY "${_arg}")
-	        ENDFOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
-	        # Handle other CFLAGS and LDFLAGS
-	        FOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
-	            SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_arg}")
-	        ENDFOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
-	        FOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
-	            SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_arg}")
-	        ENDFOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
-	        LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${_XPREFIX}_LIBRARIES}")
-	    ELSE(${var}_FOUND)
-	 		# Try some more heuristic
-			FIND_LIBRARY(_lib NAMES "${_name0}" ${ARGN}
-						HINTS
-						"${RMILTER_SEARCH_PATH}"
-						PATH_SUFFIXES lib64 lib
+# Process required package by using FindPackage and calling for INCLUDE_DIRECTORIES and
+# setting list of required libraries
+# Usage:
+# ProcessPackage(VAR [OPTIONAL] [ROOT path] [INCLUDE path]
+#	[LIBRARY path] [INCLUDE_SUFFIXES path1 path2 ...] [LIB_SUFFIXES path1 path2 ...]
+#	[MODULES module1 module2 ...])
+# params:
+# OPTIONAL - do not fail if a package has not been found
+# ROOT - defines root directory for a package
+# INCLUDE - name of the include file to check
+# LIBRARY - name of the library to check 
+# INCLUDE_SUFFIXES - list of include suffixes (relative to ROOT)
+# LIB_SUFFIXES - list of library suffixes
+# MODULES - modules to search using pkg_config
+MACRO(ProcessPackage PKG_NAME)
+
+	CMAKE_PARSE_ARGUMENTS(PKG "OPTIONAL" "ROOT;INCLUDE" 
+		"LIBRARY;INCLUDE_SUFFIXES;LIB_SUFFIXES;MODULES" ${ARGN})
+
+	IF(NOT PKG_LIBRARY)
+		SET(PKG_LIBRARY "${PKG_NAME}")
+	ENDIF()
+	IF(NOT PKG_INCLUDE)
+		SET(PKG_INCLUDE "${PKG_NAME}.h")
+	ENDIF()
+
+	IF(NOT PKG_ROOT AND PKG_MODULES)
+		PKG_SEARCH_MODULE(${PKG_NAME} ${PKG_MODULES})
+	ENDIF()
+	
+	IF(${PKG_NAME}_FOUND)
+		MESSAGE(STATUS "Found package ${PKG_NAME} in pkg-config modules ${PKG_MODULES}")
+		SET(WITH_${PKG_NAME} 1 CACHE INTERNAL "")
+		IF(ENABLE_STATIC MATCHES "ON")
+			SET(_XPREFIX "${PKG_NAME}_STATIC")
+		ELSE(ENABLE_STATIC MATCHES "ON")
+			SET(_XPREFIX "${PKG_NAME}")
+		ENDIF(ENABLE_STATIC MATCHES "ON")
+		FOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
+			INCLUDE_DIRECTORIES("${_arg}")
+			SET(${PKG_NAME}_INCLUDE "${_arg}")
+		ENDFOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
+		FOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
+			LINK_DIRECTORIES("${_arg}")
+			SET(${PKG_NAME}_LIBRARY "${_arg}")
+		ENDFOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
+		# Handle other CFLAGS and LDFLAGS
+		FOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
+			SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_arg}")
+		ENDFOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
+		FOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
+			SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_arg}")
+		ENDFOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
+		LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${_XPREFIX}_LIBRARIES}")
+		INCLUDE_DIRECTORIES(${${_XPREFIX}_INCLUDEDIR})
+	ELSE()
+		IF(NOT ${PKG_NAME}_GUESSED)
+			# Try some more heuristic
+			FIND_LIBRARY(_lib NAMES ${PKG_LIBRARY}
+						HINTS "${PKG_ROOT}" "${RMILTER_SEARCH_PATH}"
+						PATH_SUFFIXES "${PKG_LIB_SUFFIXES}" lib64 lib
 						PATHS ${RMILTER_DEFAULT_LIBRARY_PATHS})
 			IF(NOT _lib)
-				MESSAGE(FATAL_ERROR "Packages ${_name0} ${ARGN} could not be found, no library")
+				IF(OPTIONAL)
+					MESSAGE("Cannot find library ${PKG_LIBRARY} for package ${PKG_NAME}")
+				ELSE()
+					MESSAGE(FATAL_ERROR "Cannot find library ${PKG_LIBRARY} for package ${PKG_NAME}")
+				ENDIF()
 			ENDIF(NOT _lib)
 			
-			FIND_PATH(_incl "${_name0}.h" 
-							HINTS "${RMILTER_SEARCH_PATH}"
-							PATH_SUFFIXES "include" "include/${_name0}" ${ARGN}
+			FIND_PATH(_incl "${PKG_INCLUDE}" 
+							HINTS "${PKG_ROOT}" "${RMILTER_SEARCH_PATH}"
+							PATH_SUFFIXES "${PKG_INCLUDE_SUFFIXES}" "include"
 							PATHS 	${RMILTER_DEFAULT_INCLUDE_PATHS})
 			IF(NOT _incl)
-				MESSAGE(FATAL_ERROR "Packages ${_name0} ${ARGN} could not be found, no header")
+				IF(OPTIONAL)
+					MESSAGE("Cannot find header ${PKG_INCLUDE} for package ${PKG_NAME}")
+				ELSE()
+					MESSAGE(FATAL_ERROR "Cannot find header ${PKG_INCLUDE} for package ${PKG_NAME}")
+				ENDIF()
 			ENDIF(NOT _incl)
 			
-			GET_FILENAME_COMPONENT(_lib_path "${_lib}" PATH)
-			INCLUDE_DIRECTORIES("${_incl}")
-			LINK_DIRECTORIES("${_lib_path}")
-			LIST(APPEND RMILTER_REQUIRED_LIBRARIES ${_lib})
-			SET(${var}_INCLUDE "${_incl}")
-			SET(${var}_LIBRARY "${_lib_path}")
-			MESSAGE(STATUS "Found ${_name0} ${ARGN} in '${_lib_path}' (library) and '${_incl}' (include).")
-		ENDIF(${var}_FOUND)
-	ELSE(NOT RMILTER_SEARCH_PATH)
- 		# Try heuristic first
-		FIND_LIBRARY(_lib NAMES "${_name0}" ${ARGN}
-					HINTS
-					"${RMILTER_SEARCH_PATH}"
-					PATH_SUFFIXES lib64 lib
-					PATHS ${RMILTER_DEFAULT_LIBRARY_PATHS})
-		IF(_lib)
-			FIND_PATH(_incl "${_name0}.h" 
-							HINTS "${RMILTER_SEARCH_PATH}"
-							PATH_SUFFIXES "include" "include/${_name0}" ${ARGN}
-							PATHS 	${RMILTER_DEFAULT_INCLUDE_PATHS})
-			IF(_incl)
+			IF(_incl AND _lib)
 				GET_FILENAME_COMPONENT(_lib_path "${_lib}" PATH)
 				INCLUDE_DIRECTORIES("${_incl}")
 				LINK_DIRECTORIES("${_lib_path}")
-				MESSAGE(STATUS "Found ${_name0} ${ARGN} in '${_lib_path}' (library) and '${_incl}' (include).")
-				SET(${var}_INCLUDE "${_incl}")
-				SET(${var}_LIBRARY "${_lib_path}")
 				LIST(APPEND RMILTER_REQUIRED_LIBRARIES ${_lib})
-			ENDIF(_incl)
-		ENDIF(_lib)
+				SET(${PKG_NAME}_INCLUDE "${_incl}" CACHE INTERNAL "")
+				SET(${PKG_NAME}_LIBRARY_PATH "${_lib_path}" CACHE INTERNAL "")
+				SET(${PKG_NAME}_LIBRARY "${_lib}" CACHE INTERNAL "")
+				SET(${PKG_NAME}_GUESSED 1 CACHE INTERNAL "")
+				SET(WITH_${PKG_NAME} 1 CACHE INTERNAL "")
+				MESSAGE(STATUS "Found package ${PKG_NAME} in '${_lib_path}' (${_lib}) and '${_incl}' (${PKG_INCLUDE}).")
+			ENDIF()
 		
-		IF(NOT _incl OR NOT _lib)
-			PKG_SEARCH_MODULE(${var} "${_name0}" ${ARGN})
-		    IF(${var}_FOUND)
-		        SET(WITH_${var} 1)
-		        IF(ENABLE_STATIC MATCHES "ON")
-		            SET(_XPREFIX "${var}_STATIC")
-		        ELSE(ENABLE_STATIC MATCHES "ON")
-		            SET(_XPREFIX "${var}")
-		        ENDIF(ENABLE_STATIC MATCHES "ON")
-		        FOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
-		            INCLUDE_DIRECTORIES("${_arg}")
-		            SET(${var}_INCLUDE "${_arg}")
-		        ENDFOREACH(_arg ${${_XPREFIX}_INCLUDE_DIRS})
-		        FOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
-		            LINK_DIRECTORIES("${_arg}")
-		            SET(${var}_LIBRARY "${_arg}")
-		        ENDFOREACH(_arg ${${_XPREFIX}_LIBRARY_DIRS})
-		        # Handle other CFLAGS and LDFLAGS
-		        FOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
-		            SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_arg}")
-		        ENDFOREACH(_arg ${${_XPREFIX}_CFLAGS_OTHER})
-		        FOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
-		            SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${_arg}")
-		        ENDFOREACH(_arg ${${_XPREFIX}_LDFLAGS_OTHER})
-		        LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${_XPREFIX}_LIBRARIES}")
-			ELSE(${var}_FOUND)
-				MESSAGE(FATAL_ERROR "Packages ${_name0} ${ARGN} could not be found")
-			ENDIF(${var}_FOUND)
-		ENDIF(NOT _incl OR NOT _lib)
-	ENDIF(NOT RMILTER_SEARCH_PATH)
-	# Cleanup
+		ELSE()
+			MESSAGE(STATUS "Found package ${PKG_NAME} (cached)")
+			INCLUDE_DIRECTORIES("${${PKG_NAME}_INCLUDE}")
+			LINK_DIRECTORIES("${${PKG_NAME}_LIBRARY_PATH}")
+			LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${${PKG_NAME}_LIBRARY}")
+		ENDIF()
+	ENDIF(${PKG_NAME}_FOUND)
+
 	UNSET(_lib CACHE)
 	UNSET(_incl CACHE)
 ENDMACRO(ProcessPackage name)
@@ -240,143 +235,27 @@ BISON_TARGET(CfgParser src/cfg_file.y ${CMAKE_CURRENT_BINARY_DIR}/cfg_yacc.c)
 FLEX_TARGET(CfgScanner src/cfg_file.l  ${CMAKE_CURRENT_BINARY_DIR}/cfg_lex.c)
 ADD_FLEX_BISON_DEPENDENCY(CfgScanner CfgParser)
 
-#Check for openssl (required for dkim)
-IF(OPENSSL_FOUND)
-	INCLUDE_DIRECTORIES("${OPENSSL_INCLUDE_DIR}")
-	LIST(APPEND RMILTER_REQUIRED_LIBRARIES "${OPENSSL_LIBRARIES}")
-ELSE()
-    MESSAGE(FATAL_ERROR "rmilter requires openssl for build")
-ENDIF()
-
-ProcessPackage(PCRE libpcre libpcre3 pcre pcre3)
-IF(NOT PCRE_FOUND)
-    FIND_LIBRARY(LIBPCRE_LIBRARY NAMES pcre PATH_SUFFIXES lib64 lib lib/libpcre lib64/lipcre
-                      PATHS
-                          ~/Library/Frameworks
-                          /Library/Frameworks
-                          /usr/local
-                          /usr
-                          /sw
-                          /opt/local
-                          /opt/csw
-                          /opt
-                     DOC "Path where the pcre library can be found")
-    
-    FIND_PATH(LIBPCRE_INCLUDE pcre.h PATH_SUFFIXES include include/pcre3 
-                    PATHS   ~/Library/Frameworks
-                          /Library/Frameworks
-                          /usr/local
-                          /usr
-                          /sw
-                          /opt/local
-                          /opt/csw
-                          /opt
-                    DOC "Path where the pcre header files can be found")
-    IF(NOT LIBPCRE_LIBRARY OR NOT LIBPCRE_INCLUDE)
-    	MESSAGE(FATAL_ERROR "libpcre is required for building rmilter")
-    ENDIF()
-    LIST(APPEND RMILTER_REQUIRED_LIBRARIES "pcre")
-    
-    GET_FILENAME_COMPONENT(LIBPCRE_PATH "${LIBPCRE_LIBRARY}" PATH)
-    INCLUDE_DIRECTORIES("${LIBPCRE_INCLUDE}")
-    LINK_DIRECTORIES("${LIBPCRE_PATH}")
-ENDIF(NOT PCRE_FOUND)
-
-FIND_LIBRARY(LIBMILTER_LIBRARY NAMES milter PATH_SUFFIXES lib64 lib lib/libmilter lib64/libmilter
-                  PATHS
-                      ~/Library/Frameworks
-                      /Library/Frameworks
-                      /usr/local
-                      /usr
-                      /sw
-                      /opt/local
-                      /opt/csw
-                      /opt
-                 DOC "Path where the libmilter library can be found")
-
-FIND_PATH(LIBMILTER_INCLUDE mfapi.h PATH_SUFFIXES include include/libmilter 
-                PATHS   ~/Library/Frameworks
-                      /Library/Frameworks
-                      /usr/local
-                      /usr
-                      /sw
-                      /opt/local
-                      /opt/csw
-                      /opt
-                DOC "Path where the libmilter header files can be found")
-IF(NOT LIBMILTER_LIBRARY OR NOT LIBMILTER_INCLUDE)
-	MESSAGE(FATAL_ERROR "libmilter is required for building rmilter")
-ENDIF()
-LIST(APPEND RMILTER_REQUIRED_LIBRARIES "milter")
-
-GET_FILENAME_COMPONENT(LIBMILTER_PATH "${LIBMILTER_LIBRARY}" PATH)
-INCLUDE_DIRECTORIES("${LIBMILTER_INCLUDE}")
-LINK_DIRECTORIES("${LIBMILTER_PATH}")
+ProcessPackage(OPENSSL LIBRARY crypto INCLUDE opensslconf.h INCLUDE_SUFFIXES include/openssl
+	ROOT ${OPENSSL_ROOT_DIR} MODULES openssl)
+ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre 
+	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
+ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter 
+	ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
 
 IF(ENABLE_DKIM MATCHES "ON")
     SET(WITH_DKIM 1)
-    FIND_LIBRARY(LIBOPENDKIM_LIBRARY NAMES opendkim PATH_SUFFIXES lib64 lib lib/libopendkim lib64/libopendkim
-                      PATHS
-                          ~/Library/Frameworks
-                          /Library/Frameworks
-                          /usr/local
-                          /usr
-                          /sw
-                          /opt/local
-                          /opt/csw
-                          /opt
-                     DOC "Path where the opendkim library can be found")
-    
-    FIND_PATH(LIBOPENDKIM_INCLUDE dkim.h PATH_SUFFIXES include include/opendkim 
-                    PATHS   ~/Library/Frameworks
-                          /Library/Frameworks
-                          /usr/local
-                          /usr
-                          /sw
-                          /opt/local
-                          /opt/csw
-                          /opt
-                    DOC "Path where the opendkim header files can be found")
-    IF(NOT LIBOPENDKIM_LIBRARY OR NOT LIBOPENDKIM_INCLUDE)
-    	MESSAGE(FATAL_ERROR "libmilter is required for building rmilter")
-    ENDIF()
-    GET_FILENAME_COMPONENT(LIBOPENDKIM_PATH "${LIBOPENDKIM_LIBRARY}" PATH)
-    INCLUDE_DIRECTORIES("${LIBOPENDKIM_INCLUDE}")
-    LINK_DIRECTORIES("${LIBOPENDKIM_PATH}")
-    LIST(APPEND RMILTER_REQUIRED_LIBRARIES "opendkim")
+    ProcessPackage(OPENDKIM LIBRARY opendkim INCLUDE dkim.h 
+    	INCLUDE_SUFFIXES include/opendkim
+    	LIB_SUFFIXES lib/opendkim lib64/opendkim
+		ROOT ${OPENDKIM_ROOT_DIR} MODULES opendkim)
 ENDIF()
 
 IF(ENABLE_SPF MATCHES "ON")
     SET(WITH_SPF 1)
-    FIND_LIBRARY(LIBSPF2_LIBRARY NAMES spf2 PATH_SUFFIXES lib64 lib lib/libspf2 lib64/libspf2 lib/libspf lib64/libspf
-                      PATHS
-                          ~/Library/Frameworks
-                          /Library/Frameworks
-                          /usr/local
-                          /usr
-                          /sw
-                          /opt/local
-                          /opt/csw
-                          /opt
-                     DOC "Path where the libspf library can be found")
-    
-    FIND_PATH(LIBSPF2_INCLUDE spf.h PATH_SUFFIXES include include/spf include/spf2 
-                    PATHS   ~/Library/Frameworks
-                          /Library/Frameworks
-                          /usr/local
-                          /usr
-                          /sw
-                          /opt/local
-                          /opt/csw
-                          /opt
-                    DOC "Path where the libspf header files can be found")
-    IF(NOT LIBSPF2_LIBRARY OR NOT LIBSPF2_INCLUDE)
-    	MESSAGE(FATAL_ERROR "libspf2 is required for building rmilter")
-    ENDIF()
-    GET_FILENAME_COMPONENT(LIBSPF2_PATH "${LIBSPF2_LIBRARY}" PATH)
-    INCLUDE_DIRECTORIES("${LIBSPF2_INCLUDE}")
-    LINK_DIRECTORIES("${LIBSPF2_PATH}")
-    LIST(APPEND RMILTER_REQUIRED_LIBRARIES "spf2")
+    ProcessPackage(LIBSPF2 LIBRARY spf2 INCLUDE dkim.h 
+    	INCLUDE_SUFFIXES include/spf include/spf2 
+    	LIB_SUFFIXES lib/libspf2 lib64/libspf2 lib/libspf lib64/libspf
+		ROOT ${LIBSPF2_ROOT_DIR} MODULES libspf2)
 ENDIF()
 
 # Process with warn flags
