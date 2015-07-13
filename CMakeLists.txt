@@ -235,7 +235,7 @@ BISON_TARGET(CfgParser src/cfg_file.y ${CMAKE_CURRENT_BINARY_DIR}/cfg_yacc.c)
 FLEX_TARGET(CfgScanner src/cfg_file.l  ${CMAKE_CURRENT_BINARY_DIR}/cfg_lex.c)
 ADD_FLEX_BISON_DEPENDENCY(CfgScanner CfgParser)
 
-ProcessPackage(OPENSSL LIBRARY crypto INCLUDE opensslconf.h INCLUDE_SUFFIXES include/openssl
+ProcessPackage(OPENSSL LIBRARY crypto INCLUDE err.h INCLUDE_SUFFIXES include/openssl
 	ROOT ${OPENSSL_ROOT_DIR} MODULES openssl)
 ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre 
 	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
