@@ -1,3 +1,9 @@
+rmilter (1.6.3) unstable; urgency=low
+
+  * New release.
+
+ -- Mikhail Gusarov <dottedmag@debian.org>  Sat, 18 Jul 2015 22:11:32 +0200
+
 rmilter (1.6.2) unstable; urgency=low
 
   * Use systemd socket activation.
