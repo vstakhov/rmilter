@@ -15,9 +15,14 @@ License:        BSD-2-Clause
 %else
 License:        BSD2c
 %endif
-URL:            https://rspamd.com
+URL:            https://github.com/vstakhov/rmilter
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}
-BuildRequires:  sendmail-devel,sendmail-milter
+%if 0%{?suse_version}
+BuildRequires:  bison,flex
+%else
+BuildRequires:  sendmail-milter
+%endif
+BuildRequires:  sendmail-devel,openssl-devel,pcre-devel
 %if 0%{?el6}
 BuildRequires:  cmake28
 %else
@@ -45,7 +50,7 @@ Requires(postun): initscripts
 Source4:        %{name}.sh
 %endif
 
-Source0:        https://rspamd.com/downloads/%{name}-%{version}.tar.xz
+Source0:        https://github.com/vstakhov/%{name}/archive/%{version}.tar.gz
 Source1:	%{name}.conf
 Source2:	%{name}.conf.common
 Source3:	%{name}.conf.sysvinit
@@ -57,9 +62,6 @@ It provides several filter and mail scan features.
 %prep
 %setup -q
 rm -rf %{buildroot} || true
-%if 0%{?el7}
-%patch0 -p0
-%endif
 
 %build
 %if 0%{?el6}
@@ -89,7 +91,7 @@ rm -rf %{buildroot} || true
 %install
 %{__make} install DESTDIR=%{buildroot} INSTALLDIRS=vendor
 
-%{__install} -p -d -D -m 0644 %{buildroot}%{_sysconfdir}/%{name}
+%{__install} -p -d -D -m 0755 %{buildroot}%{_sysconfdir}/%{name}
 %{__install} -p -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/%{name}/
 %{__install} -p -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/%{name}/
 %{__install} -p -D -m 0644 %{SOURCE3} %{buildroot}%{_sysconfdir}/%{name}/
@@ -164,10 +166,11 @@ fi
 %endif
 %if 0%{?el6}
 %{_initrddir}/%{name}
+%attr(-, _rmilter, adm) %dir %{rmilter_home}
 %endif
 %{_mandir}/man8/%{name}.*
 %{_sbindir}/rmilter
-%attr(-, _rmilter, adm) %dir %{rmilter_home}
+%{_sysconfdir}/rmilter
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.common
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.sysvinit
