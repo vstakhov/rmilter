@@ -6,3 +6,6 @@ ListenStream=/var/run/rmilter/rmilter.sock
 SocketUser=_rmilter
 SocketGroup=adm
 SocketMode=660
+
+[Install]
+WantedBy=sockets.target
