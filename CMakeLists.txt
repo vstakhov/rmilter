@@ -50,6 +50,9 @@ INCLUDE(FindThreads)
 FIND_PACKAGE(BISON)
 FIND_PACKAGE(FLEX)
 
+SET(RMILTER_DEFAULT_INCLUDE_PATHS "/opt;/usr;/usr/local;/opt/local;/usr/pkg;/opt/csw;/sw")
+SET(RMILTER_DEFAULT_LIBRARY_PATHS "/usr/local;/usr/pkg;/usr;/Library/Frameworks;/sw;/opt/local;/opt/csw;/opt")
+
 # Process required package by using FindPackage and calling for INCLUDE_DIRECTORIES and
 # setting list of required libraries
 # Usage:
@@ -177,6 +180,8 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     	SET(CMAKE_C_FLAGS  "-D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE ${CMAKE_C_FLAGS}")
     ENDIF(BUILD_CPU_MODE STREQUAL "32")
     LIST(APPEND RMILTER_REQUIRED_LIBRARIES resolv)
+    LIST(APPEND RMILTER_DEFAULT_INCLUDE_PATHS "/usr/include/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu/")
+	LIST(APPEND RMILTER_DEFAULT_LIBRARY_PATHS "/usr/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu/")
 ENDIF()
 
 IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
