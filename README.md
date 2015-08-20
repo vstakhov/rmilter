@@ -90,6 +90,10 @@ Directives that can be defined in config file:
 
         > *Default:* **0 (no limit)**
 
+    - **strict\_auth**: strict checks for mails from authenticated senders
+
+        > *Default:* **no**
+
     - **spf\_domains**: list of domains that would be checked with spf
 
         > *Default:* **empty (spf disabled)**
@@ -542,7 +546,13 @@ Example configuration
 
     # max_size - maximum size of scanned mail with clamav and dcc
     # Default: 0 (no limit)
+
     max_size = 10M;
+
+    # strict_auth - strict checks for mails from authenticated senders
+    # Default: no
+
+    strict_auth = no;
 
     # spf_domains - path to file that contains hash of spf domains
     # Default: empty
