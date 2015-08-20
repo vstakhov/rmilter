@@ -157,7 +157,13 @@ tempdir = /tmp;
 
 # max_size - maximum size of scanned mail with clamav and dcc
 # Default: 0 (no limit)
+
 max_size = 10M;
+
+# strict_auth - strict checks for mails from authenticated senders
+# Default: no
+
+strict_auth = no;
 
 # spf_domains - path to file that contains hash of spf domains
 # Default: empty
