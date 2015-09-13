@@ -141,6 +141,37 @@ set_reply (SMFICTX *ctx, const struct action *act)
 	return result;
 }
 
+/*
+ * Strip angle braces if needed
+ */
+static void
+normalize_email_addr (const char *src, char *dest, size_t destlen)
+{
+	const char *c;
+	char *d;
+
+	c = src;
+	d = dest;
+
+	if (*c == '<') {
+		c++;
+	}
+
+	while (--destlen != 0) {
+		if ((*d++ = tolower (*c++)) == '\0') {
+			break;
+		}
+	}
+
+	if (d != dest + 1 && *(d - 1) == '>') {
+		*(d - 1) = '\0';
+	}
+
+	if (destlen == 0) {
+		*d = '\0';
+	}
+}
+
 static inline int
 create_temp_file (struct mlfi_priv *priv)
 {
@@ -677,7 +708,7 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 static sfsistat
 mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 {
-	char *tmpfrom, *domain_pos;
+	char *tmpfrom;
 	struct mlfi_priv *priv;
 	struct rule *act;
 	unsigned int i;
@@ -692,16 +723,19 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	 */
 	tmpfrom = smfi_getsymval(ctx, "{mail_addr}");
 	if (tmpfrom == NULL || *tmpfrom == '\0') {
-		tmpfrom = "<>";
+		tmpfrom = "";
 	}
-	for (i = 0; i < sizeof(priv->priv_from) - 1; i++) {
-		priv->priv_from[i] = tolower (*tmpfrom++);
-		if (*tmpfrom == '\0') {
-			i++;
-			break;
+	else if (strchr (tmpfrom, '@') == NULL) {
+		/* Special case for sendmail */
+		tmpfrom = envfrom[0];
+
+		if (tmpfrom == NULL || *tmpfrom == '\0') {
+			tmpfrom = "";
 		}
 	}
-	priv->priv_from[i] = '\0';
+
+	normalize_email_addr (tmpfrom, priv->priv_from, sizeof (priv->priv_from));
+
 	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
 
 	if (priv->priv_hostname[0] == '\0') {
@@ -727,25 +761,21 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	CFG_RLOCK();
 	DKIM_STAT statp;
 	struct dkim_domain_entry *dkim_domain;
+	char *domain_pos;
 
 	domain_pos = strchr (priv->priv_from, '@');
 	if (domain_pos) {
-		if (priv->priv_from[i - 1] == '>') {
-			priv->priv_from[i - 1] = '\0';
-			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
-			priv->priv_from[i - 1] = '>';
-		}
-		else {
-			HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
-		}
+		HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
+
 		if (!cfg->dkim_auth_only || priv->authenticated) {
 			if (dkim_domain && dkim_domain->is_loaded) {
 				priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
 						(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
 						(u_char *)dkim_domain->domain,
 						cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-								cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-										cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+						cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+						cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+
 				if (statp != DKIM_STAT_OK) {
 					msg_info ("dkim sign failed: %s", dkim_geterror (priv->dkim));
 					if (priv->dkim) {
@@ -1115,7 +1145,7 @@ mlfi_eom(SMFICTX * ctx)
 			if (!priv->has_whitelisted) {
 				snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
 						(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
-								priv->priv_ip, priv->priv_from);
+						priv->priv_ip, priv->priv_from);
 				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 				CFG_UNLOCK();
 				mlfi_cleanup (ctx, false);
@@ -1571,8 +1601,8 @@ check_dcc (const struct mlfi_priv *priv)
 
 	dccres = dccif (emsg, /*out body fd*/dccofd, /*out_body*/0,
 			opts, &sup, priv->priv_hostname, priv->priv_helo,
-			(priv->priv_from == 0) || (priv->priv_from[0] == 0) ? "<>" : priv->priv_from,
-					rcpts, dccfd, /*in_body*/0, homedir);
+			(priv->priv_from[0] == 0) ? "<>" : priv->priv_from,
+			rcpts, dccfd, /*in_body*/0, homedir);
 
 	return dccres;
 }
