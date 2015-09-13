@@ -694,6 +694,11 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (tmpfrom == NULL || *tmpfrom == '\0') {
 		tmpfrom = "<>";
 	}
+	
+	if (!strchr(tmpfrom, '@') && strchr(*envfrom, '@')) {
+		tmpfrom = *envfrom;
+ 	}
+
 	for (i = 0; i < sizeof(priv->priv_from) - 1; i++) {
 		priv->priv_from[i] = tolower (*tmpfrom++);
 		if (*tmpfrom == '\0') {
@@ -759,7 +764,14 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				}
 			}
 			else {
-				priv->dkim = try_wildcard_dkim (domain_pos + 1, priv);
+				if (priv->priv_from[i - 1] == '>') {
+					priv->priv_from[i - 1] = '\0';
+					priv->dkim = try_wildcard_dkim(domain_pos + 1, priv);
+					priv->priv_from[i - 1] = '>';
+				} else {
+					priv->dkim = try_wildcard_dkim(domain_pos + 1, priv);
+				}
+
 				if (priv->dkim) {
 					msg_debug ("try to add signature for %s domain", domain_pos + 1);
 				}
