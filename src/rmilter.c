@@ -764,7 +764,14 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				}
 			}
 			else {
-				priv->dkim = try_wildcard_dkim (domain_pos + 1, priv);
+				if (priv->priv_from[i - 1] == '>') {
+					priv->priv_from[i - 1] = '\0';
+					priv->dkim = try_wildcard_dkim(domain_pos + 1, priv);
+					priv->priv_from[i - 1] = '>';
+				} else {
+					priv->dkim = try_wildcard_dkim(domain_pos + 1, priv);
+				}
+
 				if (priv->dkim) {
 					msg_debug ("try to add signature for %s domain", domain_pos + 1);
 				}
