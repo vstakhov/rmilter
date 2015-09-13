@@ -42,7 +42,7 @@ do_start()
 	chown $USER:adm $RUNDIR
 	chmod g+s $RUNDIR
 	rm -f $SOCKET
-	$SSD --start --background --make-pidfile --chuid $USER --oknodo \
+	$SSD --start --background --chuid $USER --oknodo \
 		--startas $DAEMON -- -c /etc/rmilter.conf.sysvinit
 }
 
