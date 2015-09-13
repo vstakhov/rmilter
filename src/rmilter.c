@@ -694,6 +694,11 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (tmpfrom == NULL || *tmpfrom == '\0') {
 		tmpfrom = "<>";
 	}
+	
+	if (!strchr(tmpfrom, '@') && strchr(*envfrom, '@')) {
+		tmpfrom = *envfrom;
+ 	}
+
 	for (i = 0; i < sizeof(priv->priv_from) - 1; i++) {
 		priv->priv_from[i] = tolower (*tmpfrom++);
 		if (*tmpfrom == '\0') {
