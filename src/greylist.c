@@ -209,6 +209,10 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 
 	char ipout[INET6_ADDRSTRLEN + 1];
 
+	if (from == NULL || from[0] == '\0') {
+		from = "<>";
+	}
+
 	if (address_family == AF_INET) {
 		if (radix32tree_find (cfg->grey_whitelist_tree,
 				ntohl(*(uint32_t *)addr)) != RADIX_NO_VALUE) {
