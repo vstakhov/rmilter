@@ -4,3 +4,6 @@ Description=Another sendmail milter for different mail checks
 [Service]
 ExecStart=/usr/sbin/rmilter -c /etc/rmilter.conf -n
 User=_rmilter
+
+[Install]
+WantedBy=multi-user.target

@@ -1,8 +1,5 @@
 [Unit]
 Description=Another sendmail milter for different mail checks
 
-[Socket]
-ListenStream=/var/run/rmilter/rmilter.sock
-SocketUser=_rmilter
-SocketGroup=adm
-SocketMode=660
+[Install]
+WantedBy=sockets.target
