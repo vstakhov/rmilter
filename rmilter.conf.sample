@@ -148,7 +148,7 @@ memcached {
 # inet:port@host - bind to inet socket
 # Default: bind_socket = unix:/var/tmp/rmilter.sock;
 
-bind_socket = unix:/var/lib/rmilter/rmilter.sock;
+bind_socket = inet:11332@localhost;
 
 # tempdir - path to directory that contains temporary files
 # Default: $TMPDIR
@@ -189,7 +189,7 @@ use_dcc = yes;
 # limits section
 limits {
 	# Whitelisted ip or networks
-	limit_whitelist = 194.67.45.4/32;
+	#limit_whitelist = 194.67.45.4/32;
 	# Whitelisted recipients
 	limit_whitelist_rcpt =  postmaster, mailer-daemon;
 	# Addrs for bounce checks
