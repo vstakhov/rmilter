@@ -4,7 +4,7 @@ Description=another sendmail filter
 [Service]
 User=_rmilter
 ExecStart=/usr/sbin/rmilter -n -c /etc/rmilter/rmilter.conf
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -USR1 $MAINPID
 
 [Install]
 WantedBy=multi-user.target
