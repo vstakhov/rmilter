@@ -3,6 +3,7 @@ Description=Another sendmail milter for different mail checks
 
 [Service]
 ExecStart=/usr/sbin/rmilter -c /etc/rmilter.conf -n
+ExecReload=/bin/kill -USR1 $MAINPID
 User=_rmilter
 
 [Install]
