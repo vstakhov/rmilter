@@ -1,0 +1,14 @@
+1.6.4:
+   * Missing socket configuration (#31)
+   * Add `make dist` target.
+   * Use unquoted expansion of lists.
+   * Search for libmilter properly.
+   * Use -O2 by default.
+   * Fix doc: add reference to strict_auth directive (by @aya)
+   * Fix debug mode option.
+   * Fix pidfile creation from the debian init script.
+   * Enable dkim by default.
+   * Fix issue with envfrom loading.
+   * Fix inet6 sockets and address-less sockets lines.
+   * Fix default configurations to the inet sockets.
+   * Fix reload signal in systemd unit.
