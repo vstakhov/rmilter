@@ -172,7 +172,7 @@ main(int argc, char *argv[])
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
-	rmilter_pidfh_t *pfh;
+	rmilter_pidfh_t *pfh = NULL;
 	pid_t pid;
 
 	daemonize = 1;
@@ -298,19 +298,24 @@ main(int argc, char *argv[])
 		exit(EX_UNAVAILABLE);
 	}
 
-	pfh = rmilter_pidfile_open (cfg->pid_file, 0644, &pid);
+	if (cfg->pid_file) {
+		pfh = rmilter_pidfile_open (cfg->pid_file, 0644, &pid);
 
-	if (pfh == NULL) {
-		msg_err("Unable to open pidfile %s", cfg->pid_file);
-		exit(EX_UNAVAILABLE);
+		if (pfh == NULL) {
+			msg_err("Unable to open pidfile %s", cfg->pid_file);
+			exit (EX_UNAVAILABLE);
+		}
+
+		rmilter_pidfile_write (pfh);
 	}
 
-	rmilter_pidfile_write (pfh);
 	r = smfi_main();
 
 	if (cfg_file != NULL) free (cfg_file);
 
-	rmilter_pidfile_close (pfh);
+	if (pfh) {
+		rmilter_pidfile_close (pfh);
+	}
 
 	return r;
 }

@@ -650,6 +650,7 @@ init_defaults (struct config_file *cfg)
 	cfg->spamd_greylist = 1;
 
 	cfg->dkim_auth_only = 1;
+	cfg->pid_file = NULL;
 
 #if 0
 	/* Init static defaults */
