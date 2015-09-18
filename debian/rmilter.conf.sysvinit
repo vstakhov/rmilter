@@ -3,3 +3,8 @@
 .include /etc/rmilter.conf.common 
 
 bind_socket = unix:/run/rmilter/rmilter.sock;
+
+# pidfile - path to pid file
+# Default: pidfile = /var/run/rmilter.pid
+
+pidfile = /run/rmilter.pid;
