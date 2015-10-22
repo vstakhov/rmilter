@@ -146,11 +146,13 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		strncpy(server_un.sun_path, srv->sock.unix_path, sizeof(server_un.sun_path));
 
 		if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-			msg_warn("rspamd: socket %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("rspamd: socket %s, %s", srv->sock.unix_path,
+					strerror (errno));
 			return -1;
 		}
 		if (connect_t(s, (struct sockaddr *) & server_un, sizeof(server_un), cfg->spamd_connect_timeout) < 0) {
-			msg_warn("rspamd: connect %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("rspamd: connect %s, %s", srv->sock.unix_path,
+					strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -163,11 +165,11 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		memcpy((char *)&server_in.sin_addr, &srv->sock.inet.addr, sizeof(struct in_addr));
 
 		if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-			msg_warn("rspamd: socket %d: %m",  errno);
+			msg_warn("rspamd: socket %s", strerror (errno));
 			return -1;
 		}
 		if (connect_t(s, (struct sockaddr *) & server_in, sizeof(server_in), cfg->spamd_connect_timeout) < 0) {
-			msg_warn("rspamd: connect %s, %d: %m", srv->name, errno);
+			msg_warn("rspamd: connect %s: %s", srv->name, strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -175,7 +177,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	/* Get file size */
 	fd = open(priv->file, O_RDONLY);
 	if (fstat (fd, &sb) == -1) {
-		msg_warn ("rspamd: stat failed: %m");
+		msg_warn ("rspamd: stat failed: %s", strerror (errno));
 		close(s);
 		return -1;
 	}
@@ -280,7 +282,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 
 
 	if (write (s, buf, r) == -1) {
-		msg_warn("rspamd: write (%s), %d: %m", srv->name, errno);
+		msg_warn("rspamd: write (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -289,7 +291,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-		msg_warn("rspamd: sendfile (%s), %d: %m", srv->name, errno);
+		msg_warn("rspamd: sendfile (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -297,7 +299,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 #elif defined(LINUX)
 	off_t off = 0;
 	if (sendfile(s, fd, &off, sb.st_size) == -1) {
-		msg_warn("rspamd: sendfile (%s), %d: %m", srv->name, errno);
+		msg_warn("rspamd: sendfile (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;		
@@ -333,7 +335,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	}
 
 	if (r < 0) {
-		msg_warn("rspamd: read, %s, %d: %m", srv->name, errno);
+		msg_warn("rspamd: read, %s, %s", srv->name, strerror (errno));
 		close(s);
 		return -1;
 	}
@@ -654,11 +656,13 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		strncpy(server_un.sun_path, srv->sock.unix_path, sizeof(server_un.sun_path));
 
 		if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-			msg_warn("spamd: socket %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("spamd: socket %s, %s", srv->sock.unix_path,
+					strerror (errno));
 			return -1;
 		}
 		if (connect_t(s, (struct sockaddr *) & server_un, sizeof(server_un), cfg->spamd_connect_timeout) < 0) {
-			msg_warn("spamd: connect %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("spamd: connect %s, %s", srv->sock.unix_path,
+					strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -671,11 +675,11 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		memcpy((char *)&server_in.sin_addr, &srv->sock.inet.addr, sizeof(struct in_addr));
 
 		if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-			msg_warn("spamd: socket %d: %m",  errno);
+			msg_warn("spamd: socket %s", strerror (errno));
 			return -1;
 		}
 		if (connect_t(s, (struct sockaddr *) & server_in, sizeof(server_in), cfg->spamd_connect_timeout) < 0) {
-			msg_warn("spamd: connect %s, %d: %m", srv->name, errno);
+			msg_warn("spamd: connect %s, %s", srv->name, strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -683,7 +687,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 	/* Get file size */
 	fd = open(file, O_RDONLY);
 	if (fstat (fd, &sb) == -1) {
-		msg_warn ("spamd: stat failed: %m");
+		msg_warn ("spamd: stat failed: %s", strerror (errno));
 		close(s);
 		return -1;
 	}
@@ -699,7 +703,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 
 	r = snprintf (buf, sizeof (buf), "SYMBOLS SPAMC/1.2\r\nContent-length: %ld\r\n\r\n", (long int)sb.st_size);
 	if (write (s, buf, r) == -1) {
-		msg_warn("spamd: write (%s), %d: %m", srv->name, errno);
+		msg_warn("spamd: write (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -708,7 +712,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-		msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+		msg_warn("spamd: sendfile (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -716,7 +720,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 #elif defined(LINUX)
 	off_t off = 0;
 	if (sendfile(s, fd, &off, sb.st_size) == -1) {
-		msg_warn("spamd: sendfile (%s), %d: %m", srv->name, errno);
+		msg_warn("spamd: sendfile (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;		
@@ -751,7 +755,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 	buf[size] = 0;
 
 	if (r < 0) {
-		msg_warn("spamd: read, %s, %d: %m", srv->name, errno);
+		msg_warn("spamd: read, %s, %s", srv->name, strerror (errno));
 		close(s);
 		return -1;
 	}

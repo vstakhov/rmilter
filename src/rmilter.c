@@ -194,13 +194,15 @@ create_temp_file (struct mlfi_priv *priv)
 	pthread_mutex_unlock (&mkstemp_mtx);
 
 	if (fd == -1) {
-		msg_warn ("create_temp_file: %s: mkstemp failed, %d: %m", priv->mlfi_id, errno);
+		msg_warn ("create_temp_file: %s: mkstemp failed: %s",
+				priv->mlfi_id, strerror (errno));
 		return -1;
 	}
 	priv->fileh = fdopen(fd, "w");
 
 	if (!priv->fileh) {
-		msg_warn ("create_temp_file: %s: can't open tempfile, %d: %m", priv->mlfi_id, errno);
+		msg_warn ("create_temp_file: %s: can't open tempfile: %s",
+				priv->mlfi_id, strerror (errno));
 		return -1;
 	}
 	fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\r\n",
@@ -403,19 +405,22 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	}
 
 	if (stat (priv->file, &st) == -1) {
-		msg_warn ("send_beanstalk_copy: %s: data file stat(): %s", priv->mlfi_id, strerror (errno));
+		msg_warn ("send_beanstalk_copy: %s: data file stat(): %s", priv->mlfi_id,
+				strerror (errno));
 		return;
 	}
 
 	fd = open (priv->file, O_RDONLY);
 
 	if (fd == -1) {
-		msg_warn ("send_beanstalk_copy: %s: data file open(): %s", priv->mlfi_id, strerror (errno));
+		msg_warn ("send_beanstalk_copy: %s: data file open(): %s", priv->mlfi_id,
+				strerror (errno));
 		return;
 	}
 
 	if ((map = mmap (NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		msg_err ("send_beanstalk_copy: cannot mmap file %s, %s", priv->file, strerror (errno));
+		msg_err ("send_beanstalk_copy: cannot mmap file %s, %s", priv->file,
+				strerror (errno));
 		close (fd);
 		return;
 	}
@@ -488,7 +493,8 @@ send_beanstalk (const struct mlfi_priv *priv)
 	fd = open (priv->file, O_RDONLY);
 
 	if (fd == -1) {
-		msg_warn ("send_beanstalk: %s: data file open(): %s", priv->mlfi_id, strerror (errno));
+		msg_warn ("send_beanstalk: %s: data file open(): %s",
+				priv->mlfi_id, strerror (errno));
 		return;
 	}
 
@@ -589,7 +595,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	priv->priv_rcptcount = 0;
 
 	if (gettimeofday (&priv->conn_tm, NULL) == -1) {
-		msg_err ("Internal error: gettimeofday failed %m");
+		msg_err ("Internal error: gettimeofday failed %s", strerror (errno));
 		return SMFIS_TEMPFAIL;
 	}
 
@@ -1165,7 +1171,8 @@ mlfi_eom(SMFICTX * ctx)
 
 	/* check file size */
 	if (stat (priv->file, &sb) == -1) {
-		msg_warn ("mlfi_eom: %s: stat failed: %m", priv->mlfi_id);
+		msg_warn ("mlfi_eom: %s: stat failed: %s", priv->mlfi_id,
+				strerror (errno));
 		CFG_UNLOCK();
 		return mlfi_cleanup (ctx, true);
 	}
@@ -1449,7 +1456,8 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 
 	if (priv->fileh) {
 		if (fclose (priv->fileh) != 0) {
-			msg_err ("mlfi_close: %s: close failed (%d), %m", priv->mlfi_id, errno);
+			msg_err ("mlfi_close: %s: close failed: %s", priv->mlfi_id,
+					strerror (errno));
 		}
 		priv->fileh = NULL;
 	}
@@ -1510,7 +1518,8 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 
 
 	if (fwrite (bodyp, bodylen, 1, priv->fileh) != 1) {
-		msg_warn ("mlfi_body: %s: file write error, %d: %m", priv->mlfi_id, errno);
+		msg_warn ("mlfi_body: %s: file write error: %s", priv->mlfi_id,
+				strerror (errno));
 		mlfi_cleanup (ctx, false);
 		return SMFIS_TEMPFAIL;;
 	}

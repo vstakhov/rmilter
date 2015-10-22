@@ -163,7 +163,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 
 	if (srv->sock_type == AF_LOCAL) {
 		if (!realpath(file, path)) {
-			msg_warn("clamav: realpath, %d: %m", errno);
+			msg_warn("clamav: realpath: %s", strerror (errno));
 			return -1;
 		}
 		/* unix socket, use 'SCAN <filename>' command on clamd */
@@ -174,16 +174,19 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		strncpy(server_un.sun_path, srv->sock.unix_path, sizeof(server_un.sun_path));
 
 		if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
-			msg_warn("clamav: socket %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("clamav: socket %s: %s", srv->sock.unix_path,
+					strerror (errno));
 			return -1;
 		}
 		if (connect_t(s, (struct sockaddr *) & server_un, sizeof(server_un), cfg->clamav_connect_timeout) < 0) {
-			msg_warn("clamav: connect %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("clamav: connect %s: %s", srv->sock.unix_path,
+					strerror (errno));
 			close(s);
 			return -1;
 		}
 		if (write(s, buf, r) != r) {
-			msg_warn("clamav: write %s, %d: %m", srv->sock.unix_path, errno);
+			msg_warn("clamav: write %s: %s", srv->sock.unix_path,
+					strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -197,11 +200,11 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		memcpy((char *)&server_in.sin_addr, &srv->sock.inet.addr, sizeof(struct in_addr));
 
 		if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-			msg_warn("clamav: socket %d: %m",  errno);
+			msg_warn("clamav: socket: %s", strerror (errno));
 			return -1;
 		}
 		if (connect_t(s, (struct sockaddr *) & server_in, sizeof(server_in), cfg->clamav_connect_timeout) < 0) {
-			msg_warn("clamav: connect %s, %d: %m", srv->name, errno);
+			msg_warn("clamav: connect %s: %s", srv->name, strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -210,7 +213,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		r = snprintf(buf, sizeof(buf), "STREAM\n");
 
 		if (write(s, buf, r) != r) {
-			msg_warn("clamav: write %s, %d: %m", srv->name, errno);
+			msg_warn("clamav: write %s: %s", srv->name, strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -240,7 +243,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		 * connect to clamd data socket
 		 */
 		if ((sw = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-			msg_warn("clamav: socket (%s), %d: %m", srv->name, errno);
+			msg_warn("clamav: socket (%s): %s", srv->name, strerror (errno));
 			close(s);
 			return -1;
 		}
@@ -251,7 +254,8 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 		memcpy((char *)&server_w.sin_addr, (char *)&server_in.sin_addr, sizeof(struct in_addr));
 
 		if (connect_t(sw, (struct sockaddr *) & server_w, sizeof(server_w), cfg->clamav_port_timeout) < 0) {
-			msg_warn("clamav: connect data (%s), %d: %m", srv->name, errno);
+			msg_warn("clamav: connect data (%s): %s", srv->name,
+					strerror (errno));
 			close(sw);
 			close(s);
 			return -1;
@@ -263,7 +267,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 
 		fd = open(file, O_RDONLY);
 		if (fstat (fd, &sb) == -1) {
-			msg_warn ("clamav: stat failed: %m");
+			msg_warn ("clamav: stat failed: %s", strerror (errno));
 			close(sw);
 			close(s);
 			return -1;
@@ -276,7 +280,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 #ifdef HAVE_SENDFILE
 #ifdef FREEBSD
 		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
-			msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
+			msg_warn("clamav: sendfile (%s): %s", srv->name, strerror (errno));
 			close(sw);
 			close(fd);
 			close(s);
@@ -285,7 +289,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 #elif defined(LINUX)
 		off_t off = 0;
 		if (sendfile(sw, fd, &off, sb.st_size) == -1) {
-			msg_warn("clamav: sendfile (%s), %d: %m", srv->name, errno);
+			msg_warn("clamav: sendfile (%s): %s", srv->name, strerror (errno));
 			close(sw);
 			close(fd);
 			close(s);
@@ -320,7 +324,7 @@ clamscan_socket(const char *file, const struct clamav_server *srv, char *strres,
 	}
 
 	if (r < 0) {
-		msg_warn("clamav: read, %s, %d: %m", srv->name, errno);
+		msg_warn("clamav: read, %s: %s", srv->name, strerror (errno));
 		close(s);
 		return -1;
 	}
