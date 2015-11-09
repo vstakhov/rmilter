@@ -26,12 +26,15 @@
 
 #include "cfg_file.h"
 
+
 #define GREY_GREYLISTED 1
 #define GREY_WHITELISTED 2
 #define GREY_ERROR -1
 
+struct rcpt;
+
 int
 check_greylisting (struct config_file *cfg, void *addr, int address_family, struct timeval *conn_tv,
-		const char *from, const char *rcpt);
+		const char *from, struct rcpt **rcpt);
 
 #endif /* GREYLIST_H_ */

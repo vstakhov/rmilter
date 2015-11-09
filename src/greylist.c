@@ -27,6 +27,8 @@
 #include "memcached.h"
 #include "greylist.h"
 #include "blake2.h"
+#include "rmilter.h"
+#include "utlist.h"
 
 static inline void
 copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
@@ -60,6 +62,12 @@ make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[BLAKE2B
 		msg_warn ("make_greylisting_key: prefix(%s) too long for memcached key, error in configure", prefix);
 		memcpy (key, md5_out, keylen - s);
 	}
+}
+
+static int
+greylisting_sort_rcpt_func (struct rcpt *r1, struct rcpt *r2)
+{
+	return strcmp (r1->r_addr, r2->r_addr);
 }
 
 static int
@@ -197,7 +205,7 @@ push_memcached_servers (struct config_file *cfg,
 
 int
 check_greylisting (struct config_file *cfg, void *addr, int address_family, struct timeval *conn_tv,
-		const char *from, const char *rcpt)
+		const char *from, struct rcpt **rcpts)
 {
 	blake2b_state mdctx;
 	u_char final[BLAKE2B_OUTBYTES];
@@ -206,6 +214,7 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	struct timeval tm, tm1;
 	int r;
 	char ip_ptr[16];
+	struct rcpt *rcpt;
 
 	char ipout[INET6_ADDRSTRLEN + 1];
 
@@ -245,7 +254,14 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	/* Make hash from components: envfrom, ip address, envrcpt */
 	blake2b_update (&mdctx, (const u_char *)from, strlen(from));
 	blake2b_update (&mdctx, (const u_char *)ipout, strlen(ipout));
-	blake2b_update (&mdctx, (const u_char *)rcpt, strlen(rcpt));
+
+	/* Sort recipients to preserve order */
+	DL_SORT ((*rcpts), greylisting_sort_rcpt_func);
+
+	DL_FOREACH (*rcpts, rcpt) {
+		blake2b_update (&mdctx, (const u_char *) rcpt->r_addr, strlen (rcpt->r_addr));
+	}
+
 	blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
 
 	tm.tv_sec = conn_tv->tv_sec;
