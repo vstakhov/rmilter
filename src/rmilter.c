@@ -24,6 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <utlist.h>
 #include "config.h"
 
 #ifdef WITH_SPF
@@ -235,7 +236,7 @@ dkim_stripcr (char *str)
 }
 
 static void
-check_message_id (struct mlfi_priv *priv, char *header) 
+check_message_id (struct mlfi_priv *priv, char *header)
 {
 	blake2b_state mdctx;
 	u_char final[BLAKE2B_OUTBYTES], param = '0';
@@ -249,7 +250,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	/* First of all do regexp check of message to determine special message id */
 	if (cfg->special_mid_re) {
 		if ((r = pcre_exec (cfg->special_mid_re, NULL, header, s, 0, 0, NULL, 0)) >= 0) {
-			priv->complete_to_beanstalk = 1;	
+			priv->complete_to_beanstalk = 1;
 		}
 	}
 
@@ -331,7 +332,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 						priv->priv_hostname,
 						priv->priv_ip,
 						priv->priv_from,
-						priv->rcpts.lh_first->r_addr,
+						priv->rcpts->r_addr,
 						priv->reply_id);
 		return;
 	}
@@ -359,7 +360,7 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 		ptr = priv->priv_addr.family == AF_INET6 ? (void *)&priv->priv_addr.addr.sa6.sin6_addr :
 				(void *)&priv->priv_addr.addr.sa4.sin_addr;
 		r = check_greylisting (cfg, ptr, priv->priv_addr.family, &priv->conn_tm,
-				priv->priv_from, priv->rcpts.lh_first->r_addr);
+				priv->priv_from, priv->rcpts);
 		switch (r) {
 		case GREY_GREYLISTED:
 			if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, cfg->greylisted_message) != MI_SUCCESS) {
@@ -384,7 +385,7 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 	return SMFIS_CONTINUE;
 }
 
-/* 
+/*
  * Send copy of message to beanstalk
  * XXX: too many copy&paste
  */
@@ -464,7 +465,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 
 }
 
-static void 
+static void
 send_beanstalk (const struct mlfi_priv *priv)
 {
 	struct beanstalk_server *selected;
@@ -571,7 +572,7 @@ format_spamd_reply (char *result, size_t len, char *format, char *symbols)
 
 /* Milter callbacks */
 
-static sfsistat 
+static sfsistat
 mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 {
 	struct mlfi_priv *priv;
@@ -587,7 +588,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		return SMFIS_TEMPFAIL;
 	}
 	memset(priv, '\0', sizeof (struct mlfi_priv));
-	LIST_INIT (&priv->rcpts);
+	priv->rcpts = NULL;
 	priv->strict = 1;
 	priv->serial = cfg->serial;
 	priv->priv_addr.family = AF_UNSPEC;
@@ -876,7 +877,8 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 		free (newrcpt);
 		return SMFIS_TEMPFAIL;
 	}
-	LIST_INSERT_HEAD (&priv->rcpts, newrcpt, r_list);
+
+	DL_APPEND(priv->rcpts, newrcpt);
 	/* Check recipient */
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
 	if (act != NULL) {
@@ -932,7 +934,7 @@ mlfi_data(SMFICTX *ctx)
 	return SMFIS_CONTINUE;
 }
 
-static sfsistat 
+static sfsistat
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
 	struct mlfi_priv *priv;
@@ -1030,7 +1032,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	return SMFIS_CONTINUE;
 }
 
-static sfsistat 
+static sfsistat
 mlfi_eoh(SMFICTX * ctx)
 {
 	struct mlfi_priv *priv;
@@ -1054,7 +1056,7 @@ mlfi_eoh(SMFICTX * ctx)
 		fprintf (priv->fileh, "Return-Path: <%s>\r\n", priv->priv_from);
 	}
 	if (priv->fileh) {
-		LIST_FOREACH (rcpt, &priv->rcpts, r_list) {
+		DL_FOREACH (priv->rcpts, rcpt) {
 			fprintf (priv->fileh, "X-Rcpt-To: %s\r\n", rcpt->r_addr);
 		}
 		fprintf (priv->fileh, "\r\n");
@@ -1074,7 +1076,7 @@ mlfi_eoh(SMFICTX * ctx)
 	return SMFIS_CONTINUE;
 }
 
-static sfsistat 
+static sfsistat
 mlfi_eom(SMFICTX * ctx)
 {
 	struct mlfi_priv *priv;
@@ -1164,7 +1166,7 @@ mlfi_eom(SMFICTX * ctx)
 
 	if (priv->complete_to_beanstalk) {
 		/* Set actual pos to send all message to beanstalk */
-		priv->eoh_pos = ftell (priv->fileh);	
+		priv->eoh_pos = ftell (priv->fileh);
 	}
 
 	fflush (priv->fileh);
@@ -1358,7 +1360,7 @@ mlfi_eom(SMFICTX * ctx)
 #if 0
 	char rcptbuf[8192];
 	int rr = 0;
-	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+	DL_FOREACH (priv->rcpts, rcpt) {
 		rate_check (priv, cfg, rcpt->r_addr, 1);
 		if (rcpt->r_list.le_next) {
 			rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s, ", rcpt->r_addr);
@@ -1369,7 +1371,7 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	smfi_addheader (ctx, "X-Rcpt-To", rcptbuf);
 #else
-	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+	DL_FOREACH (priv->rcpts, rcpt) {
 		rate_check (priv, cfg, rcpt->r_addr, 1);
 
 	}
@@ -1416,7 +1418,7 @@ mlfi_eom(SMFICTX * ctx)
 	return mlfi_cleanup (ctx, true);
 }
 
-static sfsistat 
+static sfsistat
 mlfi_close(SMFICTX * ctx)
 {
 	struct mlfi_priv *priv;
@@ -1435,18 +1437,18 @@ mlfi_close(SMFICTX * ctx)
 	return SMFIS_ACCEPT;
 }
 
-static sfsistat 
+static sfsistat
 mlfi_abort(SMFICTX * ctx)
 {
 	return mlfi_cleanup(ctx, false);
 }
 
-static sfsistat 
+static sfsistat
 mlfi_cleanup(SMFICTX * ctx, bool ok)
 {
 	sfsistat rstat = SMFIS_CONTINUE;
 	struct mlfi_priv *priv;
-	struct rcpt *rcpt, *next;
+	struct rcpt *rcpt, *tmp;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1484,19 +1486,18 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		priv->priv_from[0] = '\0';
 		priv->priv_user[0] = '\0';
 		priv->priv_rcptcount = 0;
-		rcpt = priv->rcpts.lh_first;
-		while (rcpt) {
-			next = rcpt->r_list.le_next;
+
+		DL_FOREACH_SAFE (priv->rcpts, rcpt, tmp) {
 			free (rcpt);
-			rcpt = next;
 		}
-		LIST_INIT (&priv->rcpts);
+
+		priv->rcpts = NULL;
 	}
 	/* return status */
 	return rstat;
 }
 
-static sfsistat 
+static sfsistat
 mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 {
 	struct mlfi_priv *priv;
@@ -1559,7 +1560,7 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
  * clamd...)
  */
 
-static int 
+static int
 check_clamscan(const char *file, char *strres, size_t strres_len)
 {
 	int r = -2;
@@ -1603,7 +1604,7 @@ check_dcc (const struct mlfi_priv *priv)
 	dcc_mk_su (&sup, priv->priv_addr.family, &priv->priv_addr.addr.sa, 0);
 
 	rcpt.next = rcpts;
-	rcpt.addr = priv->rcpts.lh_first->r_addr;
+	rcpt.addr = priv->rcpts->r_addr;
 	rcpt.user = "";
 	rcpt.ok = '?';
 	rcpts = &rcpt;
@@ -1617,6 +1618,6 @@ check_dcc (const struct mlfi_priv *priv)
 }
 #endif
 
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

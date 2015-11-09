@@ -26,6 +26,7 @@
 
 #include "config.h"
 
+#include "utlist.h"
 #include "pcre.h"
 #include "rmilter.h"
 #include "cfg_file.h"
@@ -125,7 +126,7 @@ check_envrcpt_rule (struct rule *cur, const struct mlfi_priv *priv)
 	LIST_FOREACH (cond, cur->conditions, next) {
 		if (cond->type == COND_ENVRCPT) {
 			/* To: */
-			for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+			DL_FOREACH (priv->rcpts, rcpt) {
 				tlen = strlen (rcpt->r_addr);
 				if (check_condition (&cond->args[0], rcpt->r_addr, tlen)) {
 					return cur;
@@ -147,7 +148,7 @@ check_header_rule (struct rule *cur, const struct mlfi_priv *priv)
 	LIST_FOREACH (cond, cur->conditions, next) {
 		if (cond->type == COND_HEADER) {
 			/* Header name and value */
-			if (check_condition (&cond->args[0], priv->priv_cur_header.header_name, nlen) 
+			if (check_condition (&cond->args[0], priv->priv_cur_header.header_name, nlen)
 				&& check_condition (&cond->args[1], priv->priv_cur_header.header_value, vlen)) {
 				return cur;
 			}
@@ -216,11 +217,11 @@ regexp_check (const struct config_file *cfg, const struct mlfi_priv *priv, enum 
 			return r;
 		}
 	}
-	
+
 	return NULL;
 }
 
-struct action * 
+struct action *
 rules_check (struct rule **rules)
 {
 	struct rule *cur = NULL;
@@ -247,7 +248,7 @@ rules_check (struct rule **rules)
 			cur = NULL;
 		}
 	}
-	
+
 	/* Return accept action if found */
 	if (cur) {
 		return cur->act;

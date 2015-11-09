@@ -26,6 +26,7 @@
 
 #include "config.h"
 
+#include "utlist.h"
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "libspamd.h"
@@ -51,7 +52,7 @@ pthread_mutex_t mx_spamd_write = PTHREAD_MUTEX_INITIALIZER;
  * poll_fd() - wait for some POLLIN event on socket for timeout milliseconds.
  */
 
-static int 
+static int
 poll_fd(int fd, int timeout, short events)
 {
 	int r;
@@ -73,7 +74,7 @@ poll_fd(int fd, int timeout, short events)
  * connect_t() - connect socket with timeout
  */
 
-static int 
+static int
 connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 {
 	int r, ofl;
@@ -114,13 +115,13 @@ connect_t(int s, const struct sockaddr *name, socklen_t namelen, int timeout)
 /*
  * rspamdscan_socket() - send file to specified host. See spamdscan() for
  * load-balanced wrapper.
- * 
+ *
  * returns 0 when spam not found, 1 when spam found, -1 on some error during scan (try another server), -2
  * on unexpected error (probably clamd died on our file, fallback to another
  * host not recommended)
  */
 
-static int 
+static int
 rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_server *srv,
 		struct config_file *cfg, rspamd_result_t *res, char **mid)
 {
@@ -181,7 +182,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		close(s);
 		return -1;
 	}
-	
+
 	if (poll_fd(s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
 		msg_warn ("rspamd: timeout waiting writing, %s", srv->name);
 		close (s);
@@ -190,7 +191,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	/* Set blocking again */
 	ofl = fcntl(s, F_GETFL, 0);
 	fcntl(s, F_SETFL, ofl & (~O_NONBLOCK));
-	
+
 	r = 0;
 	to_write = sizeof (buf) - r;
 	written = snprintf (buf + r, to_write, "SYMBOLS RSPAMC/1.2\r\nContent-length: %ld\r\n", (long int)sb.st_size);
@@ -202,7 +203,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 	}
 	r += written;
 
-	for (rcpt = priv->rcpts.lh_first; rcpt != NULL; rcpt = rcpt->r_list.le_next) {
+	DL_FOREACH (priv->rcpts, rcpt) {
 		to_write = sizeof (buf) - r;
 		written = snprintf (buf + r, to_write, "Rcpt: %s\r\n", rcpt->r_addr);
 		if (written > to_write) {
@@ -302,10 +303,10 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		msg_warn("rspamd: sendfile (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
-		return -1;		
+		return -1;
 	}
 #endif
-#else 
+#else
 	while ((r = read (fd, buf, sizeof (buf))) > 0) {
 		write (s, buf, r);
 	}
@@ -321,14 +322,14 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv, const struct spamd_serve
 		close(s);
 		return -1;
 	}
-	
+
 	/*
 	 * read results
 	 */
 
 	buf[0] = 0;
 	size = 0;
-	
+
 	/* XXX: in fact here should be some FSM to parse reply and this one just skip long replies */
 	while ((r = read(s, buf + size, sizeof (buf) - size - 1)) > 0 && size < sizeof (buf) - 1) {
 		size += r;
@@ -407,8 +408,8 @@ do {																				\
 				state = 99;
 				break;
 			case 3:
-				/* 
-				 * In this state we parse metric line 
+				/*
+				 * In this state we parse metric line
 				 * Typical line looks as name; result; score1 / score2[ / score3] and we are interested in:
 				 * name, result, score1 and score2
 				 */
@@ -621,13 +622,13 @@ do {																				\
 /*
  * spamdscan_socket() - send file to specified host. See spamdscan() for
  * load-balanced wrapper.
- * 
+ *
  * returns 0 when spam not found, 1 when spam found, -1 on some error during scan (try another server), -2
  * on unexpected error (probably clamd died on our file, fallback to another
  * host not recommended)
  */
 
-static int 
+static int
 spamdscan_socket(const char *file, const struct spamd_server *srv, struct config_file *cfg, rspamd_result_t *res)
 {
 #ifdef HAVE_PATH_MAX
@@ -691,7 +692,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		close(s);
 		return -1;
 	}
-	
+
 	if (poll_fd(s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
 		msg_warn ("spamd: timeout waiting writing, %s", srv->name);
 		close (s);
@@ -723,10 +724,10 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		msg_warn("spamd: sendfile (%s), %s", srv->name, strerror (errno));
 		close(fd);
 		close(s);
-		return -1;		
+		return -1;
 	}
 #endif
-#else 
+#else
 	while ((r = read (fd, buf, sizeof (buf))) > 0) {
 		write (s, buf, r);
 	}
@@ -742,7 +743,7 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 		close(s);
 		return -1;
 	}
-	
+
 	/*
 	 * read results
 	 */
@@ -820,15 +821,15 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
 /*
  * spamdscan() - send file to one of remote spamd, with pseudo load-balancing
  * (select one random server, fallback to others in case of errors).
- * 
- * returns 0 if file scanned and spam not found, 
+ *
+ * returns 0 if file scanned and spam not found,
  * 1 if file scanned and spam found ,
  * 2 if file scanned and this is probably spam,
  * -1 when retry limit exceeded, -2 on unexpected error, e.g. unexpected reply from
  * server (suppose scanned message killed spamd...)
  */
 
-int 
+int
 spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject, int extra)
 {
 	int retry, r = -2, hr = 0, to_trace = 0;
@@ -842,7 +843,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
 	struct timespec sleep_ts;
-	
+
 
 	gettimeofday(&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -868,7 +869,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 			msg_err ("spamdscan: upstream get error, %s", priv->file);
 			return -1;
 		}
-		
+
 		if (selected->type == SPAMD_SPAMASSASSIN) {
 			prefix = "s";
 			r = spamdscan_socket (priv->file, selected, cfg, &res);
@@ -900,7 +901,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	 */
 	gettimeofday(&t, NULL);
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
-	
+
 	/* Parse res tailq */
 	cur = TAILQ_FIRST(&res);
 	while (cur) {
@@ -938,7 +939,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 					selected->name,
 					cur->score,
 					cur->required_score);
-		
+
 		}
 		if (cur->action > res_action) {
 			res_action = cur->action;
@@ -1032,6 +1033,6 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	return (r > 0 ? res_action : r);
 }
 
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

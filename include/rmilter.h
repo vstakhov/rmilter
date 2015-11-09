@@ -55,7 +55,7 @@
 struct rcpt {
 	char r_addr[ADDRLEN + 1];
 	int is_whitelisted;
-	LIST_ENTRY(rcpt) r_list;
+	struct rcpt *prev, *next;
 };
 
 struct mlfi_priv {
@@ -72,7 +72,7 @@ struct mlfi_priv {
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];
 	char priv_user[ADDRLEN + 1];
-	LIST_HEAD (rcptl, rcpt) rcpts;
+	struct rcpt *rcpts;
 	char *priv_subject;
 	int priv_rcptcount;
 	struct {
@@ -113,6 +113,6 @@ struct mlfi_priv {
 #define MLFIPRIV	((struct mlfi_priv *) smfi_getpriv(ctx))
 
 #endif /* RMILTER_H */
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

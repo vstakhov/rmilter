@@ -63,13 +63,13 @@ SET(RMILTER_DEFAULT_LIBRARY_PATHS "/usr/local;/usr/pkg;/usr;/Library/Frameworks;
 # OPTIONAL - do not fail if a package has not been found
 # ROOT - defines root directory for a package
 # INCLUDE - name of the include file to check
-# LIBRARY - name of the library to check 
+# LIBRARY - name of the library to check
 # INCLUDE_SUFFIXES - list of include suffixes (relative to ROOT)
 # LIB_SUFFIXES - list of library suffixes
 # MODULES - modules to search using pkg_config
 MACRO(ProcessPackage PKG_NAME)
 
-	CMAKE_PARSE_ARGUMENTS(PKG "OPTIONAL" "ROOT;INCLUDE" 
+	CMAKE_PARSE_ARGUMENTS(PKG "OPTIONAL" "ROOT;INCLUDE"
 		"LIBRARY;INCLUDE_SUFFIXES;LIB_SUFFIXES;MODULES" ${ARGN})
 
 	IF(NOT PKG_LIBRARY)
@@ -82,7 +82,7 @@ MACRO(ProcessPackage PKG_NAME)
 	IF(NOT PKG_ROOT AND PKG_MODULES)
 		PKG_SEARCH_MODULE(${PKG_NAME} ${PKG_MODULES})
 	ENDIF()
-	
+
 	IF(${PKG_NAME}_FOUND)
 		MESSAGE(STATUS "Found package ${PKG_NAME} in pkg-config modules ${PKG_MODULES}")
 		SET(WITH_${PKG_NAME} 1 CACHE INTERNAL "")
@@ -122,7 +122,7 @@ MACRO(ProcessPackage PKG_NAME)
 					MESSAGE(FATAL_ERROR "Cannot find library ${PKG_LIBRARY} for package ${PKG_NAME}")
 				ENDIF()
 			ENDIF(NOT _lib)
-			
+
 			FIND_PATH(_incl ${PKG_INCLUDE}
 							HINTS ${PKG_ROOT} ${RMILTER_SEARCH_PATH}
 							PATH_SUFFIXES ${PKG_INCLUDE_SUFFIXES} "include"
@@ -134,7 +134,7 @@ MACRO(ProcessPackage PKG_NAME)
 					MESSAGE(FATAL_ERROR "Cannot find header ${PKG_INCLUDE} for package ${PKG_NAME}")
 				ENDIF()
 			ENDIF(NOT _incl)
-			
+
 			IF(_incl AND _lib)
 				GET_FILENAME_COMPONENT(_lib_path "${_lib}" PATH)
 				INCLUDE_DIRECTORIES("${_incl}")
@@ -147,7 +147,7 @@ MACRO(ProcessPackage PKG_NAME)
 				SET(WITH_${PKG_NAME} 1 CACHE INTERNAL "")
 				MESSAGE(STATUS "Found package ${PKG_NAME} in '${_lib_path}' (${_lib}) and '${_incl}' (${PKG_INCLUDE}).")
 			ENDIF()
-		
+
 		ELSE()
 			MESSAGE(STATUS "Found package ${PKG_NAME} (cached)")
 			INCLUDE_DIRECTORIES("${${PKG_NAME}_INCLUDE}")
@@ -188,7 +188,7 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
  	IF(NOT BUILD_CPU_MODE)
 	 	SET (BUILD_CPU_MODE "32")
 	ENDIF(NOT BUILD_CPU_MODE)
-	
+
 	IF("${CMAKE_C_COMPILER_ID}" MATCHES SunPro)
 		SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Xa -xregs=no%frameptr -xstrconst -xc99")
 		SET(SUN_BUILD32 "-xtarget=generic")
@@ -200,7 +200,7 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
 		ENDIF(ENABLE_OPTIMIZATION MATCHES "ON")
 	ELSE("${CMAKE_C_COMPILER_ID}" MATCHES SunPro)
 		set(SUN_BUILD32 "-m32")
-		set(SUN_BUILD64 "-m64")		
+		set(SUN_BUILD64 "-m64")
 	ENDIF("${CMAKE_C_COMPILER_ID}" MATCHES SunPro)
 
  	IF (BUILD_CPU_MODE STREQUAL "32")
@@ -216,7 +216,7 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
     ENDIF (BUILD_CPU_MODE STREQUAL "32")
 
  	SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D__EXTENSIONS__ -DSOLARIS -D_POSIX_SOURCE -D_POSIX_C_SOURCE=200112L")
-    
+
 	LIST(APPEND RMILTER_REQUIRED_LIBRARIES rt)
 	LIST(APPEND RMILTER_REQUIRED_LIBRARIES dl)
 	LIST(APPEND RMILTER_REQUIRED_LIBRARIES resolv)
@@ -225,14 +225,14 @@ IF(CMAKE_SYSTEM_NAME STREQUAL "SunOS")
  	LIST(APPEND RMILTER_REQUIRED_LIBRARIES umem)
   	SET(CMAKE_VERBOSE_MAKEFILE ON)
   	SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
-  	SET(CMAKE_INSTALL_RPATH "${PREFIX}/lib")	
+  	SET(CMAKE_INSTALL_RPATH "${PREFIX}/lib")
 ENDIF()
 
 ############################# CONFIGURE SECTION #############################################
 
-INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include" 
+INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include"
 					"${CMAKE_BINARY_DIR}/include"
-					"${CMAKE_BINARY_DIR}/" 
+					"${CMAKE_BINARY_DIR}/"
 					"${CMAKE_SOURCE_DIR}/compat"
 					"${CMAKE_SOURCE_DIR}/uthash")
 
@@ -242,14 +242,14 @@ ADD_FLEX_BISON_DEPENDENCY(CfgScanner CfgParser)
 
 ProcessPackage(OPENSSL LIBRARY crypto INCLUDE err.h INCLUDE_SUFFIXES include/openssl
 	ROOT ${OPENSSL_ROOT_DIR} MODULES openssl)
-ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre 
+ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
 	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
-ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter 
+ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
 	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
 
 IF(ENABLE_DKIM MATCHES "ON")
     SET(WITH_DKIM 1)
-    ProcessPackage(OPENDKIM LIBRARY opendkim INCLUDE dkim.h 
+    ProcessPackage(OPENDKIM LIBRARY opendkim INCLUDE dkim.h
     	INCLUDE_SUFFIXES include/opendkim
     	LIB_SUFFIXES lib/opendkim lib64/opendkim
 		ROOT ${OPENDKIM_ROOT_DIR} MODULES opendkim)
@@ -258,7 +258,7 @@ ENDIF()
 IF(ENABLE_SPF MATCHES "ON")
     SET(WITH_SPF 1)
     ProcessPackage(LIBSPF2 LIBRARY spf2 INCLUDE spf.h
-    	INCLUDE_SUFFIXES include/spf include/spf2 
+    	INCLUDE_SUFFIXES include/spf include/spf2
     	LIB_SUFFIXES lib/libspf2 lib64/libspf2 lib/libspf lib64/libspf
 		ROOT ${LIBSPF2_ROOT_DIR} MODULES libspf2)
 ENDIF()
@@ -374,20 +374,20 @@ CHECK_SYMBOL_EXISTS(MAP_NOCORE sys/mman.h HAVE_MMAP_NOCORE)
 SET(RMILTERSRC
                 compat/blake2b-ref.c
                 src/upstream.c
-                src/util.c 
-                src/regexp.c 
-                src/libclamc.c 
-                src/ratelimit.c 
-                src/memcached.c 
-                src/beanstalk.c 
-                src/main.c 
-                src/radix.c 
-                src/awl.c 
-                src/libspamd.c 
+                src/util.c
+                src/regexp.c
+                src/libclamc.c
+                src/ratelimit.c
+                src/memcached.c
+                src/beanstalk.c
+                src/main.c
+                src/radix.c
+                src/awl.c
+                src/libspamd.c
                 src/greylist.c
                 cfg_lex.c
                 cfg_yacc.c
-                src/cfg_file.c 
+                src/cfg_file.c
                 src/rmilter.c)
 IF(ENABLE_SPF MATCHES "ON")
     SET(RMILTERSRC ${RMILTERSRC}
