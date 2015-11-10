@@ -23,7 +23,9 @@
 
 #include "config.h"
 #include "util.h"
+#include <assert.h>
 #include <stdbool.h>
+
 
 extern const char *_rmilter_progname;
 
@@ -310,4 +312,161 @@ rmilter_pidfile_remove(rmilter_pidfh_t *pfh)
 {
 
 	return (_rmilter_pidfile_remove (pfh, 1));
+}
+
+static char *
+rmilter_encode_base64_common (const u_char *in, size_t inlen, int str_len,
+		size_t *outlen, int fold)
+{
+#define CHECK_SPLIT \
+    do { if (str_len > 0 && cols >= str_len) { \
+                *o++ = '\r'; \
+                *o++ = '\n'; \
+                if (fold) *o++ = '\t'; \
+                cols = 0; \
+    } } \
+while (0)
+
+	size_t allocated_len = (inlen / 3) * 4 + 4;
+	char *out, *o;
+	uint64_t n;
+	uint32_t rem, t, carry;
+	int cols, shift;
+	static const char b64_enc[] =
+			"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+					"abcdefghijklmnopqrstuvwxyz"
+					"0123456789+/";
+
+	if (str_len > 0) {
+		assert (str_len > 8);
+		allocated_len += (allocated_len / str_len + 1) * (fold ? 3 : 2) + 1;
+	}
+
+	out = malloc (allocated_len);
+	o = out;
+	cols = 0;
+
+	while (inlen > 6) {
+		n = *(uint64_t *) in;
+#if BYTE_ORDER == LITTLE_ENDIAN
+		/* XXX: GCCism */
+		n = __builtin_bswap64 (n);
+#endif
+		if (str_len <= 0 || cols <= str_len - 8) {
+			*o++ = b64_enc[(n >> 58) & 0x3F];
+			*o++ = b64_enc[(n >> 52) & 0x3F];
+			*o++ = b64_enc[(n >> 46) & 0x3F];
+			*o++ = b64_enc[(n >> 40) & 0x3F];
+			*o++ = b64_enc[(n >> 34) & 0x3F];
+			*o++ = b64_enc[(n >> 28) & 0x3F];
+			*o++ = b64_enc[(n >> 22) & 0x3F];
+			*o++ = b64_enc[(n >> 16) & 0x3F];
+			cols += 8;
+		}
+		else {
+			cols = str_len - cols;
+			shift = 58;
+			while (cols) {
+				*o++ = b64_enc[(n >> shift) & 0x3F];
+				shift -= 6;
+				cols--;
+			}
+
+			*o++ = '\r';
+			*o++ = '\n';
+			if (fold) {
+				*o++ = '\t';
+			}
+
+			/* Remaining bytes */
+			while (shift >= 16) {
+				*o++ = b64_enc[(n >> shift) & 0x3F];
+				shift -= 6;
+				cols++;
+			}
+		}
+
+		in += 6;
+		inlen -= 6;
+	}
+
+	CHECK_SPLIT;
+
+	rem = 0;
+	carry = 0;
+
+	for (; ;) {
+		/* Padding + remaining data (0 - 2 bytes) */
+		switch (rem) {
+		case 0:
+			if (inlen-- == 0) {
+				goto end;
+			}
+			t = *in++;
+			*o++ = b64_enc[t >> 2];
+			carry = (t << 4) & 0x30;
+			rem = 1;
+			cols++;
+		case 1:
+			if (inlen-- == 0) {
+				goto end;
+			}
+			CHECK_SPLIT;
+			t = *in++;
+			*o++ = b64_enc[carry | (t >> 4)];
+			carry = (t << 2) & 0x3C;
+			rem = 2;
+			cols++;
+		default:
+			if (inlen-- == 0) {
+				goto end;
+			}
+			CHECK_SPLIT;
+			t = *in++;
+			*o++ = b64_enc[carry | (t >> 6)];
+			cols++;
+			CHECK_SPLIT;
+			*o++ = b64_enc[t & 0x3F];
+			cols++;
+			CHECK_SPLIT;
+			rem = 0;
+		}
+	}
+
+	end:
+	if (rem == 1) {
+		*o++ = b64_enc[carry];
+		cols++;
+		CHECK_SPLIT;
+		*o++ = '=';
+		cols++;
+		CHECK_SPLIT;
+		*o++ = '=';
+		cols++;
+		CHECK_SPLIT;
+	}
+	else if (rem == 2) {
+		*o++ = b64_enc[carry];
+		cols++;
+		CHECK_SPLIT;
+		*o++ = '=';
+		cols++;
+	}
+
+	CHECK_SPLIT;
+
+	*o = '\0';
+
+	if (outlen != NULL) {
+		*outlen = o - out;
+	}
+
+	return out;
+}
+
+char *
+rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
+		size_t *outlen)
+{
+	return rmilter_encode_base64_common (in, inlen, str_len, outlen, 0);
 }

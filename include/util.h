@@ -57,4 +57,7 @@ int rmilter_pidfile_write (rmilter_pidfh_t *pfh);
 int rmilter_pidfile_close (rmilter_pidfh_t *pfh);
 int rmilter_pidfile_remove (rmilter_pidfh_t *pfh);
 
+char * rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
+		size_t *outlen);
+
 #endif /* UTIL_H_ */
