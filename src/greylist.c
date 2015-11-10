@@ -237,16 +237,19 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	}
 
 	memset (ip_ptr, 0, sizeof (ip_ptr));
+
 	if (address_family == AF_INET) {
-		/* Set Class C network */
+		/* Mask with /19 */
 		uint32_t ip = *(uint32_t *)addr;
-		ip &= 0xFFFFFF;
+		ip &= 0x7FFFF;
 		memcpy (ip_ptr, &ip, sizeof (ip));
 
 	}
 	else {
-		memcpy (ip_ptr + 8, (char *)addr + 8, 8);
+		/* Use only network part of 64 bits */
+		memcpy (ip_ptr, (char *)addr, 8);
 	}
+
 	inet_ntop (address_family, ip_ptr, ipout, sizeof (ipout));
 
 	bzero (&cur_param, sizeof (cur_param));
