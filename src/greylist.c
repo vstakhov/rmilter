@@ -31,6 +31,7 @@
 #include "rmilter.h"
 #include "utlist.h"
 #include <assert.h>
+#include <stdbool.h>
 
 static inline void
 copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
