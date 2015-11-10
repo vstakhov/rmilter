@@ -32,9 +32,9 @@
 #define GREY_ERROR -1
 
 struct rcpt;
+struct mlfi_priv;
 
 int
-check_greylisting (struct config_file *cfg, void *addr, int address_family, struct timeval *conn_tv,
-		const char *from, struct rcpt **rcpt);
+check_greylisting (struct config_file *cfg, struct mlfi_priv *priv);
 
 #endif /* GREYLIST_H_ */

@@ -21,6 +21,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <rmilter.h>
 #include "config.h"
 #include "radix.h"
 #include "upstream.h"
@@ -29,6 +30,7 @@
 #include "blake2.h"
 #include "rmilter.h"
 #include "utlist.h"
+#include <assert.h>
 
 static inline void
 copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
@@ -38,30 +40,25 @@ copy_alive (struct memcached_server *srv, const memcached_ctx_t mctx[2])
 }
 
 static void
-make_greylisting_key (char *key, size_t keylen, char *prefix, u_char md5[BLAKE2B_OUTBYTES])
+make_greylisting_key (char *key, size_t keylen, char *prefix, const u_char *hash)
 {
-	size_t s;
-	int i;
-	char md5_out[BLAKE2B_OUTBYTES * 2 + 1], *c;
+	size_t s, prefix_len;
+	char *encoded_hash, *c;
 
-	/* Format md5 output */
-	s = sizeof (md5_out);
-	for (i = 0; i < BLAKE2B_OUTBYTES; i ++){
-		s -= snprintf (md5_out + i * 2, s, "%02x", md5[i]);
-	}
+	encoded_hash = rmilter_encode_base64 (hash, BLAKE2B_OUTBYTES, 0, &s);
+
+	assert (encoded_hash != NULL);
 
 	c = key;
+
 	if (prefix) {
-		s = rmilter_strlcpy (c, prefix, keylen);
-		c += s;
+		prefix_len = rmilter_strlcpy (c, prefix, keylen);
+		c += prefix_len;
+		keylen -= prefix_len;
 	}
-	if (keylen - s > sizeof (md5_out)) {
-		memcpy (c, md5_out, sizeof (md5_out));
-	}
-	else {
-		msg_warn ("make_greylisting_key: prefix(%s) too long for memcached key, error in configure", prefix);
-		memcpy (key, md5_out, keylen - s);
-	}
+
+	rmilter_strlcpy (c, encoded_hash, keylen);
+	free (encoded_hash);
 }
 
 static int
@@ -203,26 +200,213 @@ push_memcached_servers (struct config_file *cfg,
 	return -1;
 }
 
-int
-check_greylisting (struct config_file *cfg, void *addr, int address_family, struct timeval *conn_tv,
-		const char *from, struct rcpt **rcpts)
+static int
+greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
+		const u_char *blake_hash, bool *exists)
 {
-	blake2b_state mdctx;
-	u_char final[BLAKE2B_OUTBYTES];
 	struct memcached_server *srv;
 	memcached_param_t cur_param;
 	struct timeval tm, tm1;
 	int r;
-	char ip_ptr[16];
-	struct rcpt *rcpt;
+	void *addr;
 
-	char ipout[INET6_ADDRSTRLEN + 1];
+	addr = priv->priv_addr.family == AF_INET6
+		   ? (void *) &priv->priv_addr.addr.sa6.sin6_addr :
+		   (void *) &priv->priv_addr.addr.sa4.sin_addr;
 
-	if (from == NULL || from[0] == '\0') {
-		from = "<>";
+	bzero (&cur_param, sizeof (cur_param));
+
+	tm.tv_sec = priv->conn_tm.tv_sec;
+	tm.tv_usec = priv->conn_tm.tv_usec;
+
+	make_greylisting_key (cur_param.key,
+			sizeof (cur_param.key),
+			cfg->white_prefix,
+			blake_hash);
+
+	cur_param.buf = (u_char *) &tm1;
+	cur_param.bufsize = sizeof (tm1);
+
+	/* Check whitelist memcached */
+	srv = (struct memcached_server *) get_upstream_by_hash ((void *) cfg->memcached_servers_white,
+			cfg->memcached_servers_white_num,
+			sizeof (struct memcached_server),
+			(time_t) tm.tv_sec,
+			cfg->memcached_error_time,
+			cfg->memcached_dead_time,
+			cfg->memcached_maxerrors,
+			(char *) blake_hash,
+			BLAKE2B_OUTBYTES);
+	if (srv == NULL) {
+		if (cfg->memcached_servers_white_num != 0) {
+			msg_err ("check_greylisting: cannot get memcached upstream");
+		}
+	}
+	else {
+		if (query_memcached_servers (cfg, srv, &priv->conn_tm, &cur_param) ==
+				1) {
+			return GREY_WHITELISTED;
+		}
 	}
 
-	if (address_family == AF_INET) {
+	/* Try to get record from memcached_grey */
+	make_greylisting_key (cur_param.key,
+			sizeof (cur_param.key),
+			cfg->grey_prefix,
+			blake_hash);
+	srv = (struct memcached_server *) get_upstream_by_hash ((void *) cfg->memcached_servers_grey,
+			cfg->memcached_servers_grey_num,
+			sizeof (struct memcached_server),
+			(time_t) tm.tv_sec,
+			cfg->memcached_error_time,
+			cfg->memcached_dead_time,
+			cfg->memcached_maxerrors,
+			(char *) blake_hash,
+			BLAKE2B_OUTBYTES);
+	if (srv == NULL) {
+		msg_err ("check_greylisting: cannot get memcached upstream");
+		return GREY_ERROR;
+	}
+
+	r = query_memcached_servers (cfg, srv, &priv->conn_tm, &cur_param);
+
+	/* Greylisting record does not exist, writing new one */
+	if (r == 0) {
+		/* Write record to memcached */
+		cur_param.buf = (u_char *) &tm;
+		cur_param.bufsize = sizeof (tm);
+		r = push_memcached_servers (cfg, srv,
+				&priv->conn_tm, &cur_param, cfg->greylisting_expire);
+		if (r == 1) {
+			return GREY_GREYLISTED;
+		}
+		else {
+			msg_err ("check_greylisting: cannot write to memcached: %s",
+					memc_strerror (r));
+		}
+		*exists = false;
+	}
+		/* Greylisting record exists, checking time */
+	else if (r == 1) {
+		*exists = true;
+
+		if ((unsigned int) tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
+			/* Client comes too early */
+			return GREY_GREYLISTED;
+		}
+		else {
+			/* Write to autowhitelist */
+			if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
+				awl_add (*(uint32_t *) addr, cfg->awl_hash,
+						priv->conn_tm.tv_sec);
+			}
+			/* Write to whitelist memcached server */
+			srv = (struct memcached_server *) get_upstream_by_hash ((void *) cfg->memcached_servers_white,
+					cfg->memcached_servers_white_num,
+					sizeof (struct memcached_server),
+					(time_t) tm.tv_sec,
+					cfg->memcached_error_time,
+					cfg->memcached_dead_time,
+					cfg->memcached_maxerrors,
+					(char *) blake_hash,
+					BLAKE2B_OUTBYTES);
+			if (srv == NULL) {
+				if (cfg->memcached_servers_white_num != 0) {
+					msg_warn (
+							"check_greylisting: cannot get memcached upstream for whitelisting");
+				}
+			}
+			else {
+				make_greylisting_key (cur_param.key,
+						sizeof (cur_param.key),
+						cfg->white_prefix,
+						blake_hash);
+				cur_param.buf = (u_char *) &tm;
+				cur_param.bufsize = sizeof (tm);
+				r = push_memcached_servers (cfg, srv,
+						&priv->conn_tm, &cur_param, cfg->whitelisting_expire);
+				if (r != 1) {
+					msg_err ("check_greylisting: cannot write to memcached(%s)",
+							inet_ntoa (srv->addr[0]));
+				}
+			}
+		}
+	}
+
+	return GREY_WHITELISTED;
+}
+
+int
+check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
+{
+	blake2b_state mdctx;
+	u_char final[BLAKE2B_OUTBYTES];
+	char ip_ptr[16];
+	struct rcpt *rcpt;
+	const char *from;
+	void *addr, *map;
+	struct stat st;
+	unsigned long map_len;
+	const long max_map_len = 10 * 1024;
+	bool exists = false;
+	int ret = GREY_ERROR, fd;
+
+	/* First of all, check if we have some body */
+	if (priv->eoh_pos > 0 && stat (priv->file, &st) != -1) {
+		fd = open (priv->file, O_RDONLY);
+
+		if (fd == -1) {
+			msg_warn ("check_greylisting: %s: data file open(): %s",
+					priv->mlfi_id, strerror (errno));
+		}
+		else {
+			map_len = st.st_size - priv->eoh_pos;
+			if (map_len > max_map_len) {
+				map_len = max_map_len;
+			}
+
+			if ((map = mmap (NULL,
+					map_len,
+					PROT_READ,
+					MAP_SHARED,
+					fd,
+					priv->eoh_pos)) == MAP_FAILED) {
+				msg_err ("check_greylisting: %s: cannot mmap file %s: %s",
+						priv->mlfi_id,
+						priv->file,
+						strerror (errno));
+				close (fd);
+			}
+			else {
+				close (fd);
+				blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
+				blake2b_update (&mdctx, (const u_char *) map, map_len);
+				blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
+				munmap (map, map_len);
+
+				ret = greylisting_check_hash (cfg, priv, final, &exists);
+			}
+		}
+	}
+
+	if (ret == GREY_GREYLISTED && exists) {
+		return ret;
+	}
+
+	/* Try also to set envelope hash */
+
+	if (priv->priv_from[0] == '\0') {
+		from = "<>";
+	}
+	else {
+		from = priv->priv_from;
+	}
+
+	addr = priv->priv_addr.family == AF_INET6
+		  ? (void *) &priv->priv_addr.addr.sa6.sin6_addr :
+		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
+
+	if (priv->priv_addr.family == AF_INET) {
 		if (radix32tree_find (cfg->grey_whitelist_tree,
 				ntohl(*(uint32_t *)addr)) != RADIX_NO_VALUE) {
 			return GREY_WHITELISTED;
@@ -230,15 +414,16 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 	}
 
 	/* Check whitelist */
-	if (cfg->awl_enable && address_family == AF_INET &&
-			awl_check (*(uint32_t *)addr, cfg->awl_hash, conn_tv->tv_sec) == 1) {
+	if (cfg->awl_enable && priv->priv_addr.family == AF_INET &&
+			awl_check (*(uint32_t *)addr, cfg->awl_hash, priv->conn_tm.tv_sec) ==
+					1) {
 		/* Auto whitelisted */
 		return GREY_WHITELISTED;
 	}
 
 	memset (ip_ptr, 0, sizeof (ip_ptr));
 
-	if (address_family == AF_INET) {
+	if (priv->priv_addr.family == AF_INET) {
 		/* Mask with /19 */
 		uint32_t ip = *(uint32_t *)addr;
 		ip &= 0x7FFFF;
@@ -250,106 +435,22 @@ check_greylisting (struct config_file *cfg, void *addr, int address_family, stru
 		memcpy (ip_ptr, (char *)addr, 8);
 	}
 
-	inet_ntop (address_family, ip_ptr, ipout, sizeof (ipout));
 
-	bzero (&cur_param, sizeof (cur_param));
 	blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
 	/* Make hash from components: envfrom, ip address, envrcpt */
 	blake2b_update (&mdctx, (const u_char *)from, strlen(from));
-	blake2b_update (&mdctx, (const u_char *)ipout, strlen(ipout));
+	blake2b_update (&mdctx, (const u_char *)ip_ptr, sizeof(ip_ptr));
 
 	/* Sort recipients to preserve order */
-	DL_SORT ((*rcpts), greylisting_sort_rcpt_func);
+	DL_SORT ((priv->rcpts), greylisting_sort_rcpt_func);
 
-	DL_FOREACH (*rcpts, rcpt) {
+	DL_FOREACH (priv->rcpts, rcpt) {
 		blake2b_update (&mdctx, (const u_char *) rcpt->r_addr, strlen (rcpt->r_addr));
 	}
 
 	blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
 
-	tm.tv_sec = conn_tv->tv_sec;
-	tm.tv_usec = conn_tv->tv_usec;
+	ret = greylisting_check_hash (cfg, priv, final, &exists);
 
-	make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
-
-	cur_param.buf = (u_char *)&tm1;
-	cur_param.bufsize = sizeof (tm1);
-
-	/* Check whitelist memcached */
-	srv = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
-			cfg->memcached_servers_white_num, sizeof (struct memcached_server),
-			(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-			(char *)final, BLAKE2B_OUTBYTES);
-	if (srv == NULL) {
-		if (cfg->memcached_servers_white_num != 0) {
-			msg_err ("check_greylisting: cannot get memcached upstream");
-		}
-	}
-	else {
-		if (query_memcached_servers (cfg, srv, conn_tv, &cur_param) == 1) {
-			return GREY_WHITELISTED;
-		}
-	}
-
-	/* Try to get record from memcached_grey */
-	make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->grey_prefix, final);
-	srv = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_grey,
-			cfg->memcached_servers_grey_num, sizeof (struct memcached_server),
-			(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-			(char *)final, BLAKE2B_OUTBYTES);
-	if (srv == NULL) {
-		msg_err ("check_greylisting: cannot get memcached upstream");
-		return GREY_ERROR;
-	}
-
-	r = query_memcached_servers (cfg, srv, conn_tv, &cur_param);
-
-	/* Greylisting record does not exist, writing new one */
-	if (r == 0) {
-		/* Write record to memcached */
-		cur_param.buf = (u_char *)&tm;
-		cur_param.bufsize = sizeof (tm);
-		r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->greylisting_expire);
-		if (r == 1) {
-			return GREY_GREYLISTED;
-		}
-		else {
-			msg_err ("check_greylisting: cannot write to memcached: %s", memc_strerror (r));
-		}
-	}
-	/* Greylisting record exists, checking time */
-	else if (r == 1) {
-		if ((unsigned int)tm.tv_sec - tm1.tv_sec < cfg->greylisting_timeout) {
-			/* Client comes too early */
-			return GREY_GREYLISTED;
-		}
-		else {
-			/* Write to autowhitelist */
-			if (cfg->awl_enable && address_family == AF_INET) {
-				awl_add (*(uint32_t *)addr, cfg->awl_hash, conn_tv->tv_sec);
-			}
-			/* Write to whitelist memcached server */
-			srv = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_white,
-					cfg->memcached_servers_white_num, sizeof (struct memcached_server),
-					(time_t)tm.tv_sec, cfg->memcached_error_time, cfg->memcached_dead_time, cfg->memcached_maxerrors,
-					(char *)final, BLAKE2B_OUTBYTES);
-			if (srv == NULL) {
-				if (cfg->memcached_servers_white_num != 0) {
-					msg_warn ("check_greylisting: cannot get memcached upstream for whitelisting");
-				}
-			}
-			else {
-				make_greylisting_key (cur_param.key, sizeof (cur_param.key), cfg->white_prefix, final);
-				cur_param.buf = (u_char *)&tm;
-				cur_param.bufsize = sizeof (tm);
-				r = push_memcached_servers (cfg, srv, conn_tv, &cur_param, cfg->whitelisting_expire);
-				if (r != 1) {
-					msg_err ("check_greylisting: cannot write to memcached(%s)",
-							inet_ntop (AF_INET, &srv->addr[0], ipout, sizeof (ipout)));
-				}
-			}
-		}
-	}
-
-	return GREY_WHITELISTED;
+	return ret;
 }
