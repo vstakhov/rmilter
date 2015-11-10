@@ -30,7 +30,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 
 ############################# OPTIONS SECTION #############################################
 
-OPTION(ENABLE_DEBUG          "Enable debug output [default: ON]"             ON)
+OPTION(ENABLE_DEBUG        "Enable debug output [default: OFF]"              OFF)
 OPTION(ENABLE_OPTIMIZATION "Enable optimization [default: OFF]"              OFF)
 OPTION(ENABLE_DKIM         "Enable dkim signatures [default: OFF]"           ON)
 OPTION(ENABLE_SPF          "Enable SPF checks [default: OFF]"                OFF)
