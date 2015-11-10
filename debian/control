@@ -10,7 +10,7 @@ Vcs-Browser: https://github.com/vstakhov/rmilter
 
 Package: rmilter
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, libmilter1.0.1 (>= 8.14.4-6)
+Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, libmilter1.0.1
 Recommends: sendmail | postfix
 Description: Another sendmail milter for different mail checks
  rmilter is a standalone application that provides the following features:
@@ -23,5 +23,5 @@ Description: Another sendmail milter for different mail checks
   DKIM signing;
   beanstalk operations for specific messages.
  .
- Rmilter uses sendmail milter interface and is compatible with Sendmail 
+ Rmilter uses sendmail milter interface and is compatible with Sendmail
  and Postfix MTA  as well as with other MTA that supports milter interface.
