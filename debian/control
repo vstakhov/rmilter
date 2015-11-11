@@ -31,3 +31,15 @@ Architecture: any
 Section: debug
 Depends: ${shlibs:Depends}, ${misc:Depends}, rmilter (= ${binary:Version})
 Description: Debuginfo for another sendmail milter for different mail checks
+ rmilter is a standalone application that provides the following features:
+  SPF checks;
+  greylisting using memcached storage;
+  ratelimits using memcached storage;
+  checking mail via rspamd/spamassassin;
+  checking mail via clamav antivirus;
+  regexp filters;
+  DKIM signing;
+  beanstalk operations for specific messages.
+ .
+ Rmilter uses sendmail milter interface and is compatible with Sendmail
+ and Postfix MTA  as well as with other MTA that supports milter interface.

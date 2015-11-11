@@ -8,6 +8,7 @@ override_dh_auto_configure:
 	dh_auto_configure -- -DENABLE_SPF=ON \
 		-DENABLE_DKIM=ON \
 		-DMANDIR=/usr/share/man \
+		-DCMAKE_INSTALL_PREFIX:PATH=/usr \
 		-DCMAKE_BUILD_TYPE=ReleaseWithDebInfo
 
 override_dh_systemd_enable:
