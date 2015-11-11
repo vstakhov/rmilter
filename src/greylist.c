@@ -366,12 +366,14 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 				map_len = max_map_len;
 			}
 
+			assert (map_len <= st.st_size);
+
 			if ((map = mmap (NULL,
-					map_len,
+					st.st_size,
 					PROT_READ,
 					MAP_SHARED,
 					fd,
-					priv->eoh_pos)) == MAP_FAILED) {
+					0)) == MAP_FAILED) {
 				msg_err ("check_greylisting: %s: cannot mmap file %s: %s",
 						priv->mlfi_id,
 						priv->file,
@@ -381,9 +383,10 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 			else {
 				close (fd);
 				blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
-				blake2b_update (&mdctx, (const u_char *) map, map_len);
+				blake2b_update (&mdctx, ((const u_char *) map) + priv->eoh_pos,
+						map_len);
 				blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
-				munmap (map, map_len);
+				munmap (map, st.st_size);
 
 				ret = greylisting_check_hash (cfg, priv, final, &exists);
 			}
