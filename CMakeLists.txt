@@ -257,7 +257,7 @@ ENDIF()
 
 IF(ENABLE_SPF MATCHES "ON")
     SET(WITH_SPF 1)
-    ProcessPackage(LIBSPF2 LIBRARY spf2 INCLUDE spf.h
+    ProcessPackage(LIBSPF2 LIBRARY spf2 INCLUDE spf2/spf.h
     	INCLUDE_SUFFIXES include/spf include/spf2
     	LIB_SUFFIXES lib/libspf2 lib64/libspf2 lib/libspf lib64/libspf
 		ROOT ${LIBSPF2_ROOT_DIR} MODULES libspf2)
