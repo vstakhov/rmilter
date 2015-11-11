@@ -25,3 +25,9 @@ Description: Another sendmail milter for different mail checks
  .
  Rmilter uses sendmail milter interface and is compatible with Sendmail
  and Postfix MTA  as well as with other MTA that supports milter interface.
+
+Package: rmilter-dbg
+Architecture: any
+Section: debug
+Depends: ${shlibs:Depends}, ${misc:Depends}, rmilter (= ${binary:Version})
+Description: Debuginfo for another sendmail milter for different mail checks
