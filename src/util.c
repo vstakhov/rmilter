@@ -327,7 +327,7 @@ rmilter_encode_base64_common (const u_char *in, size_t inlen, int str_len,
     } } \
 while (0)
 
-	size_t allocated_len = (inlen / 3) * 4 + 4;
+	size_t allocated_len = (inlen / 3) * 4 + 5;
 	char *out, *o;
 	uint64_t n;
 	uint32_t rem, t, carry;
