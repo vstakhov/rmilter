@@ -1,35 +1,9 @@
 rmilter (1.6.5) unstable; urgency=low
-  * Allow to skip pidfile writing
-  * Fix systemd config
-  * Remove extra `bind_socket` in rmilter.conf.common
-  * Do not use unportable %m modifier in printf
-  * Convert recipients to just a linked list
-  * Fix greylisting of multiple recipients messages
-  * Disable debug by default
-  * Use /19 network for greylisting and fix ipv6 networks
-  * Rework greylisting logic
-  * Fixing several build issues for Ubuntu 14.10 (by Vitaly Isaev)
-  * Use body for greylisting in rmilter
+  
+  * File 'debian/rmilter.install' was added in order to fix empty-binary-package error.
+  * Dbg package was included.
 
- -- Mikhail Gusarov <dottedmag@debian.org>  Thu, 12 Nov 2015 00:00:00 +0200
-
-rmilter (1.6.4) unstable; urgency=low
-
-  * Missing socket configuration (#31)
-  * Add `make dist` target.
-  * Use unquoted expansion of lists.
-  * Search for libmilter properly.
-  * Use -O2 by default.
-  * Fix doc: add reference to strict_auth directive (by @aya)
-  * Fix debug mode option.
-  * Fix pidfile creation from the debian init script.
-  * Enable dkim by default.
-  * Fix issue with envfrom loading.
-  * Fix inet6 sockets and address-less sockets lines.
-  * Fix default configurations to the inet sockets.
-  * Fix reload signal in systemd unit.
-
- -- Mikhail Gusarov <dottedmag@debian.org>  Thu, 17 Sep 2015 00:00:00 +0200
+ -- Vitaly Isaev <vitalyisaev2@gmail.com>  Thu, 12 Nov 2015 18:00:00 +0200
 
 rmilter (1.6.3) unstable; urgency=low
 
