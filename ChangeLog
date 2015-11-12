@@ -1,3 +1,16 @@
+1.6.5:
+    * Allow to skip pidfile writing
+    * Fix systemd config
+    * Remove extra `bind_socket` in rmilter.conf.common
+    * Do not use unportable %m modifier in printf
+    * Convert recipients to just a linked list
+    * Fix greylisting of multiple recipients messages
+    * Disable debug by default
+    * Use /19 network for greylisting and fix ipv6 networks
+    * Rework greylisting logic
+    * Fixing several build issues for Ubuntu 14.10 (by Vitaly Isaev)
+    * Use body for greylisting in rmilter
+
 1.6.4:
    * Missing socket configuration (#31)
    * Add `make dist` target.
