@@ -12,6 +12,9 @@
 */
 
 #include "config.h"
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define NATIVE_LITTLE_ENDIAN
+#endif
 
 #include "blake2.h"
 #include "blake2-impl.h"
