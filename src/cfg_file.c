@@ -953,11 +953,13 @@ trim_quotes (char *in)
 	len = strlen (in);
 
 	if (*in == '"') {
-		res++;
+		res = strdup (in + 1);
+		len = strlen (res);
+		free (in);
 	}
 
-	if (len > 1 && in[len - 1] == '"') {
-		in[len - 1] = '\0';
+	if (len > 1 && res[len - 1] == '"') {
+		res[len - 1] = '\0';
 	}
 
 	return res;
