@@ -40,7 +40,7 @@ struct dkim_domain_entry *cur_domain;
 uint8_t cur_flags = 0;
 
 %}
-%union 
+%union
 {
 	char *string;
 	struct condition *cond;
@@ -68,7 +68,7 @@ uint8_t cur_flags = 0;
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAM_HEADER_VALUE SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
-%token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL 
+%token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -93,7 +93,7 @@ file	: /* empty */
 	|  file command SEMICOLON { }
 	;
 
-command	: 
+command	:
 	tempdir
 	| strictauth
 	| pidfile
@@ -115,13 +115,13 @@ command	:
 tempdir :
 	TEMPDIR EQSIGN FILENAME {
 		struct stat st;
-		
+
 		if (stat ($3, &st) == -1) {
-			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno)); 
+			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno));
 			YYERROR;
 		}
 		if (!S_ISDIR (st.st_mode)) {
-			yyerror ("yyparse: \"%s\" is not a directory", $3); 
+			yyerror ("yyparse: \"%s\" is not a directory", $3);
 			YYERROR;
 		}
 
@@ -141,11 +141,11 @@ strictauth:
 	}
 	;
 
-rule	: 
+rule	:
 		RULE OBRACE rulebody EBRACE
 		;
 
-rulebody	: 
+rulebody	:
 			action SEMICOLON expr_l {
 				struct rule *cur_rule;
 				cur_rule = (struct rule *) malloc (sizeof (struct rule));
@@ -162,7 +162,7 @@ rulebody	:
 			}
 			;
 
-action	: 
+action	:
 	REJECTL QUOTEDSTRING {
 		$$ = create_action(ACTION_REJECT, $2);
 		if ($$ == NULL) {
@@ -203,7 +203,7 @@ action	:
 	}
 	;
 
-expr_l	: 
+expr_l	:
 	expr SEMICOLON		{
 		cur_conditions = (struct condl *)malloc (sizeof (struct condl));
 		if (cur_conditions == NULL) {
@@ -228,7 +228,7 @@ expr_l	:
 	}
 	;
 
-expr	: 
+expr	:
 	term			{
 		$$ = $1;
 	}
@@ -243,7 +243,7 @@ expr	:
 	}
 	;
 
-term	: 
+term	:
 	CONNECT REGEXP REGEXP	{
 		$$ = create_cond(COND_CONNECT, $2, $3);
 		if ($$ == NULL) {
@@ -425,13 +425,13 @@ spamdcmd:
 diff_dir :
 	DIFF_DIR EQSIGN FILENAME {
 		struct stat st;
-		
+
 		if (stat ($3, &st) == -1) {
-			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno)); 
+			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno));
 			YYERROR;
 		}
 		if (!S_ISDIR (st.st_mode)) {
-			yyerror ("yyparse: \"%s\" is not a directory", $3); 
+			yyerror ("yyparse: \"%s\" is not a directory", $3);
 			YYERROR;
 		}
 
@@ -441,13 +441,13 @@ diff_dir :
 symbols_dir:
 	SYMBOLS_DIR EQSIGN FILENAME {
 		struct stat st;
-		
+
 		if (stat ($3, &st) == -1) {
-			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno)); 
+			yyerror ("yyparse: cannot stat directory \"%s\": %s", $3, strerror (errno));
 			YYERROR;
 		}
 		if (!S_ISDIR (st.st_mode)) {
-			yyerror ("yyparse: \"%s\" is not a directory", $3); 
+			yyerror ("yyparse: \"%s\" is not a directory", $3);
 			YYERROR;
 		}
 
@@ -457,29 +457,8 @@ symbols_dir:
 
 check_symbols:
 	CHECK_SYMBOLS EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->check_symbols) {
-			free (cfg->check_symbols);
-		}
-		cfg->check_symbols = (char *)malloc (len + 1);
-		if (!cfg->check_symbols) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->check_symbols, c, len + 1);
-
-		free ($3);
+		free (cfg->check_symbols);
+		cfg->check_symbols = $3;
 	}
 	;
 
@@ -566,29 +545,8 @@ spamd_results_timeout:
 	;
 spamd_reject_message:
 	REJECT_MESSAGE EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->spamd_reject_message) {
-			free (cfg->spamd_reject_message);
-		}
-		cfg->spamd_reject_message = (char *)malloc (len + 1);
-		if (!cfg->spamd_reject_message) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->spamd_reject_message, c, len + 1);
-
-		free ($3);
+		free (cfg->spamd_reject_message);
+		cfg->spamd_reject_message = $3;
 	}
 	;
 spamd_whitelist:
@@ -610,29 +568,8 @@ spamd_ip:
 
 spamd_rspamd_metric:
 	RSPAMD_METRIC EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->rspamd_metric) {
-			free (cfg->rspamd_metric);
-		}
-		cfg->rspamd_metric = (char *)malloc (len + 1);
-		if (!cfg->rspamd_metric) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->rspamd_metric, c, len + 1);
-
-		free ($3);
+		free (cfg->rspamd_metric);
+		cfg->rspamd_metric = $3;
 	}
 	;
 
@@ -643,7 +580,7 @@ spamd_soft_fail:
 		}
 	}
 	;
-	
+
 extended_spam_headers:
 	EXTENDED_SPAM_HEADERS EQSIGN FLAG {
 		if ($3) {
@@ -662,119 +599,29 @@ spamd_greylist:
 
 spamd_spam_header:
 	SPAM_HEADER EQSIGN QUOTEDSTRING {
-		if ($3) {
-			size_t len = strlen ($3);
-			char *c = $3;
-	
-			/* Trim quotes */
-			if (*c == '"') {
-				c++;
-				len--;
-			}
-			if (c[len - 1] == '"') {
-				len--;
-			}
-	
-			if (cfg->spam_header) {
-				free (cfg->spam_header);
-			}
-			cfg->spam_header = (char *)malloc (len + 1);
-			if (!cfg->spam_header) {
-				yyerror ("yyparse: malloc failed");
-				YYERROR;
-			}
-			rmilter_strlcpy (cfg->spam_header, c, len + 1);
-	
-			free ($3);
-		}
+		free (cfg->spam_header);
+		cfg->spam_header = $3;
 	}
 	;
 
 spamd_spam_header_value:
 	SPAM_HEADER_VALUE EQSIGN QUOTEDSTRING {
-		if ($3) {
-			size_t len = strlen ($3);
-			char *c = $3;
-	
-			/* Trim quotes */
-			if (*c == '"') {
-				c++;
-				len--;
-			}
-			if (c[len - 1] == '"') {
-				len--;
-			}
-	
-			if (cfg->spam_header_value) {
-				free (cfg->spam_header_value);
-			}
-			cfg->spam_header_value = (char *)malloc (len + 1);
-			if (!cfg->spam_header_value) {
-				yyerror ("yyparse: malloc failed");
-				YYERROR;
-			}
-			rmilter_strlcpy (cfg->spam_header_value, c, len + 1);
-	
-			free ($3);
-		}
+		free (cfg->spam_header);
+		cfg->spam_header = $3;
 	}
 	;
-	
+
 trace_symbol:
 	TRACE_SYMBOL EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-
-		if (cfg->trace_symbol) {
-			free (cfg->trace_symbol);
-		}
-		cfg->trace_symbol = (char *)malloc (len + 1);
-		if (!cfg->trace_symbol) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->trace_symbol, c, len + 1);
-
-		free ($3);
-
+		free (cfg->trace_symbol);
+		cfg->trace_symbol = $3;
 	}
 	;
 
 trace_addr:
 	TRACE_ADDR EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-
-		if (cfg->trace_addr) {
-			free (cfg->trace_addr);
-		}
-		cfg->trace_addr = (char *)malloc (len + 1);
-		if (!cfg->trace_addr) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->trace_addr, c, len + 1);
-
-		free ($3);
-
+		free (cfg->trace_addr);
+		cfg->trace_addr = $3;
 	}
 	;
 spamd_retry_timeout:
@@ -792,10 +639,10 @@ spamd_tempfail:
 		cfg->spamd_temp_fail = $3;
 	}
 	;
-	
+
 
 spf:
-	SPF EQSIGN spf_params 
+	SPF EQSIGN spf_params
 	;
 spf_params:
 	spf_domain
@@ -930,29 +777,8 @@ awl_ttl:
 
 greylisted_message:
 	GREYLISTED_MESSAGE EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->greylisted_message) {
-			free (cfg->greylisted_message);
-		}
-		cfg->greylisted_message = (char *)malloc (len + 1);
-		if (!cfg->greylisted_message) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->greylisted_message, c, len + 1);
-
-		free ($3);
+		free (cfg->greylisted_message);
+		cfg->greylisted_message = $3;
 	}
 	;
 
@@ -1120,85 +946,22 @@ memcached_protocol:
 	;
 memcached_id_prefix:
 	ID_PREFIX EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->id_prefix) {
-			free (cfg->id_prefix);
-		}
-		cfg->id_prefix = (char *)malloc (len + 1);
-		if (!cfg->id_prefix) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->id_prefix, c, len + 1);
-
-		free ($3);
+		free (cfg->id_prefix);
+		cfg->id_prefix = $3;
 	}
 	;
 
 memcached_grey_prefix:
 	GREY_PREFIX EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->grey_prefix) {
-			free (cfg->grey_prefix);
-		}
-		cfg->grey_prefix = (char *)malloc (len + 1);
-		if (!cfg->grey_prefix) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->grey_prefix, c, len + 1);
-
-		free ($3);
+		free (cfg->grey_prefix);
+		cfg->grey_prefix = $3;
 	}
 	;
 
 memcached_white_prefix:
 	WHITE_PREFIX EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (c[len - 1] == '"') {
-			len--;
-		}
-		
-		if (cfg->white_prefix) {
-			free (cfg->white_prefix);
-		}
-		cfg->white_prefix = (char *)malloc (len + 1);
-		if (!cfg->white_prefix) {
-			yyerror ("yyparse: malloc failed");
-			YYERROR;
-		}
-		rmilter_strlcpy (cfg->white_prefix, c, len + 1);
-
-		free ($3);
+		free (cfg->white_prefix);
+		cfg->white_prefix = $3;
 	}
 	;
 
@@ -1311,39 +1074,19 @@ beanstalk_protocol:
 	;
 beanstalk_id_regexp:
 	ID_REGEXP EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
 		int offset;
 		const char *read_err;
 
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (*c == '/') {
-			c ++;
-			len --;
-		}
-		if (c[len - 1] == '"') {
-			c[len - 1] = '\0';
-			len --;
-		}
-		if (c[len - 1] == '/') {
-			c[len - 1] = '\0';
-			len --;	
-		}
-		
 		if (cfg->special_mid_re) {
 			pcre_free (cfg->special_mid_re);
 		}
-		cfg->special_mid_re = pcre_compile (c, 0, &read_err, &offset, NULL);
+		cfg->special_mid_re = pcre_compile ($3, 0, &read_err, &offset, NULL);
 		if (cfg->special_mid_re == NULL) {
 			yyerror ("yyparse: pcre_compile failed: %s", read_err);
 			YYERROR;
 		}
 
-		free ($3);
+		free($3);
 	}
 	;
 beanstalk_lifetime:
@@ -1385,13 +1128,13 @@ send_beanstalk_spam:
 
 beanstalk_copy_prob:
 	COPY_PROBABILITY EQSIGN NUMBER {
-		cfg->beanstalk_copy_prob = $3;	
+		cfg->beanstalk_copy_prob = $3;
 	}
 	| COPY_PROBABILITY EQSIGN FLOAT {
-		cfg->beanstalk_copy_prob = $3;	
+		cfg->beanstalk_copy_prob = $3;
 	}
 	;
-	
+
 beanstalk_extra_diff:
 	SEND_BEANSTALK_SPAM_EXTRA_DIFF EQSIGN FLAG {
 		if ($3) {
@@ -1402,7 +1145,7 @@ beanstalk_extra_diff:
 		}
 	}
 	;
-	
+
 limits:
 	LIMITS OBRACE limitsbody EBRACE
 	;
@@ -1455,7 +1198,7 @@ whitelist_ip_list:
 		}
 	}
 	;
-	
+
 limit_whitelist_rcpt:
 	LIMIT_WHITELIST_RCPT EQSIGN whitelist_rcpt_list
 	;
@@ -1590,62 +1333,30 @@ dkim_key:
 
 dkim_domain:
 	DKIM_DOMAIN EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
-		
-		if (cur_domain == NULL) {
-			cur_domain = malloc (sizeof (struct dkim_domain_entry));
-			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
-		}
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
-		}
-		if (*c == '/') {
-			c ++;
-			len --;
-		}
-		if (c[len - 1] == '"') {
-			c[len - 1] = '\0';
-			len --;
-		}
-		if (c[len - 1] == '/') {
-			c[len - 1] = '\0';
-			len --;	
-		}
-		cur_domain->domain = strdup (c);
-		free ($3);
-	}
-	;
-	
-dkim_selector:
-	DKIM_SELECTOR EQSIGN QUOTEDSTRING {
-		size_t len = strlen ($3);
-		char *c = $3;
 
 		if (cur_domain == NULL) {
 			cur_domain = malloc (sizeof (struct dkim_domain_entry));
 			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
 		}
-		/* Trim quotes */
-		if (*c == '"') {
-			c++;
-			len--;
+		else {
+			free (cur_domain->domain);
 		}
-		if (*c == '/') {
-			c ++;
-			len --;
+
+		cur_domain->domain = $3;
+	}
+	;
+
+dkim_selector:
+	DKIM_SELECTOR EQSIGN QUOTEDSTRING {
+
+		if (cur_domain == NULL) {
+			cur_domain = malloc (sizeof (struct dkim_domain_entry));
+			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
 		}
-		if (c[len - 1] == '"') {
-			c[len - 1] = '\0';
-			len --;
+		else {
+			free (cur_domain->selector);
 		}
-		if (c[len - 1] == '/') {
-			c[len - 1] = '\0';
-			len --;	
-		}
-		cur_domain->selector = strdup (c);
+		cur_domain->selector = $3;
 		free ($3);
 	}
 	;
@@ -1658,7 +1369,7 @@ dkim_header_canon:
 		cfg->dkim_relaxed_header = 1;
 	}
 	;
-	
+
 dkim_body_canon:
 	DKIM_BODY_CANON EQSIGN DKIM_SIMPLE {
 		cfg->dkim_relaxed_body = 0;
@@ -1687,7 +1398,7 @@ dkim_auth_only:
 		}
 	}
 	;
-	
+
 dkim_fold_header:
 	DKIM_FOLD_HEADER EQSIGN FLAG {
 		if ($3) {
@@ -1700,6 +1411,6 @@ dkim_fold_header:
 	;
 
 %%
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

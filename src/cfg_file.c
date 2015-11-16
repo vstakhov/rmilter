@@ -466,14 +466,6 @@ create_action (enum action_type type, const char *message)
 	if (new == NULL) return NULL;
 
 	new->type = type;
-	/* Trim quotes */
-	if (*message == '"') {
-		message++;
-		len--;
-	}
-	if (message[len - 1] == '"') {
-		len--;
-	}
 
 	new->message = (char *)malloc (len + 1);
 

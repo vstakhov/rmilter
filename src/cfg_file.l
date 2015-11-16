@@ -108,7 +108,7 @@ parse_flag (const char *str)
 		(*(str + 1) == 'E' || *(str + 1) == 'e') &&
 		(*(str + 2) == 'S' || *(str + 2) == 's') &&
 		*(str + 3) == '\0') {
-		return 1;		
+		return 1;
 	}
 
 	if ((*str == 'n' || *str == 'N') && *(str + 1) == '\0') {
@@ -118,7 +118,7 @@ parse_flag (const char *str)
 	if ((*str == 'N' || *str == 'n') &&
 		(*(str + 1) == 'O' || *(str + 1) == 'o') &&
 		*(str + 2) == '\0') {
-		return 0;		
+		return 0;
 	}
 
 	return -1;
@@ -172,7 +172,7 @@ check_symbols					return CHECK_SYMBOLS;
 symbols_dir						return SYMBOLS_DIR;
 rspamd_metric					return RSPAMD_METRIC;
 spamd_soft_fail					return SPAMD_SOFT_FAIL;
-spamd_greylist					return SPAMD_GREYLIST; 
+spamd_greylist					return SPAMD_GREYLIST;
 spam_header                     return SPAM_HEADER;
 spam_header_value		return SPAM_HEADER_VALUE;
 extended_spam_headers			return EXTENDED_SPAM_HEADERS;
@@ -247,7 +247,7 @@ limit_whitelist					return LIMIT_WHITELIST;
 limit_whitelist_rcpt			return LIMIT_WHITELIST_RCPT;
 limit_bounce_addrs				return LIMIT_BOUNCE_ADDRS;
 limit_bounce_to					return LIMIT_BOUNCE_TO;
-limit_bounce_to_ip				return LIMIT_BOUNCE_TO_IP; 
+limit_bounce_to_ip				return LIMIT_BOUNCE_TO_IP;
 
 accept							return ACCEPT;
 body							return BODY;
@@ -272,7 +272,7 @@ tempfail						return TEMPFAIL;
 yes|YES|no|NO|[yY]|[nN]			yylval.flag=parse_flag(yytext); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
-\".+\"							yylval.string=strdup(yytext); return QUOTEDSTRING;
+\".+\"							yylval.string=trim_quotes(strdup(yytext)); return QUOTEDSTRING;
 [0-9]+							yylval.number=strtol(yytext, NULL, 10); return NUMBER;
 [0-9]+\.[0-9]*					yylval.frac=strtod(yytext, NULL); return FLOAT;
 [0-9]+[kKmMgG]?					yylval.limit=parse_limit(yytext); return SIZELIMIT;
@@ -290,7 +290,7 @@ fd:[0-9]+		yylval.string=strdup(yytext); return SOCKCRED;
 r?:?[a-zA-Z0-9.-]+:[0-9]{1,5}	yylval.string=strdup(yytext); return HOSTPORT;
 r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 <incl>[ \t]*      				/* eat the whitespace */
-<incl>[^ \t\n]+   { 
+<incl>[^ \t\n]+   {
 		/* got the include file name */
 		if ( include_stack_ptr >= MAX_INCLUDE_DEPTH ) {
 			yyerror ("yylex: includes nested too deeply" );
@@ -327,6 +327,6 @@ r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 }
 
 %%
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */
