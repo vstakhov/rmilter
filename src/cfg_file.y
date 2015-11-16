@@ -680,7 +680,11 @@ bindsock:
 	BINDSOCK EQSIGN SOCKCRED {
 		cfg->sock_cred = $3;
 	}
+	| BINDSOCK EQSIGN QUOTEDSTRING {
+		cfg->sock_cred = $3;
+	}
 	;
+
 
 maxsize:
 	MAXSIZE EQSIGN SIZELIMIT {
