@@ -245,6 +245,8 @@ add_clamav_server (struct config_file *cf, char *str)
 		if (str != NULL && *str != '\0') {
 			srv->up.priority = strtoul (str, &err_str, 10);
 			if (*err_str != '\0') {
+				yywarn ("yyparse: bad clamav port %s",
+						str);
 				return 0;
 			}
 			cf->weighted_clamav = 1;
@@ -269,6 +271,8 @@ add_clamav_server (struct config_file *cf, char *str)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
+				yywarn ("yyparse: bad clamav host %s",
+						cur_tok);
 				return 0;
 			}
 			else {
@@ -281,6 +285,8 @@ add_clamav_server (struct config_file *cf, char *str)
 		if (str != NULL && *str != '\0') {
 			srv->up.priority = strtoul (str, &err_str, 10);
 			if (*err_str != '\0') {
+				yywarn ("yyparse: bad clamav priority %s",
+						str);
 				return 0;
 			}
 			cf->weighted_clamav = 1;
@@ -356,6 +362,8 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 		else {
 			srv->sock.inet.port = htons ((uint16_t)strtoul (str, &err_str, 10));
 			if (*err_str != '\0') {
+				yywarn ("yyparse: bad spamd port %s",
+						str);
 				return 0;
 			}
 		}
@@ -364,6 +372,8 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
+				yywarn ("yyparse: bad spamd host %s",
+						cur_tok);
 				return 0;
 			}
 			else {
@@ -422,6 +432,8 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 	else {
 		srv->port = htons ((uint16_t)strtoul (str, &err_str, 10));
 		if (*err_str != '\0') {
+			yywarn ("yyparse: bad beanstalk port %s",
+					str);
 			return 0;
 		}
 	}
@@ -430,6 +442,8 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 		/* Try to call gethostbyname */
 		he = gethostbyname (cur_tok);
 		if (he == NULL) {
+			yywarn ("yyparse: bad beanstalk host %s",
+					cur_tok);
 			return 0;
 		}
 		else {
@@ -528,6 +542,8 @@ add_spf_domain (struct config_file *cfg, char *domain)
 	if (!domain) return 0;
 
 	if (cfg->spf_domains_num > MAX_SPF_DOMAINS) {
+		yywarn ("yyparse: too many domains, cannot add %s",
+				domain);
 		return 0;
 	}
 
