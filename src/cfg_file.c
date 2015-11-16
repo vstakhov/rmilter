@@ -24,6 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <assert.h>
 #include "config.h"
 
 #include "pcre.h"
@@ -40,7 +41,7 @@ parse_err (const char *fmt, ...)
 	va_list aq;
 	char logbuf[BUFSIZ], readbuf[32];
 	int r;
-	
+
 	va_start (aq, fmt);
 	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
 
@@ -58,7 +59,7 @@ parse_warn (const char *fmt, ...)
 	va_list aq;
 	char logbuf[BUFSIZ], readbuf[32];
 	int r;
-	
+
 	va_start (aq, fmt);
 	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
 
@@ -108,7 +109,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 			yywarn ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
-	
+
 		mc = &cf->memcached_servers_grey[cf->memcached_servers_grey_num];
 	}
 	else if (type == MEMCACHED_SERVER_WHITE) {
@@ -116,7 +117,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 			yywarn ("yyparse: maximum number of whitelist memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
-	
+
 		mc = &cf->memcached_servers_white[cf->memcached_servers_white_num];
 	}
 	else if (type == MEMCACHED_SERVER_LIMITS) {
@@ -124,7 +125,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 			yywarn ("yyparse: maximum number of limits memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
-	
+
 		mc = &cf->memcached_servers_limits[cf->memcached_servers_limits_num];
 	}
 	else if (type == MEMCACHED_SERVER_ID) {
@@ -132,7 +133,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 			yywarn ("yyparse: maximum number of id memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
-	
+
 		mc = &cf->memcached_servers_id[cf->memcached_servers_id_num];
 	}
 	if (mc == NULL) return 0;
@@ -196,7 +197,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 		}
 		mc->port[1] = port;
 	}
-	
+
 	mc->alive[0] = 1;
 	mc->alive[1] = 1;
 
@@ -224,9 +225,9 @@ add_clamav_server (struct config_file *cf, char *str)
 	struct hostent *he;
 
 	if (str == NULL) return 0;
-	
+
 	cur_tok = strsep (&str, ":");
-	
+
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
@@ -301,7 +302,7 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 	struct hostent *he;
 
 	if (str == NULL) return 0;
-	
+
 	if (is_extra) {
 		if (cf->extra_spamd_servers_num == MAX_SPAMD_SERVERS) {
 			yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
@@ -332,7 +333,7 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 
 
 	cur_tok = strsep (&str, ":");
-	
+
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
@@ -392,11 +393,11 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 	struct hostent *he;
 
 	if (str == NULL) return 0;
-	
+
 	cur_tok = strsep (&str, ":");
-	
+
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
-	
+
 	if (type == 1) {
 		cf->copy_server = malloc (sizeof (struct beanstalk_server));
 		srv = cf->copy_server;
@@ -445,7 +446,7 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 		if (type == 0) {
 			cf->beanstalk_servers_num ++;
 		}
-		return 1;	
+		return 1;
 	}
 
 
@@ -460,7 +461,7 @@ create_action (enum action_type type, const char *message)
 
 	if (message == NULL) return NULL;
 
-	new = (struct action *)malloc (sizeof (struct action)); 
+	new = (struct action *)malloc (sizeof (struct action));
 
 	if (new == NULL) return NULL;
 
@@ -492,7 +493,7 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 
 	new = (struct condition *)malloc (sizeof (struct condition));
 	bzero (new, sizeof (struct condition));
-	
+
 	if (new == NULL) return NULL;
 
 	if (arg1 == NULL || *arg1 == '\0') {
@@ -636,7 +637,7 @@ init_defaults (struct config_file *cfg)
 	cfg->beanstalk_lifetime = DEFAULT_BEANSTALK_LIFETIME;
 	cfg->copy_server = NULL;
 	cfg->spam_server = NULL;
-	
+
 	cfg->grey_whitelist_tree = radix_tree_create ();
 	cfg->limit_whitelist_tree = radix_tree_create ();
 	cfg->spamd_whitelist = radix_tree_create ();
@@ -722,7 +723,7 @@ free_config (struct config_file *cfg)
 	if (cfg->special_mid_re) {
 		pcre_free (cfg->special_mid_re);
 	}
-	
+
 	for (i = 0; i < cfg->clamav_servers_num; i++) {
 		free (cfg->clamav_servers[i].name);
 	}
@@ -779,13 +780,13 @@ free_config (struct config_file *cfg)
 
 	radix_tree_free (cfg->grey_whitelist_tree);
 	free (cfg->grey_whitelist_tree);
-	
+
 	radix_tree_free (cfg->spamd_whitelist);
 	free (cfg->spamd_whitelist);
 
 	radix_tree_free (cfg->limit_whitelist_tree);
 	free (cfg->limit_whitelist_tree);
-	
+
 	if (cfg->spamd_reject_message) {
 		free (cfg->spamd_reject_message);
 	}
@@ -927,6 +928,27 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 	}
 
 	return 0;
+}
+
+char *
+trim_quotes (char *in)
+{
+	char *res = in;
+	size_t len;
+
+	assert (in != NULL);
+
+	len = strlen (in);
+
+	if (*in == '"') {
+		res++;
+	}
+
+	if (len > 1 && in[len - 1] == '"') {
+		in[len - 1] = '\0';
+	}
+
+	return res;
 }
 
 /*

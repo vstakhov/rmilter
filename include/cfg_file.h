@@ -100,29 +100,29 @@
 
 #define yyerror parse_err
 #define yywarn parse_warn
-#define CFG_RLOCK() do { pthread_rwlock_rdlock (&cfg_mtx); } while (0) 
-#define CFG_WLOCK() do { pthread_rwlock_wrlock (&cfg_mtx); } while (0) 
-#define CFG_UNLOCK() do { pthread_rwlock_unlock (&cfg_mtx); } while (0) 
+#define CFG_RLOCK() do { pthread_rwlock_rdlock (&cfg_mtx); } while (0)
+#define CFG_WLOCK() do { pthread_rwlock_wrlock (&cfg_mtx); } while (0)
+#define CFG_UNLOCK() do { pthread_rwlock_unlock (&cfg_mtx); } while (0)
 
 extern pthread_rwlock_t cfg_mtx;
 
 enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
-enum condition_type { 
-	COND_CONNECT = 0, 
-	COND_HELO, 
-	COND_ENVFROM, 
+enum condition_type {
+	COND_CONNECT = 0,
+	COND_HELO,
+	COND_ENVFROM,
 	COND_ENVRCPT,
-	COND_HEADER, 
-	COND_BODY, 
-	COND_MAX 
+	COND_HEADER,
+	COND_BODY,
+	COND_MAX
 };
 
-enum action_type { 
-	ACTION_REJECT, 
-	ACTION_TEMPFAIL, 
-	ACTION_QUARANTINE, 
-	ACTION_DISCARD, 
-	ACTION_ACCEPT 
+enum action_type {
+	ACTION_REJECT,
+	ACTION_TEMPFAIL,
+	ACTION_QUARANTINE,
+	ACTION_DISCARD,
+	ACTION_ACCEPT
 };
 
 enum spamd_type {
@@ -251,7 +251,7 @@ struct config_file {
 
 	char *sock_cred;
 	size_t sizelimit;
-	
+
 	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
 	size_t clamav_servers_num;
 	unsigned int clamav_error_time;
@@ -321,7 +321,7 @@ struct config_file {
 	unsigned int beanstalk_lifetime;
 
 	LIST_HEAD (ruleset, rule) rules;
-	
+
 	/* Must be sorted */
 	char **spf_domains;
 	size_t spf_domains_num;
@@ -385,6 +385,7 @@ void free_config (struct config_file *cfg);
 int add_ip_radix (radix_tree_t *tree, char *ipnet);
 void add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global);
 int is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global);
+char *trim_quotes (char *in);
 
 int yylex (void);
 int yyparse (void);
@@ -394,6 +395,6 @@ void parse_err (const char *fmt, ...);
 void parse_warn (const char *fmt, ...);
 
 #endif /* ifdef CFG_FILE_H */
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */
