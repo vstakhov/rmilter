@@ -149,6 +149,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	else {
 		port = htons ((uint16_t)strtoul (str, &err_str, 10));
 		if (*err_str != '\0') {
+			yyerror ("yyparse: bad memcached port: %s", str);
 			return 0;
 		}
 	}
@@ -157,6 +158,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 		/* Try to call gethostbyname */
 		he = gethostbyname (cur_tok);
 		if (he == NULL) {
+			yyerror ("yyparse: bad memcached host: %s", cur_tok);
 			return 0;
 		}
 		else {
@@ -181,6 +183,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 		else {
 			port = htons ((uint16_t)strtoul (str2, &err_str, 10));
 			if (*err_str != '\0') {
+				yyerror ("yyparse: bad memcached port: %s", str2);
 				return 0;
 			}
 		}
@@ -189,6 +192,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
+				yyerror ("yyparse: bad memcached host: %s", cur_tok);
 				return 0;
 			}
 			else {
