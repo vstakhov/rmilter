@@ -343,6 +343,9 @@ clamav_addr:
 	STRING {
 		$$ = $1;
 	}
+	| QUOTEDSTRING {
+		$$ = $1;
+	}
 	| IPADDR{
 		$$ = $1;
 	}
@@ -505,6 +508,9 @@ spamd_addr:
 	STRING {
 		$$ = $1;
 	}
+	| QUOTEDSTRING {
+		$$ = $1;
+	}
 	| IPADDR{
 		$$ = $1;
 	}
@@ -657,6 +663,12 @@ spf_domain:
 		}
 	}
 	| STRING {
+		if (!add_spf_domain (cfg, $1)) {
+			yyerror ("yyparse: add_spf_domain");
+			YYERROR;
+		}
+	}
+	| QUOTEDSTRING {
 		if (!add_spf_domain (cfg, $1)) {
 			yyerror ("yyparse: add_spf_domain");
 			YYERROR;
@@ -905,6 +917,7 @@ memcached_id_params:
 
 memcached_hosts:
 	STRING
+	| QUOTEDSTRING
 	| IPADDR
 	| DOMAIN_STR
 	| HOSTPORT
@@ -1032,6 +1045,7 @@ beanstalk_spam_server:
 
 beanstalk_hosts:
 	STRING
+	| QUOTEDSTRING
 	| IPADDR
 	| DOMAIN_STR
 	| HOSTPORT
@@ -1206,7 +1220,13 @@ whitelist_rcpt_list:
 	STRING {
 		add_rcpt_whitelist (cfg, $1, 0);
 	}
+	| QUOTEDSTRING {
+		add_rcpt_whitelist (cfg, $1, 0);
+	}
 	| whitelist_rcpt_list COMMA STRING {
+		add_rcpt_whitelist (cfg, $3, 0);
+	}
+	| whitelist_rcpt_list COMMA QUOTEDSTRING {
 		add_rcpt_whitelist (cfg, $3, 0);
 	}
 	;
@@ -1223,6 +1243,20 @@ bounce_addr_list:
 		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
 	}
 	| bounce_addr_list COMMA STRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($3);
+		t->len = strlen (t->addr);
+		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
+	}
+	| QUOTEDSTRING {
+		struct addr_list_entry *t;
+		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t->addr = strdup ($1);
+		t->len = strlen (t->addr);
+		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
+	}
+	| bounce_addr_list COMMA QUOTEDSTRING {
 		struct addr_list_entry *t;
 		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
 		t->addr = strdup ($3);
@@ -1255,6 +1289,12 @@ whitelist_list:
 		add_rcpt_whitelist (cfg, $1, 1);
 	}
 	| whitelist_list COMMA STRING {
+		add_rcpt_whitelist (cfg, $3, 1);
+	}
+	| QUOTEDSTRING {
+		add_rcpt_whitelist (cfg, $1, 1);
+	}
+	| whitelist_list COMMA QUOTEDSTRING {
 		add_rcpt_whitelist (cfg, $3, 1);
 	}
 	;
