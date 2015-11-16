@@ -106,7 +106,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 
 	if (type == MEMCACHED_SERVER_GREY) {
 		if(cf->memcached_servers_grey_num == MAX_MEMCACHED_SERVERS) {
-			yywarn ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			yyerror ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
@@ -114,7 +114,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	}
 	else if (type == MEMCACHED_SERVER_WHITE) {
 		if(cf->memcached_servers_white_num == MAX_MEMCACHED_SERVERS) {
-			yywarn ("yyparse: maximum number of whitelist memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			yyerror ("yyparse: maximum number of whitelist memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
@@ -122,7 +122,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	}
 	else if (type == MEMCACHED_SERVER_LIMITS) {
 		if(cf->memcached_servers_limits_num == MAX_MEMCACHED_SERVERS) {
-			yywarn ("yyparse: maximum number of limits memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			yyerror ("yyparse: maximum number of limits memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
@@ -130,7 +130,7 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	}
 	else if (type == MEMCACHED_SERVER_ID) {
 		if(cf->memcached_servers_id_num == MAX_MEMCACHED_SERVERS) {
-			yywarn ("yyparse: maximum number of id memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+			yyerror ("yyparse: maximum number of id memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
@@ -231,7 +231,7 @@ add_clamav_server (struct config_file *cf, char *str)
 	if (cur_tok == NULL || *cur_tok == '\0') return 0;
 
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
-		yywarn ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
+		yyerror ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
 	}
 
 	srv = &cf->clamav_servers[cf->clamav_servers_num];
@@ -245,7 +245,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		if (str != NULL && *str != '\0') {
 			srv->up.priority = strtoul (str, &err_str, 10);
 			if (*err_str != '\0') {
-				yywarn ("yyparse: bad clamav port %s",
+				yyerror ("yyparse: bad clamav port %s",
 						str);
 				return 0;
 			}
@@ -271,7 +271,7 @@ add_clamav_server (struct config_file *cf, char *str)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
-				yywarn ("yyparse: bad clamav host %s",
+				yyerror ("yyparse: bad clamav host %s",
 						cur_tok);
 				return 0;
 			}
@@ -285,7 +285,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		if (str != NULL && *str != '\0') {
 			srv->up.priority = strtoul (str, &err_str, 10);
 			if (*err_str != '\0') {
-				yywarn ("yyparse: bad clamav priority %s",
+				yyerror ("yyparse: bad clamav priority %s",
 						str);
 				return 0;
 			}
@@ -311,13 +311,13 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 
 	if (is_extra) {
 		if (cf->extra_spamd_servers_num == MAX_SPAMD_SERVERS) {
-			yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+			yyerror ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
 			return -1;
 		}
 	}
 	else {
 		if (cf->spamd_servers_num == MAX_SPAMD_SERVERS) {
-			yywarn ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+			yyerror ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
 			return -1;
 		}
 	}
@@ -362,7 +362,7 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 		else {
 			srv->sock.inet.port = htons ((uint16_t)strtoul (str, &err_str, 10));
 			if (*err_str != '\0') {
-				yywarn ("yyparse: bad spamd port %s",
+				yyerror ("yyparse: bad spamd port %s",
 						str);
 				return 0;
 			}
@@ -372,7 +372,7 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
-				yywarn ("yyparse: bad spamd host %s",
+				yyerror ("yyparse: bad spamd host %s",
 						cur_tok);
 				return 0;
 			}
@@ -418,7 +418,7 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 	}
 	else {
 		if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
-			yywarn ("yyparse: maximum number of beanstalk servers is reached %d", MAX_BEANSTALK_SERVERS);
+			yyerror ("yyparse: maximum number of beanstalk servers is reached %d", MAX_BEANSTALK_SERVERS);
 		}
 
 		srv = &cf->beanstalk_servers[cf->beanstalk_servers_num];
@@ -432,7 +432,7 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 	else {
 		srv->port = htons ((uint16_t)strtoul (str, &err_str, 10));
 		if (*err_str != '\0') {
-			yywarn ("yyparse: bad beanstalk port %s",
+			yyerror ("yyparse: bad beanstalk port %s",
 					str);
 			return 0;
 		}
@@ -442,7 +442,7 @@ add_beanstalk_server (struct config_file *cf, char *str, int type)
 		/* Try to call gethostbyname */
 		he = gethostbyname (cur_tok);
 		if (he == NULL) {
-			yywarn ("yyparse: bad beanstalk host %s",
+			yyerror ("yyparse: bad beanstalk host %s",
 					cur_tok);
 			return 0;
 		}
@@ -542,7 +542,7 @@ add_spf_domain (struct config_file *cfg, char *domain)
 	if (!domain) return 0;
 
 	if (cfg->spf_domains_num > MAX_SPF_DOMAINS) {
-		yywarn ("yyparse: too many domains, cannot add %s",
+		yyerror ("yyparse: too many domains, cannot add %s",
 				domain);
 		return 0;
 	}
@@ -567,7 +567,7 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 	if (ipnet != NULL) {
 		k = atoi (ipnet);
 		if (k > 32 || k < 0) {
-			yywarn ("add_ip_radix: invalid netmask value: %d", k);
+			yyerror ("add_ip_radix: invalid netmask value: %d", k);
 			k = 32;
 		}
 		k = 32 - k;
