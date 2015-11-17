@@ -32,6 +32,6 @@ extra_commands="reload"
 sig_reload="USR1"
 
 command="/usr/sbin/daemon"
-command_args="-p $rmilter_pidfile $procname -c /usr/local/etc/rmilter.conf"
+command_args="-n -p $rmilter_pidfile $procname -c /usr/local/etc/rmilter.conf"
 
 run_rc_command "$1"
