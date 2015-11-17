@@ -34,6 +34,6 @@ stop_postcmd=rmilter_cleanup
 extra_commands="reload"
 sig_reload="USR1"
 
-command_args="$procname -c %%PREFIX%%/rmilter.conf"
+command_args="$procname -c %%PREFIX%%/etc/rmilter.conf"
 
 run_rc_command "$1"
