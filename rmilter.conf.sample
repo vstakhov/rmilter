@@ -10,14 +10,13 @@
 
 pidfile = /var/run/rmilter.pid;
 
-
 clamav {
 	# servers - clamav socket definitions in format:
 	# /path/to/file
 	# host[:port]
 	# sockets are separated by ','
 	# Default: empty
-	servers = clam1.example.com, clam2.example.com;
+	#servers = clam1.example.com, clam2.example.com;
 	# connect_timeout - timeout in miliseconds for connecting to clamav
 	# Default: 1s
 	connect_timeout = 1s;
@@ -38,7 +37,7 @@ clamav {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -51,7 +50,7 @@ spamd {
 	# sockets are separated by ','
 	# is server name is prefixed with r: it is rspamd server
 	# Default: empty
-	servers = clam5.example.com, clam6.example.com, clam8.example.com;
+	servers = r:localhost:11333;
 
 	# also_check - extra spamd servers to check
 	#also_check = r:clam10.example.com;
@@ -75,7 +74,7 @@ spamd {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -91,28 +90,33 @@ spamd {
 	# rspamd_metric - metric for using with rspamd
 	# Default: "default"
 	rspamd_metric = "default";
+
+	spamd_soft_fail = yes;
+	spamd_greylist = yes;
+	# For using in the personal email
+	#extended_spam_headers = yes;
 };
 
 memcached {
 	# servers_grey - memcached servers for greylisting in format:
 	# host[:port][, host[:port]]
 	# It is possible to make memcached mirroring, its syntax is {server1, server2}
-	servers_grey = {localhost, memc1.example.com}, memc2.example.com:11211;
+	servers_grey = localhost;
 
 	# servers_white - memcached servers for whitelisting in format similar to that is used
 	# in servers_grey
-	# servers_white = {localhost, memc.example.com}, memc.example.com:11211;
-	
+	servers_white = localhost;
+
 	# servers_limits - memcached servers used for limits storing, can not be mirrored
-	servers_limits = memc1.example.com, memc2.example.com:11211;
+	servers_limits = localhost;
 
 	# servers_id - memcached servers used for message id storing, can not be mirrored
-	servers_id = memc1.example.com, memc2.example.com:11211;
+	servers_id = localhost;
 
 	# id_prefix - prefix for extracting message ids from memcached
 	# Default: empty (no prefix is prepended to key)
 	id_prefix = "message_id.";
-	
+
 	# grey_prefix - prefix for extracting greylisted records from memcached
 	# Default: empty (no prefix is prepended to key)
 	grey_prefix = "grey.";
@@ -133,7 +137,7 @@ memcached {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -148,7 +152,7 @@ memcached {
 # inet:port@host - bind to inet socket
 # Default: bind_socket = unix:/var/tmp/rmilter.sock;
 
-bind_socket = inet:11332@localhost;
+bind_socket = unix:/var/run/rmilter/rmilter.sock;
 
 # tempdir - path to directory that contains temporary files
 # Default: $TMPDIR
@@ -168,12 +172,12 @@ strict_auth = no;
 # spf_domains - path to file that contains hash of spf domains
 # Default: empty
 
-spf_domains = example.com, mail.ru;
+#spf_domains = example.com, mail.ru;
 
 # use_dcc - whether use or not dcc system
 # Default: no
 
-use_dcc = yes;
+#use_dcc = yes;
 
 # rule definition:
 # rule {
@@ -209,13 +213,13 @@ limits {
 beanstalk {
 	# List of beanstalk servers, random selected
 	#servers = bot01.example.com:3132;
-	
+
 	# Address of server to which rmilter should send all messages copies
 	#copy_server = somehost:13333;
-	
+
 	# Address of server to which rmilter should send spam messages copies
 	#spam_server = otherhost:13333;
-	
+
 	# Beanstalk protocol
 	protocol = tcp;
 	# Time to live for task in seconds
@@ -232,7 +236,7 @@ beanstalk {
 greylisting {
 	timeout = 300s;
 	expire = 3d;
-	whitelist = 127.0.0.1, 
+	whitelist = 127.0.0.1,
 				192.168.1.1,
 				192.168.2.0/24;
 	awl_enable = yes;
@@ -242,22 +246,24 @@ greylisting {
 };
 
 dkim {
+	# Sample for dkim specific keys
+	# domain {
+	#   key = /etc/dkim/dkim_example.key;
+	#   domain = "example.com";
+	#	selector = "dkim";
+	# };
+	# domain {
+	#   key = /etc/dkim/dkim_test.key;
+	#   domain = "test.com";
+	#	selector = "dkim";
+	# };
+	# Universal selector, keys will be checked for pattern /etc/dkim/<domain>.<selector>.key
     domain {
-        key = /usr/local/etc/dkim_example.key;
-        domain = "example.com";
-        selector = "dkim";
-    };
-    domain {
-        key = /usr/local/etc/dkim_test.key;
-        domain = "test.com";
-        selector = "dkim";
-    };
-    header_canon = relaxed;
-    body_canon = relaxed;
-    sign_alg = sha256;
+		key = /usr/local/etc/dkim;
+		domain = "*";
+		selector = "dkim";
+	};
+	header_canon = relaxed;
+	body_canon = relaxed;
+	sign_alg = sha256;
 };
-
-
-# Order of checks at EOM:
-# 
-# SPF -> DCC -> CLAMAV

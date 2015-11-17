@@ -33,7 +33,7 @@ clamav {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -70,7 +70,7 @@ spamd {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -97,7 +97,7 @@ memcached {
 	# servers_white - memcached servers for whitelisting in format similar to that is used
 	# in servers_grey
 	# servers_white = {localhost, mcgi12.example.com}, mcgi18.example.com:11211;
-	
+
 	# servers_limits - memcached servers used for limits storing, can not be mirrored
 	servers_limits = localhost;
 
@@ -107,7 +107,7 @@ memcached {
 	# id_prefix - prefix for extracting message ids from memcached
 	# Default: empty (no prefix is prepended to key)
 	id_prefix = "message_id.";
-	
+
 	# grey_prefix - prefix for extracting greylisted records from memcached
 	# Default: empty (no prefix is prepended to key)
 	grey_prefix = "grey.";
@@ -128,7 +128,7 @@ memcached {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -204,13 +204,13 @@ limits {
 beanstalk {
 	# List of beanstalk servers, random selected
 	#servers = bot01.example.com:3132;
-	
+
 	# Address of server to which rmilter should send all messages copies
 	#copy_server = somehost:13333;
-	
+
 	# Address of server to which rmilter should send spam messages copies
 	#spam_server = otherhost:13333;
-	
+
 	# Beanstalk protocol
 	protocol = tcp;
 	# Time to live for task in seconds
@@ -227,7 +227,7 @@ beanstalk {
 greylisting {
 	timeout = 300s;
 	expire = 3d;
-	whitelist = 127.0.0.1, 
+	whitelist = 127.0.0.1,
 				192.168.1.1,
 				192.168.2.0/24;
 	awl_enable = yes;
@@ -261,5 +261,5 @@ dkim {
 
 
 # Order of checks at EOM:
-# 
+#
 # SPF -> DCC -> CLAMAV
