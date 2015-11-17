@@ -1,7 +1,4 @@
 #!/bin/sh
-#
-# $Id$
-#
 # PROVIDE: rmilter
 # REQUIRE: LOGIN
 # BEFORE: postfix
@@ -16,7 +13,7 @@
 
 name="rmilter"
 rcvar=rmilter_enable
-procname="/usr/local/sbin/rmilter"
+command="/usr/local/sbin/rmilter"
 
 load_rc_config $name
 
@@ -25,13 +22,12 @@ load_rc_config $name
 : ${rmilter_socket="/var/run/rmilter/rmilter.sock"}
 : ${rmilter_user="postfix"}
 
-stop_postcmd="rm -f $rmilter_pidfile $rmilter_socket"
-start_precmd="rm -f $rmilter_socket"
+stop_postcmd="rm -f $rmilter_pidfile ; if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then rm -f $rmilter_socket ; fi"
+start_precmd="if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then rm -f $rmilter_socket ; fi"
 
 extra_commands="reload"
 sig_reload="USR1"
 
-command="/usr/sbin/daemon"
-command_args="-n -p $rmilter_pidfile $procname -c /usr/local/etc/rmilter.conf"
+command_args="$procname -c /usr/local/etc/rmilter.conf"
 
 run_rc_command "$1"
