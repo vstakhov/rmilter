@@ -20,7 +20,8 @@ load_rc_config $name
 : ${rmilter_enable="NO"}
 : ${rmilter_pidfile="/var/run/rmilter/rmilter.pid"}
 : ${rmilter_socket="/var/run/rmilter/rmilter.sock"}
-: ${rmilter_user="postfix"}
+: ${rmilter_user="_rmilter"}
+: ${rmilter_group="mail"}
 
 rmilter_cleanup() {
 	rm -f $rmilter_pidfile || true
@@ -28,7 +29,16 @@ rmilter_cleanup() {
 		rm -f $rmilter_socket || true
 	fi
 }
+
+rmilter_fixupbloodylibmilter() {
+	if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then
+	 	chown ${rmilter_user}:${rmilter_group} $rmilter_socket
+		chmod 774 $rmilter_socket
+	fi
+}
+
 start_precmd=rmilter_cleanup
+start_postcmd=rmilter_fixupbloodylibmilter
 stop_postcmd=rmilter_cleanup
 
 extra_commands="reload"
