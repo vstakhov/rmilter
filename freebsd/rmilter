@@ -13,7 +13,7 @@
 
 name="rmilter"
 rcvar=rmilter_enable
-command="/usr/local/sbin/rmilter"
+command="%%PREFIX%%/sbin/rmilter"
 
 load_rc_config $name
 
@@ -28,6 +28,6 @@ start_precmd="if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then rm -f $
 extra_commands="reload"
 sig_reload="USR1"
 
-command_args="$procname -c /usr/local/etc/rmilter.conf"
+command_args="$procname -c %%PREFIX%%/rmilter.conf"
 
 run_rc_command "$1"
