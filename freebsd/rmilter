@@ -1,11 +1,11 @@
 #!/bin/sh
 # PROVIDE: rmilter
 # REQUIRE: LOGIN
-# BEFORE: postfix
+# BEFORE: mail
 # KEYWORD: shutdown
 
 #
-# Add the following line to /etc/rc.conf to enable countd:
+# Add the following line to /etc/rc.conf to enable rmilter:
 # rmilter (bool):          Set to "NO" by default.
 #                          Set it to "YES" to enable rmilter.
 
@@ -22,8 +22,14 @@ load_rc_config $name
 : ${rmilter_socket="/var/run/rmilter/rmilter.sock"}
 : ${rmilter_user="postfix"}
 
-stop_postcmd="rm -f $rmilter_pidfile ; if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then rm -f $rmilter_socket ; fi"
-start_precmd="if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then rm -f $rmilter_socket ; fi"
+rmilter_cleanup() {
+	rm -f $rmilter_pidfile || true
+	if [ -n $rmilter_socket ] && [ -S $rmilter_socket ] ; then
+		rm -f $rmilter_socket || true
+	fi
+}
+start_precmd=rmilter_cleanup
+stop_postcmd=rmilter_cleanup
 
 extra_commands="reload"
 sig_reload="USR1"
