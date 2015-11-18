@@ -47,7 +47,7 @@ my_strcmp (const void *s1, const void *s2)
 	return strcmp (*(const char **)s1, *(const char **)s2);
 }
 
-static void 
+static void
 usage (void)
 {
 	printf ("Rapid Milter Version " MVERSION "\n"
@@ -128,7 +128,7 @@ reload_thread (void *unused)
 		fclose (f);
 		new_cfg->cfg_name = tmp->cfg_name;
 		new_cfg->serial = tmp->serial + 1;
-		
+
 		/* Strictly set temp dir */
 		if (!cfg->temp_dir) {
 			msg_warn ("tempdir is not set, trying to use $TMPDIR");
@@ -162,7 +162,7 @@ reload_thread (void *unused)
 	return NULL;
 }
 
-int 
+int
 main(int argc, char *argv[])
 {
     int c, r;
@@ -202,7 +202,7 @@ main(int argc, char *argv[])
 
     openlog("rmilter", LOG_PID, LOG_MAIL);
     msg_warn ("main: starting rmilter version %s", MVERSION);
-	
+
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
 		msg_warn ("malloc: %s", strerror (errno));
@@ -210,7 +210,7 @@ main(int argc, char *argv[])
 	}
 	bzero (cfg, sizeof (struct config_file));
 	init_defaults (cfg);
-		
+
 	if (cfg_file == NULL) {
 		cfg_file = strdup ("/usr/local/etc/rmilter.conf");
 	}
@@ -221,7 +221,7 @@ main(int argc, char *argv[])
 		return EBADF;
 	}
 	yyin = f;
-	
+
 	yyrestart (yyin);
 
 	if (yyparse() != 0 || yynerrs > 0) {
@@ -271,12 +271,7 @@ main(int argc, char *argv[])
 	srand (time (NULL));
 #endif
 
-    /*
-     * Hack to set milter unix socket permissions, but it also affect
-     * temporary file too :( temporary directory shuld be owned by user
-     * rmilter-clam and have permissions 700
-     */
-    umask(0007);
+	umask (0077);
 
 	smfi_setconn(cfg->sock_cred);
 	if (smfi_register(smfilter) == MI_FAILURE) {
@@ -288,7 +283,7 @@ main(int argc, char *argv[])
 		msg_warn ("main: cannot start reload thread, ignoring error");
 	}
 
-	if (smfi_opensocket(0) == MI_FAILURE) {
+	if (smfi_opensocket(true) == MI_FAILURE) {
 		msg_err("Unable to open listening socket");
 		exit(EX_UNAVAILABLE);
 	}
@@ -320,6 +315,6 @@ main(int argc, char *argv[])
 	return r;
 }
 
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */
