@@ -3,11 +3,10 @@
 # REQUIRE: LOGIN
 # BEFORE: mail
 # KEYWORD: shutdown
-
 #
 # Add the following line to /etc/rc.conf to enable rmilter:
-# rmilter (bool):          Set to "NO" by default.
-#                          Set it to "YES" to enable rmilter.
+# rmilter_enable="YES"
+#
 
 . /etc/rc.subr
 
