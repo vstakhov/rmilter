@@ -1,5 +1,11 @@
+rmilter (1.6.6) unstable; urgency=low
+
+  * New release.
+
+ -- Vsevolod Stakhov <vsevolod@highsecure.ru>  Tue, 18 Nov 2015 22:11:32 +0000
+
 rmilter (1.6.5) unstable; urgency=low
-  
+
   * File 'debian/rmilter.install' was added in order to fix empty-binary-package error.
   * Dbg package was included.
 

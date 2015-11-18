@@ -1,3 +1,13 @@
+1.6.6:
+	* Add compatibility with compilers with no bswap64 builtin
+	* Slightly improve the imported blake2b implementation
+	* Add trim quotes routine to configuration
+	* Allow quoted strings in many places in the configuration
+	* Add some diagnostics for config errors
+	* Fix FreeBSD starting script (#48)
+	* Improved FreeBSD support (default configuration, starting scripts)
+	* Set more sane umask (077) and remove unix socket before start
+
 1.6.5:
     * Allow to skip pidfile writing
     * Fix systemd config
