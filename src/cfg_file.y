@@ -612,8 +612,8 @@ spamd_spam_header:
 
 spamd_spam_header_value:
 	SPAM_HEADER_VALUE EQSIGN QUOTEDSTRING {
-		free (cfg->spam_header);
-		cfg->spam_header = $3;
+		free (cfg->spam_header_value);
+		cfg->spam_header_value = $3;
 	}
 	;
 
