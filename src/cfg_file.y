@@ -1401,7 +1401,6 @@ dkim_selector:
 			free (cur_domain->selector);
 		}
 		cur_domain->selector = $3;
-		free ($3);
 	}
 	;
 
