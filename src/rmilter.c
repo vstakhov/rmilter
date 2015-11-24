@@ -1266,38 +1266,74 @@ mlfi_eom(SMFICTX * ctx)
 				send_beanstalk_copy (priv, cfg->spam_server);
 			}
 			if (! cfg->spamd_soft_fail || r == METRIC_ACTION_REJECT) {
-				msg_info ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
-				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
-				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
-				CFG_UNLOCK();
-				mlfi_cleanup (ctx, false);
-				return SMFIS_REJECT;
+				if (!cfg->spamd_never_reject) {
+					msg_info ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
+					format_spamd_reply (strres,
+							sizeof (strres),
+							cfg->spamd_reject_message,
+							NULL);
+					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
+					CFG_UNLOCK();
+					mlfi_cleanup (ctx, false);
+					return SMFIS_REJECT;
+				}
+				else {
+					/* Add header instead */
+					msg_info (
+							"mlfi_eom: %s: add spam header to message instead"
+									" of rejection",
+							priv->mlfi_id);
+					smfi_chgheader (ctx,
+							cfg->spam_header,
+							1,
+							cfg->spam_header_value);
+				}
 			}
 			else {
-				format_spamd_reply (strres, sizeof (strres), cfg->spamd_reject_message, NULL);
+				format_spamd_reply (strres,
+						sizeof (strres),
+						cfg->spamd_reject_message,
+						NULL);
 
 				if (r >= METRIC_ACTION_GREYLIST && cfg->spamd_greylist) {
 					/* Perform greylisting */
 					CFG_UNLOCK();
-					if (!priv->authenticated && check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
-						msg_info ("mlfi_eom: %s: greylisting message according to spamd action", priv->mlfi_id);
+					if (!priv->authenticated &&
+							check_greylisting_ctx (ctx, priv) !=
+									SMFIS_CONTINUE) {
+						msg_info (
+								"mlfi_eom: %s: greylisting message according to spamd action",
+								priv->mlfi_id);
 						mlfi_cleanup (ctx, false);
 						return SMFIS_TEMPFAIL;
 					}
 					CFG_RLOCK();
 				}
 				if (r == METRIC_ACTION_ADD_HEADER) {
-					msg_info ("mlfi_eom: %s: add spam header to message according to spamd action", priv->mlfi_id);
-					smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
+					msg_info (
+							"mlfi_eom: %s: add spam header to message according to spamd action",
+							priv->mlfi_id);
+					smfi_chgheader (ctx,
+							cfg->spam_header,
+							1,
+							cfg->spam_header_value);
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
-					msg_info ("mlfi_eom: %s: rewriting spam subject and adding spam header", priv->mlfi_id);
+					msg_info (
+							"mlfi_eom: %s: rewriting spam subject and adding spam header",
+							priv->mlfi_id);
 
-					smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
+					smfi_chgheader (ctx,
+							cfg->spam_header,
+							1,
+							cfg->spam_header_value);
 					if (subject == NULL) {
 						/* Use own settings */
 						if (priv->priv_subject) {
-							smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
+							smfi_chgheader (ctx,
+									"Subject",
+									1,
+									priv->priv_subject);
 						}
 						else {
 							smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);

@@ -286,6 +286,7 @@ struct config_file {
 	unsigned int spamd_retry_timeout;
 	unsigned int spamd_retry_count;
 	u_char spamd_temp_fail;
+	u_char spamd_never_reject;
 
 	pcre* special_mid_re;
 

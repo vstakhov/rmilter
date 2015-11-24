@@ -172,6 +172,7 @@ check_symbols					return CHECK_SYMBOLS;
 symbols_dir						return SYMBOLS_DIR;
 rspamd_metric					return RSPAMD_METRIC;
 spamd_soft_fail					return SPAMD_SOFT_FAIL;
+spamd_never_reject				return SPAMD_NEVER_REJECT;
 spamd_greylist					return SPAMD_GREYLIST;
 spam_header                     return SPAM_HEADER;
 spam_header_value		return SPAM_HEADER_VALUE;

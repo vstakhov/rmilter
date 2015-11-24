@@ -69,6 +69,7 @@ uint8_t cur_flags = 0;
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
+%token  SPAMD_NEVER_REJECT
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -423,6 +424,7 @@ spamdcmd:
 	| spamd_retry_count
 	| spamd_retry_timeout
 	| spamd_tempfail
+	| spamd_never_reject
 	;
 
 diff_dir :
@@ -583,6 +585,14 @@ spamd_soft_fail:
 	SPAMD_SOFT_FAIL EQSIGN FLAG {
 		if ($3) {
 			cfg->spamd_soft_fail = 1;
+		}
+	}
+	;
+
+spamd_never_reject:
+	SPAMD_NEVER_REJECT EQSIGN FLAG {
+		if ($3) {
+			cfg->spamd_never_reject = 1;
 		}
 	}
 	;

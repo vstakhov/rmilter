@@ -34,7 +34,7 @@
 .Sh DESCRIPTION
 The
 .Nm
-utility is designed to act as milter for 
+utility is designed to act as milter for
 .Xr sendmail 8
 MTA. It provides several filter and mail scan features, among them are:
 .Bl -bullet -compact
@@ -78,13 +78,13 @@ configuration is placed in rmilter.conf file.
 The configuration file has format:
 .Bl -tag -width indent
 .It Aq name
-= 
+=
 .Aq value
 ;
 .El
 .Pp
 .\" Value types
-Value may be: 
+Value may be:
 .Bl -bullet -compact
 .It
 String (may not contain spaces)
@@ -136,15 +136,15 @@ Directives that can be defined in config file:
 .\" Global section
 Global section:
 .Bl -dash
-.It 
+.It
 .Sy pidfile
 - specify path to pidfile
 .Dl Em Default: Li /var/run/rmilter.pid
-.It 
+.It
 .Sy tempdir
 - specify path to temporary directory. For maximum performance it is recommended to put it on memory file system.
 .Dl Em Default: Li $TMPDIR
-.It 
+.It
 .Sy bind_socket
 - socket credits for local bind:
 .Bl -enum -compact
@@ -154,11 +154,11 @@ unix:/path/to/file - bind to local socket
 inet:port@host - bind to inet socket
 .El
 .Dl Em Default: Li bind_socket = unix:/var/tmp/rmilter.sock
-.It 
+.It
 .Sy max_size
 - maximum size of scanned message for clamav, spamd and dcc.
 .Dl Em Default: Li 0 Pq no limit
-.It 
+.It
 .Sy strict_auth
 - strict checks for mails from authenticated senders
 .Dl Em Default: Li no
@@ -166,7 +166,7 @@ inet:port@host - bind to inet socket
 .Sy spf_domains
 - list of domains that would be checked with spf
 .Dl Em Default: Li empty Pq spf disabled
-.It 
+.It
 .Sy use_dcc
 - flag that specify whether we should use dcc checks for mail
 .Dl Em Default: Li no
@@ -179,7 +179,7 @@ inet:port@host - bind to inet socket
 .\" Clamav section
 Clamav section:
 .Bl -dash
-.It 
+.It
 .Sy servers
 - clamav socket definitions in format:
 .Bl -enum -compact
@@ -190,27 +190,27 @@ host[:port]
 .El
 .Dl sockets are separated by ','
 .Dl Em Default: Li empty
-.It 
+.It
 .Sy connect_timeout
 - timeout in miliseconds for connecting to clamav
 .Dl Em Default: Li 1s
-.It 
+.It
 .Sy port_timeout
 - timeout in miliseconds for waiting for clamav port response
 .Dl Em Default: Li 4s
-.It 
+.It
 .Sy results_timeout
 - timeout in miliseconds for waiting for clamav response
 .Dl Em Default: Li 20s
-.It 
+.It
 .Sy error_time
 - time in seconds during which we are counting errors
 .Dl Em Default: Li 10
-.It 
+.It
 .Sy dead_time
 - time in seconds during which we are thinking that server is down
 .Dl Em Default: Li 300
-.It 
+.It
 .Sy maxerrors
 - maximum number of errors that can occur during error_time to make us thinking that this upstream is dead
 .Dl Em Default: Li 10
@@ -219,7 +219,7 @@ host[:port]
 .\" Spamd section
 Spamd section:
 .Bl -dash
-.It 
+.It
 .Sy servers
 - spamd (or rspamd) socket definitions in format:
 .Bl -enum -compact
@@ -234,67 +234,75 @@ r:host[:port] - for rspamd protocol
 .El
 .Dl sockets are separated by Ql ,
 .Dl Em Default: Li empty (spam checks disabled)
-.It 
+.It
 .Sy connect_timeout
 - timeout in miliseconds for connecting to spamd
 .Dl Em Default: Li 1s
-.It 
+.It
 .Sy results_timeout
 - timeout in miliseconds for waiting for spamd response
 .Dl Em Default: Li 20s
-.It 
+.It
 .Sy error_time
 - time in seconds during which we are counting errors
 .Dl Em Default: Li 10
-.It 
+.It
 .Sy dead_time
 - time in seconds during which we are thinking that server is down
 .Dl Em Default: Li 300
-.It 
+.It
 .Sy maxerrors
 - maximum number of errors that can occur during error_time to make us thinking that this upstream is dead
 .Dl Em Default: Li 10
-.It 
+.It
 .Sy reject_message
 - reject message for spam (quoted string)
 .Dl Em Default: Dq Spam message rejected; If this is not spam contact abuse team
-.It 
+.It
 .Sy spamd_soft_fail
 - if action is not reject use it for other actions (flag)
 .Dl Em Default: Li true
-.It 
+.It
+.Sy spamd_never_reject
+- never reject a message even if spamd action is 'reject', add header instead (flag)
+.Dl Em Default: Li false
+.It
+.Sy spamd_temp_fail
+- return temporary failure if spam servers could not be reached (ignore otherwise) (flag)
+.Dl Em Default: Li false
+.It
 .Sy spamd_greylist
 - greylist message only if action is greylist (flag)
-.Dl Em Default: Li true  
-.It 
+.Dl Em Default: Li true
+.It
 .Sy spam_header
 - add specified header if action is add_header and spamd_soft_fail os turned on
 .Dl Em Default: Dq X-Spam
-.It 
+.It
 .Sy spam_header_value
 - add specified value for spam_header
 .Dl Em Default: Dq yes
-.It 
+.It
 .Sy rspamd_metric
 - rspamd metric that would define whether we reject message as spam or not (quoted string)
 .Dl Em Default: Dq default
-.It 
+.It
 .Sy whitelist
 - list of ips or nets that should be not checked with spamd
 .Dl Em Default: Li empty
-.It 
+.It
 .Sy extended_spam_headers
 - add extended spamd headers to messages, is useful for debugging or private mail servers (flag)
 .Dl Em Default: Li false
-.It 
+.It
 .Sy retry_timeout
 - timeout in miliseconds to retry check if the current check has failed
 .Dl Em Default: Li 1s
-.It 
+.It
 .Sy retry_count
 - number of retries before giving up
 .Dl Em Default: Li 5
-.It 
+.It
 .Sy tempfail_on_error
 - send temporary SMTP error if we have failed to scan a message for spam
 .Dl Em Default: Li false
@@ -311,7 +319,7 @@ It is possible to make memcached mirroring, its syntax is {server1, server2}
 .Dl Em Default: Li empty
 .It
 .Sy servers_white
-- memcached servers for whitelisting in format similar to that is used in 
+- memcached servers for whitelisting in format similar to that is used in
 .Em servers_grey
 .Dl Em Default: Li empty
 .It
@@ -322,15 +330,15 @@ It is possible to make memcached mirroring, its syntax is {server1, server2}
 .Sy connect_timeout
 - timeout in miliseconds for connecting to memcached
 .Dl Em Default: Li 1s
-.It 
+.It
 .Sy error_time
 - time in seconds during which we are counting errors
 .Dl Em Default: Li 10
-.It 
+.It
 .Sy dead_time
 - time in seconds during which we are thinking that server is down
 .Dl Em Default: Li 300
-.It 
+.It
 .Sy maxerrors
 - maximum number of errors that can occur during error_time to make us thinking that this upstream is dead
 .Dl Em Default: Li 10
@@ -352,23 +360,23 @@ Beanstalk section:
 .Sy copy_server
 - address of server to which rmilter should send all messages copies
 .Dl Em Default: Li empty
-.It 
+.It
 .Sy spam_server
 - address of server to which rmilter should send spam messages copies
 .Dl Em Default: Li empty
-.It 
+.It
 .Sy connect_timeout
 - timeout in miliseconds for connecting to beanstalk
 .Dl Em Default: Li 1s
-.It 
+.It
 .Sy error_time
 - time in seconds during which we are counting errors
 .Dl Em Default: Li 10
-.It 
+.It
 .Sy dead_time
 - time in seconds during which we are thinking that server is down
 .Dl Em Default: Li 300
-.It 
+.It
 .Sy maxerrors
 - maximum number of errors that can occur during error_time to make us thinking that this upstream is dead
 .Dl Em Default: Li 10
@@ -377,19 +385,19 @@ Beanstalk section:
 - regexp that defines for which messages we should put the whole message to beanstalk, not only headers,
 now this regexp checks only In-Reply-To headers
 .Dl Em Default: Li empty
-.It 
+.It
 .Sy send_beanstalk_headers
 - defines whether we should send headers to beanstalk servers (from servers option)
 .Dl Em Default: Li no
-.It 
+.It
 .Sy send_beanstalk_copy
 - defines whether we should send copy of messages to beanstalk server (from copy_server option)
 .Dl Em Default: Li no
-.It 
+.It
 .Sy send_beanstalk_spam
 - defines whether we should send copy of spam messages to beanstalk server (from spam_server option)
 .Dl Em Default: Li no
-.It 
+.It
 .Sy protocol
 - protocol that is using for connecting to beanstalk (tcp or udp)
 .Dl Em Default: Li tcp
@@ -402,11 +410,11 @@ Greylisting section:
 .Sy timeout (required)
 - time during which we mark message greylisted
 .Dl Em Default: Li 300s
-.It	
+.It
 .Sy expire (required)
 - time during which we save a greylisting record
 .Dl Em Default: Li empty (greylisting disabled)
-.It	
+.It
 .Sy whitelist
 - list of ip addresses or networks that should be whitelisted from greylisting
 .Dl Em Default: Li empty
@@ -458,23 +466,23 @@ can be removed from bucket each second). It can be schematically displayed:
 .Sy limit_bounce_addrs
 - list of address that require more strict limits
 .Dl Em Default: Li postmaster, mailer-daemon, symantec_antivirus_for_smtp_gateways, Aq , null, fetchmail-daemon
-.It 
+.It
 .Sy limit_bounce_to
 - limits bucket for bounce messages (only rcpt to)
 .Dl Em Default: Li 5:0.000277778
-.It 
+.It
 .Sy limit_bounce_to_ip
 - limits bucket for bounce messages (only rcpt to per one source ip)
 .Dl Em Default: Li 5:0.000277778
-.It 
+.It
 .Sy limit_to
 - limits bucket for non-bounce messages (only rcpt to)
-.Dl Em Default: Li 20:0.016666667 
-.It 
+.Dl Em Default: Li 20:0.016666667
+.It
 .Sy limit_to_ip
 - limits bucket for non-bounce messages (only rcpt to per one source ip)
 .Dl Em Default: Li 30:0.025
-.It 
+.It
 .Sy limit_to_ip_from
 - limits bucket for non-bounce messages (msg from, rcpt to per one source ip)
 .Dl Em Default: Li 100:0.033333333
@@ -483,10 +491,10 @@ can be removed from bucket each second). It can be schematically displayed:
 .\" DKIM section
 DKIM section.
 .Pp
-.No Dkim can be used to sign messages by Nm . Dkim support must be provided with opendkim library and 
-.Nm 
-must be configured with 
-.Ar --enable-dkim 
+.No Dkim can be used to sign messages by Nm . Dkim support must be provided with opendkim library and
+.Nm
+must be configured with
+.Ar --enable-dkim
 option.
 .Bl -dash
 .It
@@ -521,10 +529,10 @@ option.
 - domain to be used for signing (this matches with SMTP FROM data)
 .It
 .Sy selector
-- dkim DNS selector (e.g. for selector 
-.Em dkim 
-and domain 
-.Em example.com 
+- dkim DNS selector (e.g. for selector
+.Em dkim
+and domain
+.Em example.com
 DNS TXT record should be for dkim._domainkey.example.com).
 .El
 .El
@@ -564,7 +572,7 @@ clamav {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -593,7 +601,7 @@ spamd {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -616,7 +624,7 @@ memcached {
 	# servers_white - memcached servers for whitelisting in format similar to that is used
 	# in servers_grey
 	# servers_white = {localhost, memcached.test.ru}, memcached.test.ru:11211;
-	
+
 	# servers_limits - memcached servers used for limits storing, can not be mirrored
 	servers_limits = memcached.test.ru, memcached.test.ru:11211;
 
@@ -632,7 +640,7 @@ memcached {
 	# Default: 300
 	dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that 
+	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
@@ -758,7 +766,7 @@ Spamd (EOM)
 Clamav (EOM)
 .It
 Beanstalk (EOM)
-.It 
+.It
 DKIM add signature (EOM)
 .El
 .Pp
