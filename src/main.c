@@ -29,6 +29,7 @@
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "util.h"
+#include "mfapi.h"
 
 /* config options here... */
 

@@ -30,6 +30,7 @@
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "libspamd.h"
+#include "mfapi.h"
 
 /* Maximum time in seconds during which spamd server is marked inactive after scan error */
 #define INACTIVE_INTERVAL 60.0
@@ -830,7 +831,8 @@ spamdscan_socket(const char *file, const struct spamd_server *srv, struct config
  */
 
 int
-spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject, int extra)
+spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, char
+		**subject, int extra)
 {
 	int retry, r = -2, hr = 0, to_trace = 0;
 	struct timeval t;
@@ -843,7 +845,7 @@ spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
 	struct timespec sleep_ts;
-
+	SMFICTX *ctx = _ctx;
 
 	gettimeofday(&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;

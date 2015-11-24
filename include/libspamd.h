@@ -32,7 +32,8 @@
 struct config_file;
 struct mlfi_priv;
 
-int spamdscan(SMFICTX *ctx, struct mlfi_priv *priv, struct config_file *cfg, char **subject, int is_extra);
+int spamdscan (void *ctx, struct mlfi_priv *priv, struct config_file *cfg, char
+		**subject, int is_extra);
 
 /* Structure for rspamd results */
 enum rspamd_metric_action {
