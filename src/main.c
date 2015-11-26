@@ -281,10 +281,6 @@ main(int argc, char *argv[])
 		exit(EX_UNAVAILABLE);
 	}
 
-	if (pthread_create (&reload_thr, NULL, reload_thread, NULL)) {
-		msg_warn ("main: cannot start reload thread, ignoring error");
-	}
-
 	if (smfi_opensocket(true) == MI_FAILURE) {
 		msg_err("Unable to open listening socket");
 		exit(EX_UNAVAILABLE);
@@ -293,6 +289,10 @@ main(int argc, char *argv[])
 	if (daemonize && daemon (0, 0) == -1) {
 		msg_err("Unable to daemonize");
 		exit(EX_UNAVAILABLE);
+	}
+
+	if (pthread_create (&reload_thr, NULL, reload_thread, NULL)) {
+		msg_warn ("main: cannot start reload thread, ignoring error");
 	}
 
 	if (cfg->pid_file) {
