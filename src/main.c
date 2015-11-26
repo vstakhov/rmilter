@@ -285,13 +285,13 @@ main(int argc, char *argv[])
 		msg_warn ("main: cannot start reload thread, ignoring error");
 	}
 
-	if (daemonize && daemon (0, 0) == -1) {
-		msg_err("Unable to daemonize");
+	if (smfi_opensocket(true) == MI_FAILURE) {
+		msg_err("Unable to open listening socket");
 		exit(EX_UNAVAILABLE);
 	}
 
-	if (smfi_opensocket(true) == MI_FAILURE) {
-		msg_err("Unable to open listening socket");
+	if (daemonize && daemon (0, 0) == -1) {
+		msg_err("Unable to daemonize");
 		exit(EX_UNAVAILABLE);
 	}
 
