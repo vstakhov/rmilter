@@ -1,3 +1,13 @@
+1.6.7:
+	* true requires stdbool.h for some libmilter versions
+	* Fix hint for FreeBSD rc script (by @moisseev)
+	* Fix spam_header value (#51)
+	* Open the listening socket after calling daemon(3) (by @kAworu)
+	* doc: Add the -n option documentation to the manpage (by @kAworu)
+	* Fix issue with selector (#57)
+	* Add `spamd_never_reject` flag
+	* Call pthread_create(3) after daemon(3) when starting (by @kAworu)
+
 1.6.6:
 	* Add compatibility with compilers with no bswap64 builtin
 	* Slightly improve the imported blake2b implementation
