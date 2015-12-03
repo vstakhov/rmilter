@@ -1302,11 +1302,11 @@ whitelist_list:
 	STRING {
 		add_rcpt_whitelist (cfg, $1, 1);
 	}
-	| whitelist_list COMMA STRING {
-		add_rcpt_whitelist (cfg, $3, 1);
-	}
 	| QUOTEDSTRING {
 		add_rcpt_whitelist (cfg, $1, 1);
+	}
+	| whitelist_list COMMA STRING {
+		add_rcpt_whitelist (cfg, $3, 1);
 	}
 	| whitelist_list COMMA QUOTEDSTRING {
 		add_rcpt_whitelist (cfg, $3, 1);
