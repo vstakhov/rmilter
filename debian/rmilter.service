@@ -5,6 +5,8 @@ Description=Another sendmail milter for different mail checks
 ExecStart=/usr/sbin/rmilter -c /etc/rmilter.conf -n
 ExecReload=/bin/kill -USR1 $MAINPID
 User=_rmilter
+RuntimeDirectory=rmilter
+RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target
