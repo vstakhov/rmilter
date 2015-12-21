@@ -787,7 +787,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				}
 			}
 		}
-		else {
+		else if (dkim_domain) {
 			priv->dkim = NULL;
 			msg_debug ("do not add dkim signature for unauthorized user");
 		}
