@@ -1,1 +1,2 @@
+debian/rmilter.conf.common debian/rmilter.conf debian/rmilter.conf.sysvinit /etc
 usr/sbin
