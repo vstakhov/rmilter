@@ -161,6 +161,7 @@ parse_bucket (char *str, bucket_t *bucket)
 ^[ \t]*#.*						/* ignore comments */;
 .include						BEGIN(incl);
 tempdir							return TEMPDIR;
+tempfiles_mode					return TEMPFILES_MODE;
 pidfile							return PIDFILE;
 strict_auth						return STRICT_AUTH;
 rule							return RULE;

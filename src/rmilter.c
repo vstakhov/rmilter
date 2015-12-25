@@ -187,6 +187,10 @@ create_temp_file (struct mlfi_priv *priv)
 				priv->mlfi_id, strerror (errno));
 		return -1;
 	}
+
+	/* Set the desired mode */
+	fchmod (fd, cfg->tempfiles_mode);
+
 	priv->fileh = fdopen(fd, "w");
 
 	if (!priv->fileh) {

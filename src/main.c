@@ -273,7 +273,7 @@ main(int argc, char *argv[])
 	srand (time (NULL));
 #endif
 
-	umask (0077);
+	umask (0);
 
 	smfi_setconn(cfg->sock_cred);
 	if (smfi_register(smfilter) == MI_FAILURE) {

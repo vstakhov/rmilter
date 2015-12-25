@@ -69,7 +69,7 @@ uint8_t cur_flags = 0;
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
-%token  SPAMD_NEVER_REJECT
+%token  SPAMD_NEVER_REJECT TEMPFILES_MODE
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -96,6 +96,7 @@ file	: /* empty */
 
 command	:
 	tempdir
+	| tempfiles_mode
 	| strictauth
 	| pidfile
 	| rule
@@ -127,6 +128,36 @@ tempdir :
 		}
 
 		cfg->temp_dir = $3;
+	}
+	;
+
+tempfiles_mode:
+	TEMPFILES_MODE EQSIGN NUMBER {
+		/*
+		 * We likely have here decimal number, so we need to treat it as
+		 * octal one that means oct -> dec conversion
+		 */
+		int i = 1;
+		cfg->tempfiles_mode = 0;
+
+		while ($3 > 0) {
+			cfg->tempfiles_mode += $3 % 10 * i;
+			i *= 8;
+			$3 /= 10;
+		}
+	}
+	| TEMPFILES_MODE EQSIGN QUOTEDSTRING {
+		char *err_str;
+
+		cfg->tempfiles_mode = strtoul ($3, &err_str, 8);
+
+		if (err_str != NULL && *err_str != '\0') {
+			yyerror ("yyparse: cannot convert \"%s\" to octal number: %s", $3,
+					strerror (errno));
+			YYERROR;
+		}
+
+		free ($3);
 	}
 	;
 

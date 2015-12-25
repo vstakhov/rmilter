@@ -664,6 +664,7 @@ init_defaults (struct config_file *cfg)
 
 	cfg->dkim_auth_only = 1;
 	cfg->pid_file = NULL;
+	cfg->tempfiles_mode = 00600;
 
 #if 0
 	/* Init static defaults */

@@ -261,6 +261,8 @@ struct config_file {
 	unsigned int clamav_port_timeout;
 	unsigned int clamav_results_timeout;
 
+	unsigned int tempfiles_mode;
+
 	struct spamd_server spamd_servers[MAX_SPAMD_SERVERS];
 	size_t spamd_servers_num;
 	struct spamd_server extra_spamd_servers[MAX_SPAMD_SERVERS];
