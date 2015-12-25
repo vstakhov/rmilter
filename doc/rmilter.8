@@ -145,6 +145,10 @@ Global section:
 - specify path to temporary directory. For maximum performance it is recommended to put it on memory file system.
 .Dl Em Default: Li $TMPDIR
 .It
+.Sy tempfiles_mode
+- mode for files created in tempdir
+.Dl Em Default: Li 0600
+.It
 .Sy bind_socket
 - socket credits for local bind:
 .Bl -enum -compact
@@ -661,6 +665,10 @@ bind_socket = unix:/var/run/rmilter/rmilter.sock;
 # Default: $TMPDIR
 
 tempdir = /spool/tmp;
+
+# tempfiles_mode - mode for files created in the tempdir
+# Default: 0600
+# tempfiles_mode = 0600;
 
 # max_size - maximum size of scanned mail with clamav and dcc
 # Default: 0 (no limit)

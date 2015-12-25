@@ -67,6 +67,8 @@ Defines global options.
 	+ Default: `/var/run/rmilter.pid`
 - `tempdir`: specify path to temporary directory. For maximum performance it is recommended to put it on memory file system.
 	+ Default: `$TMPDIR`
+- `tempfiles_mode`: default access mask for files in the `tempdir`
+	+ Default: `0600`
 - `bind_socket`: socket credits for local bind:
 	+ Default: `bind_socket = unix:/var/tmp/rmilter.sock`
 	1.  `unix:/path/to/file` - bind to local socket
