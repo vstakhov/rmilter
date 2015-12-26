@@ -150,6 +150,11 @@ memcached {
 
 tempdir = /tmp;
 
+# tempfiles_mode - set permission for temp files
+# Default: 00600
+
+tempfiles_mode = 00600;
+
 # max_size - maximum size of scanned mail with clamav and dcc
 # Default: 0 (no limit)
 
