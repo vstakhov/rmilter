@@ -34,7 +34,7 @@ export TMPDIR=/tmp
 
 set -e
 
-SSD="start-stop-daemon --pidfile /run/$NAME.pid --name rmilter"
+SSD="start-stop-daemon --pidfile $RUNDIR/$NAME.pid --name rmilter"
 
 do_start()
 {
