@@ -37,6 +37,7 @@ struct config_file *cfg;
 bool daemonize;
 extern struct smfiDesc smfilter;
 const char *_rmilter_progname;
+extern int yydebug;
 
 pthread_cond_t cfg_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t cfg_reload_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -53,8 +54,9 @@ static void
 usage (void)
 {
 	printf ("Rapid Milter Version " MVERSION "\n"
-			"Usage: rmilter [-h] [-d] -c <config_file>\n"
+			"Usage: rmilter [-h] [-n] [-d] [-c <config_file>]\n"
 			"-n - do not daemonize on startup\n"
+			"-d - debug parsing\n"
 			"-h - this help message\n"
 			"-c - path to config file\n");
 	exit (0);
@@ -78,7 +80,7 @@ reload_thread (void *unused)
 	/* Initialize signals and start reload thread */
 	bzero (&signals, sizeof (struct sigaction));
 	sigemptyset(&signals.sa_mask);
-    sigaddset(&signals.sa_mask, SIGUSR1);
+	sigaddset(&signals.sa_mask, SIGUSR1);
 	signals.sa_handler = sig_usr1_handler;
 	sigaction (SIGUSR1, &signals, NULL);
 
@@ -151,7 +153,7 @@ reload_thread (void *unused)
 			}
 		}
 #ifdef HAVE_SRANDOMDEV
-   		srandomdev();
+		srandomdev();
 #else
 		srand (time (NULL));
 #endif
@@ -167,10 +169,10 @@ reload_thread (void *unused)
 int
 main(int argc, char *argv[])
 {
-    int c, r;
+	int c, r;
 	extern int yynerrs;
 	extern FILE *yyin;
-    const char *args = "c:hn";
+	const char *args = "c:hnd";
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
@@ -179,31 +181,34 @@ main(int argc, char *argv[])
 
 	daemonize = 1;
 
-    /* Process command line options */
-    while ((c = getopt(argc, argv, args)) != -1) {
+	/* Process command line options */
+	while ((c = getopt(argc, argv, args)) != -1) {
 		switch (c) {
 		case 'c':
-	    	if (optarg == NULL || *optarg == '\0') {
+			if (optarg == NULL || *optarg == '\0') {
 				fprintf(stderr, "Illegal config_file: %s\n",
-			      optarg);
+						optarg);
 				exit(EX_USAGE);
-	 	   	}
+			}
 			else {
 				cfg_file = strdup (optarg);
 			}
-	    	break;
+			break;
 		case 'n':
 			daemonize = 0;
+			break;
+		case 'd':
+			yydebug = 1;
 			break;
 		case 'h':
 		default:
 			usage ();
-	    	break;
+			break;
 		}
-    }
+	}
 
-    openlog("rmilter", LOG_PID, LOG_MAIL);
-    msg_warn ("main: starting rmilter version %s", MVERSION);
+	openlog("rmilter", LOG_PID, LOG_MAIL);
+	msg_warn ("main: starting rmilter version %s", MVERSION);
 
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
@@ -243,14 +248,14 @@ main(int argc, char *argv[])
 	cfg->cfg_name = strdup (cfg_file);
 
 	/* Strictly set temp dir */
-    if (!cfg->temp_dir) {
+	if (!cfg->temp_dir) {
 		msg_warn ("tempdir is not set, trying to use $TMPDIR");
 		cfg->temp_dir = getenv("TMPDIR");
 
 		if (!cfg->temp_dir) {
-	    	cfg->temp_dir = strdup("/tmp");
+			cfg->temp_dir = strdup("/tmp");
 		}
-    }
+	}
 	if (cfg->sizelimit == 0) {
 		msg_warn ("maxsize is not set, no limits on size of scanned mail");
 	}
@@ -268,7 +273,7 @@ main(int argc, char *argv[])
 	}
 
 #ifdef HAVE_SRANDOMDEV
-   	srandomdev();
+	srandomdev();
 #else
 	srand (time (NULL));
 #endif

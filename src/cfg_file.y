@@ -29,7 +29,7 @@
 #include "pcre.h"
 #include "cfg_file.h"
 
-#define YYDEBUG 0
+#define YYDEBUG 1
 
 extern struct config_file *cfg;
 extern int yylineno;

@@ -45,7 +45,8 @@ parse_err (const char *fmt, ...)
 	va_start (aq, fmt);
 	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
 
-	r = snprintf (logbuf, sizeof (logbuf), "config file parse error! line: %d, text: %s, reason: ", yylineno, readbuf);
+	r = snprintf (logbuf, sizeof (logbuf), "config file parse error! line: %d, "
+			"text: %s, reason: ", yylineno, readbuf);
 	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
 
 	va_end (aq);
