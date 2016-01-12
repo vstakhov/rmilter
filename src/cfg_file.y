@@ -90,8 +90,16 @@ uint8_t cur_flags = 0;
 %type   <frac>		FLOAT;
 %%
 
-file	: /* empty */
-	|  file command SEMICOLON { }
+input	: /* empty */
+	|  command separator input
+	;
+
+separator:
+	SEMICOLON
+	| empty
+	;
+
+empty:
 	;
 
 command	:
