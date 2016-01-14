@@ -25,7 +25,7 @@
 #include "config.h"
 #include "memcached.h"
 #include "cfg_file.h"
-
+#include "cache.h"
 
 
 bool

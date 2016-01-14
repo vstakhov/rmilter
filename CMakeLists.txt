@@ -371,6 +371,9 @@ CHECK_SYMBOL_EXISTS(MAP_ANON sys/mman.h HAVE_MMAP_ANON)
 CHECK_SYMBOL_EXISTS(MAP_NOCORE sys/mman.h HAVE_MMAP_NOCORE)
 
 ################################ SOURCES SECTION ###########################
+ADD_SUBDIRECTORY(hiredis)
+INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/hiredis")
+
 SET(RMILTERSRC
                 compat/blake2b-ref.c
                 src/upstream.c
@@ -402,6 +405,7 @@ CONFIGURE_FILE(config.h.in config.h)
 ADD_EXECUTABLE(rmilter ${RMILTERSRC})
 SET_TARGET_PROPERTIES(rmilter PROPERTIES LINKER_LANGUAGE C)
 TARGET_LINK_LIBRARIES(rmilter ${RMILTER_REQUIRED_LIBRARIES})
+TARGET_LINK_LIBRARIES(rmilter rmilter-hiredis)
 
 ##################### INSTALLATION ##########################################
 
