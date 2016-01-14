@@ -376,6 +376,7 @@ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/hiredis")
 
 SET(RMILTERSRC
                 compat/blake2b-ref.c
+                src/fasthash.c
                 src/upstream.c
                 src/util.c
                 src/regexp.c
