@@ -380,6 +380,7 @@ SET(RMILTERSRC
                 src/ratelimit.c
                 src/memcached.c
                 src/beanstalk.c
+                src/cache.c
                 src/main.c
                 src/radix.c
                 src/awl.c

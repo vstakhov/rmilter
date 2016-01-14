@@ -141,12 +141,12 @@ struct action {
 };
 
 struct condition {
-    struct cond_arg {
-    	char    *src;
-    	int  empty;
-    	int  not;
-	    pcre  *re;
-    }	args[2];
+	struct cond_arg {
+		char    *src;
+		int  empty;
+		int  not;
+		pcre  *re;
+	}	args[2];
 	enum condition_type type;
 	LIST_ENTRY (condition) next;
 };
