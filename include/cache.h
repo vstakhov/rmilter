@@ -29,6 +29,10 @@
 #include "config.h"
 #include <stdint.h>
 
+#ifndef MAXKEYLEN
+#define MAXKEYLEN 250
+#endif
+
 struct config_file;
 
 enum rmilter_query_type {
