@@ -101,6 +101,9 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			if (redis == NULL || redis->err != 0) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
+				upstream_fail (&serv->up, time (NULL));
+
+				return false;
 			}
 			else {
 				r = redisCommand (redis, "GET %b", key, keylen);
@@ -119,7 +122,9 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 
 					freeReplyObject (r);
 				}
+
 				redisFree (redis);
+				upstream_ok (&serv->up, time (NULL));
 			}
 		}
 		else {
@@ -137,6 +142,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			if (memc_init_ctx (&mctx) != 0) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, strerror (errno));
+				upstream_fail (&serv->up, time (NULL));
 
 				return false;
 			}
@@ -154,6 +160,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			}
 
 			memc_close_ctx (&mctx);
+			upstream_ok (&serv->up, time (NULL));
 		}
 	}
 
@@ -185,6 +192,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			if (redis == NULL || redis->err != 0) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
+				upstream_fail (&serv->up, time (NULL));
 
 				return false;
 			}
@@ -203,6 +211,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				}
 
 				redisFree (redis);
+				upstream_ok (&serv->up, time (NULL));
 			}
 		}
 		else {
@@ -218,6 +227,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			if (memc_init_ctx (&mctx) != 0) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, strerror (errno));
+				upstream_fail (&serv->up, time (NULL));
 
 				return false;
 			}
@@ -230,6 +240,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 
 			memc_close_ctx (&mctx);
+			upstream_ok (&serv->up, time (NULL));
 		}
 	}
 
@@ -259,6 +270,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			if (redis == NULL || redis->err != 0) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
+				upstream_fail (&serv->up, time (NULL));
 
 				return false;
 			}
@@ -270,6 +282,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				}
 
 				redisFree (redis);
+				upstream_ok (&serv->up, time (NULL));
 			}
 		}
 		else {
@@ -285,6 +298,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			if (memc_init_ctx (&mctx) != 0) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, strerror (errno));
+				upstream_fail (&serv->up, time (NULL));
 
 				return false;
 			}
@@ -297,6 +311,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 
 			memc_close_ctx (&mctx);
+			upstream_ok (&serv->up, time (NULL));
 		}
 	}
 
