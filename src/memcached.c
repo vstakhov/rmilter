@@ -25,8 +25,8 @@
  */
 
 #include "config.h"
-
 #include "memcached.h"
+#include <netdb.h>
 
 #define CRLF "\r\n"
 #define END_TRAILER "END" CRLF
@@ -57,10 +57,10 @@ static int
 poll_d (int fd, u_char want_read, u_char want_write, int timeout)
 {
 	int r;
-    struct pollfd fds[1];
-	
+	struct pollfd fds[1];
+
 	fds->fd = fd;
-    fds->revents = 0;
+	fds->revents = 0;
 	fds->events = 0;
 
 	if (want_read != 0) {
@@ -71,8 +71,8 @@ poll_d (int fd, u_char want_read, u_char want_write, int timeout)
 	}
 	while ((r = poll(fds, 1, timeout)) < 0) {
 		if (errno != EINTR)
-	    	break;
-    }
+			break;
+	}
 
 	return r;
 }
@@ -84,50 +84,13 @@ static void
 memc_log (const memcached_ctx_t *ctx, int line, const char *fmt, ...) 
 {
 	va_list args;
-	if (ctx->options & MEMC_OPT_DEBUG) {
-		va_start (args, fmt);
-		syslog (LOG_DEBUG, "memc_debug(%d): host: %s, port: %d", line, inet_ntoa (ctx->addr), ntohs (ctx->port));
-		vsyslog (LOG_DEBUG, fmt, args);
-		va_end (args);
-	}
-}
 
-/*
- * Make socket for udp connection
- */
-static int
-memc_make_udp_sock (memcached_ctx_t *ctx)
-{
-	struct sockaddr_in sc;
-	int ofl;
-
-	ctx->opened = 0;
-	bzero (&sc, sizeof (struct sockaddr_in *));
-	sc.sin_family = AF_INET;
-	sc.sin_port = ctx->port;
-	memcpy (&sc.sin_addr, &ctx->addr, sizeof (struct in_addr));
-
-	ctx->sock = socket (PF_INET, SOCK_DGRAM, 0);
-
-	if (ctx->sock == -1) {
-		memc_log (ctx, __LINE__, "memc_make_udp_sock: socket() failed: %m");
-		return -1;
-	}
-
-	/* set nonblocking */
-    ofl = fcntl(ctx->sock, F_GETFL, 0);
-    fcntl(ctx->sock, F_SETFL, ofl | O_NONBLOCK);
-
-	/* 
-	 * Call connect to set default destination for datagrams 
-	 * May not block
-	 */
-	if (connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in)) != -1) {
-		ctx->opened = 1;
-		return 0;
-	}
-
-	return -1;
+	va_start (args, fmt);
+	syslog (LOG_DEBUG,
+			"memc_debug(%d): host: %s, port: %d",
+			line, ctx->addr, ntohs (ctx->port));
+	vsyslog (LOG_DEBUG, fmt, args);
+	va_end (args);
 }
 
 /*
@@ -138,32 +101,62 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 {
 	struct sockaddr_in sc;
 	int ofl, r;
+	struct addrinfo hints, *res, *res0;
+	int error;
+	int s;
+	const char *cause = NULL;
+	char portbuf[32];
 
-	bzero (&sc, sizeof (struct sockaddr_in *));
-	sc.sin_family = AF_INET;
-	sc.sin_port = ctx->port;
-	memcpy (&sc.sin_addr, &ctx->addr, sizeof (struct in_addr));
-	
-	ctx->opened = 0;
-	ctx->sock = socket (PF_INET, SOCK_STREAM, 0);
+	memset(&hints, 0, sizeof(hints));
+	snprintf (portbuf, sizeof (portbuf), "%d", (int) ntohs (ctx->port));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_NUMERICSERV;
+	error = getaddrinfo (ctx->addr, portbuf, &hints, &res0);
 
-	if (ctx->sock == -1) {
-		memc_log (ctx, __LINE__, "memc_make_tcp_sock: socket() failed: %m");
+	if (error) {
+		memc_log (ctx, __LINE__, "memc_make_tcp_sock: getaddrinfo failed: %s",
+				gai_strerror (error));
 		return -1;
 	}
 
-	/* set nonblocking */
-    ofl = fcntl(ctx->sock, F_GETFL, 0);
-    fcntl(ctx->sock, F_SETFL, ofl | O_NONBLOCK);
-	
-	if ((r = connect (ctx->sock, (struct sockaddr*)&sc, sizeof (struct sockaddr_in))) == -1) {
-		if (errno != EINPROGRESS) {
-			close (ctx->sock);
-			ctx->sock = -1;
-			memc_log (ctx, __LINE__, "memc_make_tcp_sock: connect() failed: %m");
-			return -1;
+	s = -1;
+	for (res = res0; res; res = res->ai_next) {
+		s = socket (res->ai_family, res->ai_socktype,
+				res->ai_protocol);
+		if (s < 0) {
+			cause = "socket";
+			error = errno;
+			continue;
 		}
+
+		ofl = fcntl (s, F_GETFL, 0);
+		fcntl (s, F_SETFL, ofl | O_NONBLOCK);
+
+		if (connect (s, res->ai_addr, res->ai_addrlen) < 0) {
+			if (errno == EINPROGRESS || errno == EAGAIN) {
+				break;
+			}
+
+			cause = "connect";
+			error = errno;
+			close(s);
+			s = -1;
+			continue;
+		}
+
+		break;  /* okay we got one */
 	}
+
+	freeaddrinfo (res0);
+	ctx->sock = s;
+
+	if (s < 0) {
+		memc_log (ctx, __LINE__, "memc_make_tcp_sock: connect failed: %s: %s",
+				cause, strerror (error));
+		return -1;
+	}
+
 	/* Get write readiness */
 	if (poll_d (ctx->sock, 0, 1, ctx->timeout) == 1) {
 		ctx->opened = 1;
@@ -174,6 +167,7 @@ memc_make_tcp_sock (memcached_ctx_t *ctx)
 		close (ctx->sock);
 		ctx->sock = -1;
 	}
+
 	return -1;
 }
 
@@ -192,10 +186,10 @@ memc_parse_header (char *buf, size_t *len, char **end)
 		return -1;
 	}
 	*end = c + sizeof (CRLF) - 1;
-	
+
 	if (strncmp (buf, "VALUE ", sizeof ("VALUE ") - 1) == 0) {
 		p = buf + sizeof ("VALUE ") - 1;
-	
+
 		/* Read bytes value and ignore all other fields, such as flags and key */
 		for (i = 0; i < 2; i++) {
 			while (p++ < c && *p != ' ');
@@ -227,7 +221,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 	size_t datalen;
 	struct memc_udp_header header;
 	struct iovec iov[2];
-	
+
 	for (i = 0; i < *nelem; i++) {
 		if (ctx->protocol == UDP_TEXT) {
 			/* Send udp header */
@@ -303,7 +297,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				memc_log (ctx, __LINE__, "memc_read: user's buffer is too small: %zd, %zd required", params[i].bufsize, datalen);
 #else
 				memc_log (ctx, __LINE__, "memc_read: user's buffer is too small: %ld, %ld required", (long int)params[i].bufsize, 
-																									 (long int)datalen);
+						(long int)datalen);
 #endif
 				return WRONG_LENGTH;
 			}
@@ -360,7 +354,7 @@ memc_read (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, siz
 				}
 				r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
 			}
-			
+
 			p = read_buf;
 			sum += r;
 			if (r <= 0) {
@@ -395,7 +389,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 	ssize_t r;
 	struct memc_udp_header header;
 	struct iovec iov[4];
-	
+
 	for (i = 0; i < *nelem; i++) {
 		if (ctx->protocol == UDP_TEXT) {
 			/* Send udp header */
@@ -440,7 +434,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 				return SERVER_ERROR;
 			}
 		}
-		
+
 		/* Restore socket mode */
 		fcntl(ctx->sock, F_SETFL, ofl);
 		/* Read reply from server */
@@ -478,7 +472,7 @@ memc_write (memcached_ctx_t *ctx, const char *cmd, memcached_param_t *params, si
 		}
 		/* Increment count */
 		ctx->count++;
-		
+
 		if (strncmp (read_buf, STORED_TRAILER, sizeof (STORED_TRAILER) - 1) == 0) {
 			continue;
 		}
@@ -506,7 +500,7 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 	ssize_t r;
 	struct memc_udp_header header;
 	struct iovec iov[2];
-	
+
 	for (i = 0; i < *nelem; i++) {
 		if (ctx->protocol == UDP_TEXT) {
 			/* Send udp header */
@@ -560,7 +554,7 @@ memc_delete (memcached_ctx_t *ctx, memcached_param_t *params, size_t *nelem)
 			}
 			r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
 		}
-		
+
 		/* Increment count */
 		ctx->count++;
 		if (strncmp (read_buf, DELETED_TRAILER, sizeof (DELETED_TRAILER) - 1) == 0) {
@@ -671,17 +665,17 @@ memc_init_ctx (memcached_ctx_t *ctx)
 	ctx->alive = 1;
 
 	switch (ctx->protocol) {
-		case UDP_TEXT:
-			return memc_make_udp_sock (ctx);
-			break;
-		case TCP_TEXT:
-			return memc_make_tcp_sock (ctx);
-			break;
+	case UDP_TEXT:
+		return -1;
+		break;
+	case TCP_TEXT:
+		return memc_make_tcp_sock (ctx);
+		break;
 		/* Not implemented */
-		case UDP_BIN:
-		case TCP_BIN:
-		default:
-			return -1;
+	case UDP_BIN:
+	case TCP_BIN:
+	default:
+		return -1;
 	}
 }
 /*
@@ -717,7 +711,7 @@ int
 memc_close_ctx (memcached_ctx_t *ctx)
 {
 	int fd;
-	
+
 	if (!ctx->opened) {
 		return 0;
 	}
@@ -755,33 +749,33 @@ const char * memc_strerror (memc_error_t err)
 	const char *p;
 
 	switch (err) {
-		case OK:
-			p = "Ok";
-			break;
-		case BAD_COMMAND:
-			p = "Bad command";
-			break;
-		case CLIENT_ERROR:
-			p = "Client error";
-			break;
-		case SERVER_ERROR:
-			p = "Server error";
-			break;
-		case SERVER_TIMEOUT:
-			p = "Server timeout";
-			break;
-		case NOT_EXISTS:
-			p = "Key not found";
-			break;
-		case EXISTS:
-			p = "Key already exists";
-			break;
-		case WRONG_LENGTH:
-			p = "Wrong result length";
-			break;
-		default:
-			p = "Unknown error";
-			break;
+	case OK:
+		p = "Ok";
+		break;
+	case BAD_COMMAND:
+		p = "Bad command";
+		break;
+	case CLIENT_ERROR:
+		p = "Client error";
+		break;
+	case SERVER_ERROR:
+		p = "Server error";
+		break;
+	case SERVER_TIMEOUT:
+		p = "Server timeout";
+		break;
+	case NOT_EXISTS:
+		p = "Key not found";
+		break;
+	case EXISTS:
+		p = "Key already exists";
+		break;
+	case WRONG_LENGTH:
+		p = "Wrong result length";
+		break;
+	default:
+		p = "Unknown error";
+		break;
 	}
 
 	return p;
