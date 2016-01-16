@@ -641,12 +641,10 @@ init_defaults (struct config_file *cfg)
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->memcached_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
-	cfg->memcached_protocol = UDP_TEXT;
 
 	cfg->beanstalk_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->beanstalk_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
 	cfg->beanstalk_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
-	cfg->beanstalk_protocol = BEANSTALK_TCP_TEXT;
 	cfg->beanstalk_lifetime = DEFAULT_BEANSTALK_LIFETIME;
 	cfg->copy_server = NULL;
 	cfg->spam_server = NULL;

@@ -60,8 +60,7 @@ typedef enum bean_proto {
 
 /* Port must be in network byte order */
 typedef struct beanstalk_ctx_s {
-	bean_proto_t protocol;
-	struct in_addr addr;
+	char *addr;
 	uint16_t port;
 	int sock;
 	int timeout;

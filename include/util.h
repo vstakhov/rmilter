@@ -57,6 +57,15 @@ int rmilter_pidfile_write (rmilter_pidfh_t *pfh);
 int rmilter_pidfile_close (rmilter_pidfh_t *pfh);
 int rmilter_pidfile_remove (rmilter_pidfh_t *pfh);
 
+#define msg_err(args...) syslog(LOG_ERR, ##args)
+#define msg_warn(args...)	syslog(LOG_WARNING, ##args)
+#define msg_info(args...)	syslog(LOG_INFO, ##args)
+#ifdef WITH_DEBUG
+#define msg_debug(args...) syslog(LOG_DEBUG, ##args)
+#else
+#define msg_debug(args...) do {} while(0)
+#endif
+
 char * rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 		size_t *outlen);
 
