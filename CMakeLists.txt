@@ -33,7 +33,6 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 OPTION(ENABLE_DEBUG        "Enable debug output [default: OFF]"              OFF)
 OPTION(ENABLE_OPTIMIZATION "Enable optimization [default: OFF]"              OFF)
 OPTION(ENABLE_DKIM         "Enable dkim signatures [default: OFF]"           ON)
-OPTION(ENABLE_SPF          "Enable SPF checks [default: OFF]"                OFF)
 OPTION(WANT_SYSTEMD_UNITS  "Install systemd unit files on Linux [default: OFF]" OFF)
 
 ############################# INCLUDE SECTION #############################################
@@ -255,13 +254,6 @@ IF(ENABLE_DKIM MATCHES "ON")
 		ROOT ${OPENDKIM_ROOT_DIR} MODULES opendkim)
 ENDIF()
 
-IF(ENABLE_SPF MATCHES "ON")
-    SET(WITH_SPF 1)
-    ProcessPackage(LIBSPF2 LIBRARY spf2 INCLUDE spf2/spf.h
-    	INCLUDE_SUFFIXES include/spf include/spf2
-    	LIB_SUFFIXES lib/libspf2 lib64/libspf2 lib/libspf lib64/libspf
-		ROOT ${LIBSPF2_ROOT_DIR} MODULES libspf2)
-ENDIF()
 
 # Process with warn flags
 SET(CMAKE_C_WARN_FLAGS "")
@@ -394,10 +386,6 @@ SET(RMILTERSRC
                 cfg_yacc.c
                 src/cfg_file.c
                 src/rmilter.c)
-IF(ENABLE_SPF MATCHES "ON")
-    SET(RMILTERSRC ${RMILTERSRC}
-                    src/spf.c)
-ENDIF()
 
 LIST(APPEND RMILTER_REQUIRED_LIBRARIES m)
 LIST(APPEND RMILTER_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})

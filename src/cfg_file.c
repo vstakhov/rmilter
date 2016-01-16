@@ -29,7 +29,6 @@
 
 #include "pcre.h"
 #include "cfg_file.h"
-#include "spf.h"
 #include "rmilter.h"
 
 extern int yylineno;
@@ -501,22 +500,6 @@ create_cond(enum condition_type type, const char *arg1, const char *arg2)
 	return new;
 }
 
-int add_spf_domain(struct config_file *cfg, char *domain)
-{
-	if (!domain)
-		return 0;
-
-	if (cfg->spf_domains_num > MAX_SPF_DOMAINS) {
-		yyerror ("yyparse: too many domains, cannot add %s", domain);
-		return 0;
-	}
-
-	cfg->spf_domains[cfg->spf_domains_num] = domain;
-	cfg->spf_domains_num++;
-
-	return 1;
-}
-
 int add_ip_radix(radix_tree_t *tree, char *ipnet)
 {
 	uint32_t mask = 0xFFFFFFFF;
@@ -614,7 +597,6 @@ void init_defaults(struct config_file *cfg)
 	cfg->spamd_whitelist = radix_tree_create ();
 	cfg->greylisted_message = strdup (DEFAULT_GREYLISTED_MESSAGE);
 
-	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof(char *));
 	cfg->awl_enable = 0;
 	cfg->beanstalk_copy_prob = 100.0;
 
@@ -682,13 +664,6 @@ void free_config(struct config_file *cfg)
 	}
 	if (cfg->sock_cred) {
 		free (cfg->sock_cred);
-	}
-
-	if (cfg->spf_domains) {
-		for (i = 0; i < MAX_SPF_DOMAINS; i++) {
-			free (cfg->spf_domains[i]);
-		}
-		free (cfg->spf_domains);
 	}
 
 	if (cfg->special_mid_re) {

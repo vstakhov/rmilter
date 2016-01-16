@@ -1079,33 +1079,6 @@ mlfi_eom(SMFICTX * ctx)
 	else {
 		msg_warn ("mlfi_eom: %s: config was reloaded, not checking rules", priv->mlfi_id);
 	}
-#ifdef WITH_SPF
-	/*
-	 * Is the sender address SPF-compliant?
-	 */
-	if (cfg->spf_domains_num > 0) {
-		msg_debug ("mlfi_eom: %s: check spf", priv->mlfi_id);
-		r = spf_check (priv, cfg);
-		switch (r) {
-		case SPF_RESULT_PASS:
-		case SPF_RESULT_SOFTFAIL:
-		case SPF_RESULT_NEUTRAL:
-		case SPF_RESULT_NONE:
-			break;
-		case SPF_RESULT_FAIL:
-			if (!priv->has_whitelisted) {
-				snprintf (buf, sizeof (buf) - 1, "SPF policy violation. Host %s[%s] is not allowed to send mail as %s.",
-						(*priv->priv_hostname != '\0') ? priv->priv_hostname : "unresolved",
-						priv->priv_ip, priv->priv_from);
-				smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
-				CFG_UNLOCK();
-				mlfi_cleanup (ctx, false);
-				return SMFIS_REJECT;
-			}
-			break;
-		}
-	}
-#endif
 
 	if (priv->complete_to_beanstalk) {
 		/* Set actual pos to send all message to beanstalk */

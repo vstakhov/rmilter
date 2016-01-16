@@ -313,10 +313,6 @@ struct config_file {
 
 	LIST_HEAD (ruleset, rule) rules;
 
-	/* Must be sorted */
-	char **spf_domains;
-	size_t spf_domains_num;
-
 	char use_dcc;
 	char strict_auth;
 	char weighted_clamav;
@@ -370,7 +366,6 @@ int add_spamd_server (struct config_file *cf, char *str, int is_extra);
 int add_beanstalk_server (struct config_file *cf, char *str, int is_copy);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
-int add_spf_domain (struct config_file *cfg, char *domain);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
 int add_ip_radix (radix_tree_t *tree, char *ipnet);

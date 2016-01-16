@@ -706,22 +706,13 @@ spf_params:
 
 spf_domain:
 	DOMAIN_STR {
-		if (!add_spf_domain (cfg, $1)) {
-			yyerror ("yyparse: add_spf_domain");
-			YYERROR;
-		}
+		yywarn ("spf support is removed from rmilter");
 	}
 	| STRING {
-		if (!add_spf_domain (cfg, $1)) {
-			yyerror ("yyparse: add_spf_domain");
-			YYERROR;
-		}
+		yywarn ("spf support is removed from rmilter");
 	}
 	| QUOTEDSTRING {
-		if (!add_spf_domain (cfg, $1)) {
-			yyerror ("yyparse: add_spf_domain");
-			YYERROR;
-		}
+		yywarn ("spf support is removed from rmilter");
 	}
 	;
 
