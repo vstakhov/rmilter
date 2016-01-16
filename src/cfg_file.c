@@ -557,6 +557,7 @@ int add_ip_radix(radix_tree_t *tree, char *ipnet)
 	return 1;
 }
 
+#ifdef WITH_DKIM
 static void add_hashed_header(const char *name, struct dkim_hash_entry **hash)
 {
 	struct dkim_hash_entry *new;
@@ -565,6 +566,7 @@ static void add_hashed_header(const char *name, struct dkim_hash_entry **hash)
 	new->name = strdup (name);
 	HASH_ADD_KEYPTR(hh, *hash, new->name, strlen (new->name), new);
 }
+#endif
 
 void init_defaults(struct config_file *cfg)
 {

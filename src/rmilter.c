@@ -38,6 +38,7 @@
 #include "cfg_file.h"
 #include "rmilter.h"
 #include "regexp.h"
+#include "cache.h"
 #ifdef HAVE_DCC
 #include "dccif.h"
 #endif
@@ -231,16 +232,14 @@ static void
 check_message_id (struct mlfi_priv *priv, char *header)
 {
 	blake2b_state mdctx;
-	u_char final[BLAKE2B_OUTBYTES], param = '0';
-	char md5_out[BLAKE2B_OUTBYTES * 2 + 1], *c, ipout[INET_ADDRSTRLEN + 1];
-	struct memcached_server *selected;
-	memcached_ctx_t mctx;
-	memcached_param_t cur_param;
-	int r;
-	size_t s = strlen (header);
+	u_char final[BLAKE2B_OUTBYTES], *dbuf;
+	char md5_out[BLAKE2B_OUTBYTES * 2 + 1], *c, key[MAXKEYLEN];
+	int r, keylen;
+	size_t s, dlen;
 
 	/* First of all do regexp check of message to determine special message id */
 	if (cfg->special_mid_re) {
+		s = strlen (header);
 		if ((r = pcre_exec (cfg->special_mid_re, NULL, header, s, 0, 0, NULL, 0)) >= 0) {
 			priv->complete_to_beanstalk = 1;
 		}
@@ -249,11 +248,6 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	if (cfg->memcached_servers_id_num == 0) {
 		return;
 	}
-
-	bzero (&cur_param, sizeof (cur_param));
-
-	cur_param.buf = &param;
-	cur_param.bufsize = sizeof (param);
 
 	blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
 	/* Check reply message id in memcached */
@@ -267,55 +261,27 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		s -= snprintf (md5_out + r * 2, s, "%02x", final[r]);
 	}
 
-	c = cur_param.key;
-	s = sizeof (cur_param.key);
+	c = key;
+	s = sizeof (key);
 	if (cfg->id_prefix) {
 		s = rmilter_strlcpy (c, cfg->id_prefix, s);
 		c += s;
 	}
-	if (sizeof (cur_param.key) - s > sizeof (md5_out)) {
+	if (sizeof (key) - s > sizeof (md5_out)) {
 		memcpy (c, md5_out, sizeof (md5_out));
 	}
 	else {
 		msg_warn ("check_id: id_prefix(%s) too long for memcached key, error in configure", cfg->id_prefix);
-		memcpy (c, md5_out, sizeof (cur_param.key) - s);
+		memcpy (c, md5_out, sizeof (key) - s);
 	}
 
-	selected = (struct memcached_server *) get_upstream_by_hash ((void *)cfg->memcached_servers_id,
-			cfg->memcached_servers_id_num, sizeof (struct memcached_server),
-			(time_t)priv->conn_tm.tv_sec, cfg->memcached_error_time,
-			cfg->memcached_dead_time, cfg->memcached_maxerrors,
-			(char *)cur_param.key, strlen (cur_param.key));
-	if (selected == NULL) {
-		msg_err ("mlfi_data: cannot get memcached upstream for storing message id");
-		return;
-	}
+	keylen = strlen (key);
+	dlen = 1;
 
-	mctx.protocol = cfg->memcached_protocol;
-	memcpy(&mctx.addr, &selected->addr[0], sizeof (struct in_addr));
-	mctx.port = selected->port[0];
-	mctx.timeout = cfg->memcached_connect_timeout;
-	mctx.alive = selected->alive[0];
-#ifdef WITH_DEBUG
-	mctx.options = MEMC_OPT_DEBUG;
-#else
-	mctx.options = 0;
-#endif
-
-	r = memc_init_ctx(&mctx);
-	if (r == -1) {
-		msg_warn ("mlfi_data: cannot connect to memcached upstream: %s",
-				inet_ntop (AF_INET, &selected->addr[0], ipout, sizeof (ipout)));
-		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
-		return;
-	}
-	r = MEMC_OK;
-
-	r = memc_get (&mctx, &cur_param, &s);
-	if (r == MEMC_OK) {
+	r = rmilter_query_cache(cfg, RMILTER_QUERY_ID, key, keylen, &dbuf, &dlen);
+	if (r) {
+		free (dbuf);
 		/* Turn off strict checks if message id is found */
-		memc_close_ctx (&mctx);
-		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
 		priv->strict = 0;
 		rmilter_strlcpy (priv->reply_id, header, sizeof (priv->reply_id));
 		msg_info ("check_message_id: %s: from %s[%s] from=<%s> to=<%s> is reply to our message %s; "
@@ -328,13 +294,6 @@ check_message_id (struct mlfi_priv *priv, char *header)
 						priv->reply_id);
 		return;
 	}
-	else if (r != MEMC_NOT_EXISTS) {
-		msg_err ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
-		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
-		memc_close_ctx (&mctx);
-		return;
-	}
-	memc_close_ctx (&mctx);
 
 }
 
@@ -387,7 +346,6 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	int r, fd;
 	void *map;
 	struct stat st;
-	char ipout[INET_ADDRSTRLEN + 1];
 
 	/* Open and mmap file */
 	if (!*priv->file) {
@@ -416,8 +374,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	}
 
 	close (fd);
-	bctx.protocol = cfg->beanstalk_protocol;
-	memcpy (&bctx.addr, &srv->addr, sizeof (struct in_addr));
+	bctx.addr = srv->name;
 	bctx.port = srv->port;
 	bctx.timeout = cfg->beanstalk_connect_timeout;
 
@@ -425,7 +382,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	if (r == -1) {
 		munmap (map, st.st_size);
 		msg_warn ("send_beanstalk_copy: cannot connect to beanstalk upstream: %s",
-				inet_ntop (AF_INET, &srv->addr, ipout, sizeof (ipout)));
+				srv->name);
 		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
 		return;
 	}
@@ -463,10 +420,9 @@ send_beanstalk (const struct mlfi_priv *priv)
 	size_t s;
 	int r, fd;
 	void *map;
-	char ipout[INET_ADDRSTRLEN + 1];
 
-
-	selected = (struct beanstalk_server *) get_random_upstream ((void *)cfg->beanstalk_servers,
+	selected = (struct beanstalk_server *) get_random_upstream (
+			(void *)cfg->beanstalk_servers,
 			cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
 			priv->conn_tm.tv_sec, cfg->beanstalk_error_time,
 			cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors);
@@ -497,8 +453,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 
 	close (fd);
 
-	bctx.protocol = cfg->beanstalk_protocol;
-	memcpy(&bctx.addr, &selected->addr, sizeof (struct in_addr));
+	bctx.addr = selected->name;
 	bctx.port = selected->port;
 	bctx.timeout = cfg->beanstalk_connect_timeout;
 
@@ -506,7 +461,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 	if (r == -1) {
 		msg_warn ("send_beanstalk: %s: cannot connect to beanstalk upstream: %s",
 				priv->mlfi_id,
-				inet_ntop (AF_INET, &selected->addr, ipout, sizeof (ipout)));
+				selected->name);
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		munmap (map, priv->eoh_pos);
 		return;
@@ -533,7 +488,6 @@ send_beanstalk (const struct mlfi_priv *priv)
 		return;
 	}
 	bean_close_ctx (&bctx);
-
 }
 
 static void
