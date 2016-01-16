@@ -60,4 +60,8 @@ int rmilter_pidfile_remove (rmilter_pidfh_t *pfh);
 char * rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 		size_t *outlen);
 
+#define msec_to_tv(msec, tv) do { (tv)->tv_sec = (msec) / 1000; (tv)->tv_usec = \
+		((msec) - (tv)->tv_sec * 1000) * 1000; \
+} while (0)
+
 #endif /* UTIL_H_ */

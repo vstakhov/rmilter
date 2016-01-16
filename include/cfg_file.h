@@ -28,6 +28,7 @@
 #ifndef CFG_FILE_H
 #define CFG_FILE_H
 
+#include "config.h"
 #include "util.h"
 #include "pcre.h"
 #include "upstream.h"
@@ -190,12 +191,11 @@ struct spamd_server {
 	char *name;
 };
 
-struct memcached_server {
+struct cache_server {
 	struct upstream up;
-	struct in_addr addr[2];
-	uint16_t port[2];
-	short alive[2];
-	short int num;
+	char *addr;
+	int port;
+	bool is_redis;
 };
 
 struct beanstalk_server {
@@ -292,15 +292,16 @@ struct config_file {
 
 	pcre* special_mid_re;
 
-	struct memcached_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
+	bool use_redis;
+
+	struct cache_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_limits_num;
-	struct memcached_server memcached_servers_grey[MAX_MEMCACHED_SERVERS];
+	struct cache_server memcached_servers_grey[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_grey_num;
-	struct memcached_server memcached_servers_white[MAX_MEMCACHED_SERVERS];
+	struct cache_server memcached_servers_white[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_white_num;
-	struct memcached_server memcached_servers_id[MAX_MEMCACHED_SERVERS];
+	struct cache_server memcached_servers_id[MAX_MEMCACHED_SERVERS];
 	size_t memcached_servers_id_num;
-	memc_proto_t memcached_protocol;
 	unsigned int memcached_error_time;
 	unsigned int memcached_dead_time;
 	unsigned int memcached_maxerrors;
@@ -316,7 +317,6 @@ struct config_file {
 	char send_beanstalk_headers;
 	char send_beanstalk_extra_diff;
 
-	memc_proto_t beanstalk_protocol;
 	unsigned int beanstalk_error_time;
 	unsigned int beanstalk_dead_time;
 	unsigned int beanstalk_maxerrors;

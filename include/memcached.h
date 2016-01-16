@@ -55,7 +55,7 @@ typedef enum memc_proto {
 /* Port must be in network byte order */
 typedef struct memcached_ctx_s {
 	memc_proto_t protocol;
-	struct in_addr addr;
+	const char *addr;
 	uint16_t port;
 	int sock;
 	int timeout;

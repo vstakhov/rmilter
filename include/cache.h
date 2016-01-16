@@ -54,6 +54,6 @@ bool rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 
 bool rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 		const unsigned char *key, size_t keylen,
-		const unsigned char *data, size_t datalen);
+		const unsigned char *data, size_t datalen, unsigned expire);
 
 #endif /* INCLUDE_CACHE_H_ */

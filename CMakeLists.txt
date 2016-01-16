@@ -380,11 +380,11 @@ SET(RMILTERSRC
                 src/upstream.c
                 src/util.c
                 src/regexp.c
-                src/libclamc.c
-                src/ratelimit.c
+                src/cache.c
                 src/memcached.c
                 src/beanstalk.c
-                src/cache.c
+                src/libclamc.c
+                src/ratelimit.c
                 src/main.c
                 src/radix.c
                 src/awl.c
