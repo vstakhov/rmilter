@@ -998,16 +998,7 @@ memcached_connect_timeout:
 
 memcached_protocol:
 	PROTOCOL EQSIGN STRING {
-		if (strncasecmp ($3, "udp", sizeof ("udp") - 1) == 0) {
-			cfg->memcached_protocol = UDP_TEXT;
-		}
-		else if (strncasecmp ($3, "tcp", sizeof ("tcp") - 1) == 0) {
-			cfg->memcached_protocol = TCP_TEXT;
-		}
-		else {
-			yyerror ("yyparse: cannot recognize protocol: %s", $3);
-			YYERROR;
-		}
+		/* Do nothing now*/
 	}
 	;
 memcached_id_prefix:
@@ -1127,16 +1118,7 @@ beanstalk_connect_timeout:
 
 beanstalk_protocol:
 	PROTOCOL EQSIGN STRING {
-		if (strncasecmp ($3, "udp", sizeof ("udp") - 1) == 0) {
-			cfg->beanstalk_protocol = BEANSTALK_UDP_TEXT;
-		}
-		else if (strncasecmp ($3, "tcp", sizeof ("tcp") - 1) == 0) {
-			cfg->beanstalk_protocol = BEANSTALK_TCP_TEXT;
-		}
-		else {
-			yyerror ("yyparse: cannot recognize protocol: %s", $3);
-			YYERROR;
-		}
+		/* Do nothing */
 	}
 	;
 beanstalk_id_regexp:

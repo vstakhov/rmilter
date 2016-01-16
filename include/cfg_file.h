@@ -190,9 +190,7 @@ struct cache_server {
 
 struct beanstalk_server {
 	struct upstream up;
-	struct in_addr addr;
 	uint16_t port;
-
 	char *name;
 };
 

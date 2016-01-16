@@ -35,48 +35,47 @@
 extern int yylineno;
 extern char *yytext;
 
-void
-parse_err (const char *fmt, ...)
+void parse_err(const char *fmt, ...)
 {
 	va_list aq;
 	char logbuf[BUFSIZ], readbuf[32];
 	int r;
 
 	va_start (aq, fmt);
-	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
+	rmilter_strlcpy (readbuf, yytext, sizeof(readbuf));
 
-	r = snprintf (logbuf, sizeof (logbuf), "config file parse error! line: %d, "
+	r = snprintf(logbuf, sizeof(logbuf), "config file parse error! line: %d, "
 			"text: %s, reason: ", yylineno, readbuf);
-	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
+	r += vsnprintf(logbuf + r, sizeof(logbuf) - r, fmt, aq);
 
 	va_end (aq);
-	fprintf (stderr,"%s\n", logbuf);
+	fprintf (stderr, "%s\n", logbuf);
 	syslog (LOG_ERR, "%s", logbuf);
 }
 
-void
-parse_warn (const char *fmt, ...)
+void parse_warn(const char *fmt, ...)
 {
 	va_list aq;
 	char logbuf[BUFSIZ], readbuf[32];
 	int r;
 
 	va_start (aq, fmt);
-	rmilter_strlcpy (readbuf, yytext, sizeof (readbuf));
+	rmilter_strlcpy (readbuf, yytext, sizeof(readbuf));
 
-	r = snprintf (logbuf, sizeof (logbuf), "config file parse warning! line: %d, text: %s, reason: ", yylineno, readbuf);
-	r += vsnprintf (logbuf + r, sizeof (logbuf) - r, fmt, aq);
+	r = snprintf(logbuf, sizeof(logbuf),
+			"config file parse warning! line: %d, text: %s, reason: ", yylineno,
+			readbuf);
+	r += vsnprintf(logbuf + r, sizeof(logbuf) - r, fmt, aq);
 
 	va_end (aq);
 	syslog (LOG_ERR, "%s", logbuf);
 }
 
-
-static size_t
-copy_regexp (char **dst, const char *src)
+static size_t copy_regexp(char **dst, const char *src)
 {
 	size_t len;
-	if (!src || *src == '\0') return 0;
+	if (!src || *src == '\0')
+		return 0;
 
 	len = strlen (src);
 
@@ -90,121 +89,89 @@ copy_regexp (char **dst, const char *src)
 	}
 
 	*dst = malloc (len + 1);
-	if (!*dst) return 0;
+	if (!*dst)
+		return 0;
 
 	return rmilter_strlcpy (*dst, src, len + 1);
 }
 
-int
-add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
+int add_memcached_server(struct config_file *cf, char *str, char *str2,
+		int type)
 {
 	char *cur_tok, *err_str;
-	struct memcached_server *mc = NULL;
-	struct hostent *he;
+	struct cache_server *mc = NULL;
 	uint16_t port;
 
-	if (str == NULL) return 0;
+	if (str == NULL)
+		return 0;
 
 	if (type == MEMCACHED_SERVER_GREY) {
-		if(cf->memcached_servers_grey_num == MAX_MEMCACHED_SERVERS) {
-			yyerror ("yyparse: maximum number of memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+		if (cf->memcached_servers_grey_num == MAX_MEMCACHED_SERVERS) {
+			yyerror (
+					"yyparse: maximum number of memcached servers is reached %d",
+					MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
 		mc = &cf->memcached_servers_grey[cf->memcached_servers_grey_num];
 	}
 	else if (type == MEMCACHED_SERVER_WHITE) {
-		if(cf->memcached_servers_white_num == MAX_MEMCACHED_SERVERS) {
-			yyerror ("yyparse: maximum number of whitelist memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+		if (cf->memcached_servers_white_num == MAX_MEMCACHED_SERVERS) {
+			yyerror (
+					"yyparse: maximum number of whitelist memcached servers is reached %d",
+					MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
 		mc = &cf->memcached_servers_white[cf->memcached_servers_white_num];
 	}
 	else if (type == MEMCACHED_SERVER_LIMITS) {
-		if(cf->memcached_servers_limits_num == MAX_MEMCACHED_SERVERS) {
-			yyerror ("yyparse: maximum number of limits memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+		if (cf->memcached_servers_limits_num == MAX_MEMCACHED_SERVERS) {
+			yyerror (
+					"yyparse: maximum number of limits memcached servers is reached %d",
+					MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
 		mc = &cf->memcached_servers_limits[cf->memcached_servers_limits_num];
 	}
 	else if (type == MEMCACHED_SERVER_ID) {
-		if(cf->memcached_servers_id_num == MAX_MEMCACHED_SERVERS) {
-			yyerror ("yyparse: maximum number of id memcached servers is reached %d", MAX_MEMCACHED_SERVERS);
+		if (cf->memcached_servers_id_num == MAX_MEMCACHED_SERVERS) {
+			yyerror (
+					"yyparse: maximum number of id memcached servers is reached %d",
+					MAX_MEMCACHED_SERVERS);
 			return 0;
 		}
 
 		mc = &cf->memcached_servers_id[cf->memcached_servers_id_num];
 	}
-	if (mc == NULL) return 0;
+	if (mc == NULL)
+		return 0;
 
 	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+	if (cur_tok == NULL || *cur_tok == '\0')
+		return 0;
 
 	/* cur_tok - server name, str - server port */
 	if (str == NULL) {
 		port = htons(DEFAULT_MEMCACHED_PORT);
 	}
 	else {
-		port = htons ((uint16_t)strtoul (str, &err_str, 10));
+		port = htons((uint16_t )strtoul (str, &err_str, 10));
 		if (*err_str != '\0') {
 			yyerror ("yyparse: bad memcached port: %s", str);
 			return 0;
 		}
 	}
 
-	if (!inet_aton (cur_tok, &mc->addr[0])) {
-		/* Try to call gethostbyname */
-		he = gethostbyname (cur_tok);
-		if (he == NULL) {
-			yyerror ("yyparse: bad memcached host: %s", cur_tok);
-			return 0;
-		}
-		else {
-			memcpy((char *)&mc->addr[0], he->h_addr, sizeof(struct in_addr));
-		}
+	mc->addr = strdup (cur_tok);
+	mc->port = port;
+
+	if (str2 != NULL) {
+		msg_warn("mirrored servers are no longer supported; "
+				"server %s will be ignored", str2);
 	}
-	mc->port[0] = port;
-
-	if (str2 == NULL) {
-		mc->num = 1;
-	}
-	else {
-		mc->num = 2;
-		cur_tok = strsep (&str2, ":");
-
-		if (cur_tok == NULL || *cur_tok == '\0') return 0;
-
-		/* cur_tok - server name, str - server port */
-		if (str2 == NULL) {
-			port = htons(DEFAULT_MEMCACHED_PORT);
-		}
-		else {
-			port = htons ((uint16_t)strtoul (str2, &err_str, 10));
-			if (*err_str != '\0') {
-				yyerror ("yyparse: bad memcached port: %s", str2);
-				return 0;
-			}
-		}
-
-		if (!inet_aton (cur_tok, &mc->addr[1])) {
-			/* Try to call gethostbyname */
-			he = gethostbyname (cur_tok);
-			if (he == NULL) {
-				yyerror ("yyparse: bad memcached host: %s", cur_tok);
-				return 0;
-			}
-			else {
-				memcpy((char *)&mc->addr[1], he->h_addr, sizeof(struct in_addr));
-			}
-		}
-		mc->port[1] = port;
-	}
-
-	mc->alive[0] = 1;
-	mc->alive[1] = 1;
 
 	if (type == MEMCACHED_SERVER_GREY) {
 		cf->memcached_servers_grey_num++;
@@ -222,26 +189,29 @@ add_memcached_server (struct config_file *cf, char *str, char *str2, int type)
 	return 1;
 }
 
-int
-add_clamav_server (struct config_file *cf, char *str)
+int add_clamav_server(struct config_file *cf, char *str)
 {
 	char *cur_tok, *err_str;
 	struct clamav_server *srv;
 	struct hostent *he;
 
-	if (str == NULL) return 0;
+	if (str == NULL)
+		return 0;
 
 	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+	if (cur_tok == NULL || *cur_tok == '\0')
+		return 0;
 
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
-		yyerror ("yyparse: maximum number of clamav servers is reached %d", MAX_CLAMAV_SERVERS);
+		yyerror ("yyparse: maximum number of clamav servers is reached %d",
+				MAX_CLAMAV_SERVERS);
 	}
 
 	srv = &cf->clamav_servers[cf->clamav_servers_num];
 
-	if (srv == NULL) return 0;
+	if (srv == NULL)
+		return 0;
 
 	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
 		srv->sock.unix_path = strdup (cur_tok);
@@ -250,8 +220,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		if (str != NULL && *str != '\0') {
 			srv->up.priority = strtoul (str, &err_str, 10);
 			if (*err_str != '\0') {
-				yyerror ("yyparse: bad clamav port %s",
-						str);
+				yyerror ("yyparse: bad clamav port %s", str);
 				return 0;
 			}
 			cf->weighted_clamav = 1;
@@ -260,12 +229,13 @@ add_clamav_server (struct config_file *cf, char *str)
 		cf->clamav_servers_num++;
 		return 1;
 
-	} else {
+	}
+	else {
 		if (str == '\0') {
-			srv->sock.inet.port = htons (DEFAULT_CLAMAV_PORT);
+			srv->sock.inet.port = htons(DEFAULT_CLAMAV_PORT);
 		}
 		else {
-			srv->sock.inet.port = htons ((uint16_t)strtoul (str, &err_str, 10));
+			srv->sock.inet.port = htons((uint16_t )strtoul (str, &err_str, 10));
 			if (*err_str != '\0') {
 				return 0;
 			}
@@ -276,13 +246,13 @@ add_clamav_server (struct config_file *cf, char *str)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
-				yyerror ("yyparse: bad clamav host %s",
-						cur_tok);
+				yyerror ("yyparse: bad clamav host %s", cur_tok);
 				return 0;
 			}
 			else {
 				srv->name = strdup (cur_tok);
-				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
+				memcpy((char * )&srv->sock.inet.addr, he->h_addr,
+						sizeof(struct in_addr));
 			}
 		}
 		/* Try to parse priority */
@@ -290,8 +260,7 @@ add_clamav_server (struct config_file *cf, char *str)
 		if (str != NULL && *str != '\0') {
 			srv->up.priority = strtoul (str, &err_str, 10);
 			if (*err_str != '\0') {
-				yyerror ("yyparse: bad clamav priority %s",
-						str);
+				yyerror ("yyparse: bad clamav priority %s", str);
 				return 0;
 			}
 			cf->weighted_clamav = 1;
@@ -305,24 +274,26 @@ add_clamav_server (struct config_file *cf, char *str)
 	return 0;
 }
 
-int
-add_spamd_server (struct config_file *cf, char *str, int is_extra)
+int add_spamd_server(struct config_file *cf, char *str, int is_extra)
 {
 	char *cur_tok, *err_str;
 	struct spamd_server *srv;
 	struct hostent *he;
 
-	if (str == NULL) return 0;
+	if (str == NULL)
+		return 0;
 
 	if (is_extra) {
 		if (cf->extra_spamd_servers_num == MAX_SPAMD_SERVERS) {
-			yyerror ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+			yyerror ("yyparse: maximum number of spamd servers is reached %d",
+					MAX_SPAMD_SERVERS);
 			return -1;
 		}
 	}
 	else {
 		if (cf->spamd_servers_num == MAX_SPAMD_SERVERS) {
-			yyerror ("yyparse: maximum number of spamd servers is reached %d", MAX_SPAMD_SERVERS);
+			yyerror ("yyparse: maximum number of spamd servers is reached %d",
+					MAX_SPAMD_SERVERS);
 			return -1;
 		}
 	}
@@ -342,10 +313,10 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 		srv->type = SPAMD_SPAMASSASSIN;
 	}
 
-
 	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+	if (cur_tok == NULL || *cur_tok == '\0')
+		return 0;
 
 	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
 		srv->sock.unix_path = strdup (cur_tok);
@@ -360,15 +331,15 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 		}
 		return 1;
 
-	} else {
+	}
+	else {
 		if (str == '\0') {
-			srv->sock.inet.port = htons (DEFAULT_SPAMD_PORT);
+			srv->sock.inet.port = htons(DEFAULT_SPAMD_PORT);
 		}
 		else {
-			srv->sock.inet.port = htons ((uint16_t)strtoul (str, &err_str, 10));
+			srv->sock.inet.port = htons((uint16_t )strtoul (str, &err_str, 10));
 			if (*err_str != '\0') {
-				yyerror ("yyparse: bad spamd port %s",
-						str);
+				yyerror ("yyparse: bad spamd port %s", str);
 				return 0;
 			}
 		}
@@ -377,12 +348,12 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 			/* Try to call gethostbyname */
 			he = gethostbyname (cur_tok);
 			if (he == NULL) {
-				yyerror ("yyparse: bad spamd host %s",
-						cur_tok);
+				yyerror ("yyparse: bad spamd host %s", cur_tok);
 				return 0;
 			}
 			else {
-				memcpy((char *)&srv->sock.inet.addr, he->h_addr, sizeof(struct in_addr));
+				memcpy((char * )&srv->sock.inet.addr, he->h_addr,
+						sizeof(struct in_addr));
 			}
 		}
 		srv->name = strdup (cur_tok);
@@ -400,95 +371,81 @@ add_spamd_server (struct config_file *cf, char *str, int is_extra)
 	return 0;
 }
 
-int
-add_beanstalk_server (struct config_file *cf, char *str, int type)
+int add_beanstalk_server(struct config_file *cf, char *str, int type)
 {
 	char *cur_tok, *err_str;
 	struct beanstalk_server *srv;
 	struct hostent *he;
 
-	if (str == NULL) return 0;
+	if (str == NULL)
+		return 0;
 
 	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0') return 0;
+	if (cur_tok == NULL || *cur_tok == '\0')
+		return 0;
 
 	if (type == 1) {
-		cf->copy_server = malloc (sizeof (struct beanstalk_server));
+		cf->copy_server = malloc (sizeof(struct beanstalk_server));
 		srv = cf->copy_server;
 	}
 	else if (type == 2) {
-		cf->spam_server = malloc (sizeof (struct beanstalk_server));
+		cf->spam_server = malloc (sizeof(struct beanstalk_server));
 		srv = cf->spam_server;
 	}
 	else {
 		if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
-			yyerror ("yyparse: maximum number of beanstalk servers is reached %d", MAX_BEANSTALK_SERVERS);
+			yyerror (
+					"yyparse: maximum number of beanstalk servers is reached %d",
+					MAX_BEANSTALK_SERVERS);
 		}
 
 		srv = &cf->beanstalk_servers[cf->beanstalk_servers_num];
 	}
 
-	if (srv == NULL) return 0;
+	if (srv == NULL)
+		return 0;
 
 	if (str == '\0') {
-		srv->port = htons (DEFAULT_BEANSTALK_PORT);
+		srv->port = htons(DEFAULT_BEANSTALK_PORT);
 	}
 	else {
-		srv->port = htons ((uint16_t)strtoul (str, &err_str, 10));
+		srv->port = htons((uint16_t )strtoul (str, &err_str, 10));
 		if (*err_str != '\0') {
-			yyerror ("yyparse: bad beanstalk port %s",
-					str);
+			yyerror ("yyparse: bad beanstalk port %s", str);
 			return 0;
 		}
 	}
 
-	if (!inet_aton (cur_tok, &srv->addr)) {
-		/* Try to call gethostbyname */
-		he = gethostbyname (cur_tok);
-		if (he == NULL) {
-			yyerror ("yyparse: bad beanstalk host %s",
-					cur_tok);
-			return 0;
-		}
-		else {
-			srv->name = strdup (cur_tok);
-			memcpy((char *)&srv->addr, he->h_addr, sizeof(struct in_addr));
-		}
-		if (type == 0) {
-			cf->beanstalk_servers_num ++;
-		}
-		return 1;
-	}
-	else {
-		srv->name = strdup (cur_tok);
-		if (type == 0) {
-			cf->beanstalk_servers_num ++;
-		}
-		return 1;
+	srv->name = strdup (cur_tok);
+
+	if (type == 0) {
+		cf->beanstalk_servers_num++;
 	}
 
-
-	return 0;
+	return 1;
 }
 
 struct action *
-create_action (enum action_type type, const char *message)
+create_action(enum action_type type, const char *message)
 {
 	struct action *new;
 	size_t len = strlen (message);
 
-	if (message == NULL) return NULL;
+	if (message == NULL)
+		return NULL;
 
-	new = (struct action *)malloc (sizeof (struct action));
+	new = (struct action *) malloc (sizeof(struct action));
 
-	if (new == NULL) return NULL;
+	if (new == NULL)
+		return NULL;
 
 	new->type = type;
 
-	new->message = (char *)malloc (len + 1);
+	new->message = (char *) malloc (len + 1);
 
-	if (new->message == NULL) return NULL;
+	if (new->message == NULL)
+		return NULL;
 
 	rmilter_strlcpy (new->message, message, len + 1);
 
@@ -496,16 +453,17 @@ create_action (enum action_type type, const char *message)
 }
 
 struct condition *
-create_cond (enum condition_type type, const char *arg1, const char *arg2)
+create_cond(enum condition_type type, const char *arg1, const char *arg2)
 {
 	struct condition *new;
 	int offset;
 	const char *read_err;
 
-	new = (struct condition *)malloc (sizeof (struct condition));
-	bzero (new, sizeof (struct condition));
+	new = (struct condition *) malloc (sizeof(struct condition));
+	bzero (new, sizeof(struct condition));
 
-	if (new == NULL) return NULL;
+	if (new == NULL)
+		return NULL;
 
 	if (arg1 == NULL || *arg1 == '\0') {
 		new->args[0].empty = 1;
@@ -515,7 +473,8 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 			new->args[0].empty = 1;
 		}
 		else {
-			new->args[0].re = pcre_compile (new->args[0].src, 0, &read_err, &offset, NULL);
+			new->args[0].re = pcre_compile (new->args[0].src, 0, &read_err,
+					&offset, NULL);
 			if (new->args[0].re == NULL) {
 				new->args[0].empty = 1;
 			}
@@ -529,7 +488,8 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 			new->args[1].empty = 1;
 		}
 		else {
-			new->args[1].re = pcre_compile (new->args[1].src, 0, &read_err, &offset, NULL);
+			new->args[1].re = pcre_compile (new->args[1].src, 0, &read_err,
+					&offset, NULL);
 			if (new->args[1].re == NULL) {
 				new->args[1].empty = 1;
 			}
@@ -541,25 +501,23 @@ create_cond (enum condition_type type, const char *arg1, const char *arg2)
 	return new;
 }
 
-int
-add_spf_domain (struct config_file *cfg, char *domain)
+int add_spf_domain(struct config_file *cfg, char *domain)
 {
-	if (!domain) return 0;
+	if (!domain)
+		return 0;
 
 	if (cfg->spf_domains_num > MAX_SPF_DOMAINS) {
-		yyerror ("yyparse: too many domains, cannot add %s",
-				domain);
+		yyerror ("yyparse: too many domains, cannot add %s", domain);
 		return 0;
 	}
 
 	cfg->spf_domains[cfg->spf_domains_num] = domain;
-	cfg->spf_domains_num ++;
+	cfg->spf_domains_num++;
 
 	return 1;
 }
 
-int
-add_ip_radix (radix_tree_t *tree, char *ipnet)
+int add_ip_radix(radix_tree_t *tree, char *ipnet)
 {
 	uint32_t mask = 0xFFFFFFFF;
 	uint32_t ip;
@@ -584,36 +542,36 @@ add_ip_radix (radix_tree_t *tree, char *ipnet)
 		return 0;
 	}
 
-	ip = ntohl((uint32_t)ina.s_addr);
+	ip = ntohl((uint32_t )ina.s_addr);
 	k = radix32tree_insert (tree, ip, mask, 1);
 	if (k == -1) {
-		yyerror ("add_ip_radix: cannot insert ip to tree: %s, mask %X", inet_ntoa (ina), mask);
+		yyerror ("add_ip_radix: cannot insert ip to tree: %s, mask %X",
+				inet_ntoa (ina), mask);
 		return 0;
 	}
 	else if (k == 1) {
-		yywarn ("add_ip_radix: ip %s, mask %X, value already exists", inet_ntoa (ina), mask);
+		yywarn ("add_ip_radix: ip %s, mask %X, value already exists",
+				inet_ntoa (ina), mask);
 	}
 
 	return 1;
 }
 
-static void
-add_hashed_header (const char *name, struct dkim_hash_entry **hash)
+static void add_hashed_header(const char *name, struct dkim_hash_entry **hash)
 {
 	struct dkim_hash_entry *new;
 
-	new = malloc (sizeof (struct dkim_hash_entry));
+	new = malloc (sizeof(struct dkim_hash_entry));
 	new->name = strdup (name);
-	HASH_ADD_KEYPTR (hh, *hash, new->name, strlen (new->name), new);
+	HASH_ADD_KEYPTR(hh, *hash, new->name, strlen (new->name), new);
 }
 
-void
-init_defaults (struct config_file *cfg)
+void init_defaults(struct config_file *cfg)
 {
-	LIST_INIT (&cfg->rules);
+	LIST_INIT(&cfg->rules);
 	cfg->wlist_rcpt_global = NULL;
 	cfg->wlist_rcpt_limit = NULL;
-	LIST_INIT (&cfg->bounce_addrs);
+	LIST_INIT(&cfg->bounce_addrs);
 
 	cfg->clamav_connect_timeout = DEFAULT_CLAMAV_CONNECT_TIMEOUT;
 	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
@@ -654,7 +612,7 @@ init_defaults (struct config_file *cfg)
 	cfg->spamd_whitelist = radix_tree_create ();
 	cfg->greylisted_message = strdup (DEFAULT_GREYLISTED_MESSAGE);
 
-	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof (char *));
+	cfg->spf_domains = (char **) calloc (MAX_SPF_DOMAINS, sizeof(char *));
 	cfg->awl_enable = 0;
 	cfg->beanstalk_copy_prob = 100.0;
 
@@ -706,8 +664,7 @@ init_defaults (struct config_file *cfg)
 #endif
 }
 
-void
-free_config (struct config_file *cfg)
+void free_config(struct config_file *cfg)
 {
 	unsigned int i;
 	struct rule *cur, *tmp_rule;
@@ -743,8 +700,10 @@ free_config (struct config_file *cfg)
 		free (cfg->spamd_servers[i].name);
 	}
 	/* Free rules list */
-	LIST_FOREACH_SAFE (cur, &cfg->rules, next, tmp_rule) {
-		LIST_FOREACH_SAFE (cond, cur->conditions, next, tmp_cond) {
+	LIST_FOREACH_SAFE (cur, &cfg->rules, next, tmp_rule)
+	{
+		LIST_FOREACH_SAFE (cond, cur->conditions, next, tmp_cond)
+				{
 			if (!cond->args[0].empty) {
 				if (cond->args[0].re != NULL) {
 					pcre_free (cond->args[0].re);
@@ -761,14 +720,14 @@ free_config (struct config_file *cfg)
 					free (cond->args[1].src);
 				}
 			}
-			LIST_REMOVE (cond, next);
+			LIST_REMOVE(cond, next);
 			free (cond);
-		}
+				}
 		if (cur->act->message) {
 			free (cur->act->message);
 		}
 		free (cur->act);
-		LIST_REMOVE (cur, next);
+		LIST_REMOVE(cur, next);
 		free (cur);
 	}
 	/* Free whitelists and bounce list*/
@@ -835,7 +794,6 @@ free_config (struct config_file *cfg)
 		free (cfg->awl_hash);
 	}
 
-
 #ifdef WITH_DKIM
 	struct dkim_hash_entry *curh, *tmph;
 	struct dkim_domain_entry *curd, *tmpd;
@@ -844,12 +802,12 @@ free_config (struct config_file *cfg)
 		dkim_close (cfg->dkim_lib);
 	}
 	HASH_ITER (hh, cfg->headers, curh, tmph) {
-		HASH_DEL (cfg->headers, curh);  /* delete; users advances to next */
+		HASH_DEL (cfg->headers, curh); /* delete; users advances to next */
 		free (curh->name);
 		free (curh);
 	}
 	HASH_ITER (hh, cfg->dkim_domains, curd, tmpd) {
-		HASH_DEL (cfg->dkim_domains, curd);  /* delete; users advances to next */
+		HASH_DEL (cfg->dkim_domains, curd); /* delete; users advances to next */
 		if (curd->key != MAP_FAILED && curd->key != NULL) {
 			munmap (curd->key, curd->keylen);
 		}
@@ -866,15 +824,15 @@ free_config (struct config_file *cfg)
 	}
 #endif
 }
-
-void
-add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global)
+void add_rcpt_whitelist(struct config_file *cfg, const char *rcpt,
+		int is_global)
 {
 	struct whitelisted_rcpt_entry *t;
-	t = (struct whitelisted_rcpt_entry *)malloc (sizeof (struct whitelisted_rcpt_entry));
+	t = (struct whitelisted_rcpt_entry *) malloc (
+			sizeof(struct whitelisted_rcpt_entry));
 	if (*rcpt == '@') {
 		t->type = WLIST_RCPT_DOMAIN;
-		rcpt ++;
+		rcpt++;
 	}
 	else if (strchr (rcpt, '@') != NULL) {
 		t->type = WLIST_RCPT_USERDOMAIN;
@@ -885,26 +843,25 @@ add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global)
 	t->rcpt = strdup (rcpt);
 	t->len = strlen (t->rcpt);
 	if (is_global) {
-		HASH_ADD_KEYPTR (hh, cfg->wlist_rcpt_global, t->rcpt, t->len, t);
+		HASH_ADD_KEYPTR(hh, cfg->wlist_rcpt_global, t->rcpt, t->len, t);
 	}
 	else {
-		HASH_ADD_KEYPTR (hh, cfg->wlist_rcpt_limit, t->rcpt, t->len, t);
+		HASH_ADD_KEYPTR(hh, cfg->wlist_rcpt_limit, t->rcpt, t->len, t);
 	}
 }
 
-int
-is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
+int is_whitelisted_rcpt(struct config_file *cfg, const char *str, int is_global)
 {
 	int len;
 	struct whitelisted_rcpt_entry *entry, *list;
 	char rcptbuf[ADDRLEN + 1], *domain;
 
 	if (*str == '<') {
-		str ++;
+		str++;
 	}
 
 	len = strcspn (str, ">");
-	rmilter_strlcpy (rcptbuf, str, MIN (len + 1, sizeof (rcptbuf)));
+	rmilter_strlcpy (rcptbuf, str, MIN(len + 1, sizeof(rcptbuf)));
 	if (len > 0) {
 		if (is_global) {
 			list = cfg->wlist_rcpt_global;
@@ -913,7 +870,7 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 			list = cfg->wlist_rcpt_limit;
 		}
 		/* Initially search for userdomain */
-		HASH_FIND_STR (list, rcptbuf, entry, strncasecmp);
+		HASH_FIND_STR(list, rcptbuf, entry, strncasecmp);
 		if (entry != NULL && entry->type == WLIST_RCPT_USERDOMAIN) {
 			return 1;
 		}
@@ -925,14 +882,14 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 		if (domain != NULL) {
 			*domain = '\0';
 		}
-		HASH_FIND_STR (list, rcptbuf, entry, strncasecmp);
+		HASH_FIND_STR(list, rcptbuf, entry, strncasecmp);
 		if (entry != NULL && entry->type == WLIST_RCPT_USER) {
 			return 1;
 		}
 		if (domain != NULL) {
 			/* Search for domain */
-			domain ++;
-			HASH_FIND_STR (list, domain, entry, strncasecmp);
+			domain++;
+			HASH_FIND_STR(list, domain, entry, strncasecmp);
 			if (entry != NULL && entry->type == WLIST_RCPT_DOMAIN) {
 				return 1;
 			}
@@ -943,12 +900,12 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 }
 
 char *
-trim_quotes (char *in)
+trim_quotes(char *in)
 {
 	char *res = in;
 	size_t len;
 
-	assert (in != NULL);
+	assert(in != NULL);
 
 	len = strlen (in);
 
