@@ -34,27 +34,19 @@
 #define MEMC_OPT_DEBUG 0x1
 
 typedef enum memc_error {
-	OK,
-	BAD_COMMAND,
-	CLIENT_ERROR,
-	SERVER_ERROR,
-	SERVER_TIMEOUT,
-	NOT_EXISTS,
-	EXISTS,
-	WRONG_LENGTH
+	MEMC_OK,
+	MEMC_BAD_COMMAND,
+	MEMC_CLIENT_ERROR,
+	MEMC_SERVER_ERROR,
+	MEMC_SERVER_TIMEOUT,
+	MEMC_NOT_EXISTS,
+	MEMC_EXISTS,
+	MEMC_WRONG_LENGTH
 } memc_error_t;
 
-/* XXX: Only UDP_TEXT is supported at present */
-typedef enum memc_proto {
-	UDP_TEXT,
-	TCP_TEXT,
-	UDP_BIN,
-	TCP_BIN
-} memc_proto_t;
 
 /* Port must be in network byte order */
 typedef struct memcached_ctx_s {
-	memc_proto_t protocol;
 	const char *addr;
 	uint16_t port;
 	int sock;

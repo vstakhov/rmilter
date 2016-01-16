@@ -309,10 +309,10 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		return;
 	}
-	r = OK;
+	r = MEMC_OK;
 
 	r = memc_get (&mctx, &cur_param, &s);
-	if (r == OK) {
+	if (r == MEMC_OK) {
 		/* Turn off strict checks if message id is found */
 		memc_close_ctx (&mctx);
 		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
@@ -328,7 +328,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 						priv->reply_id);
 		return;
 	}
-	else if (r != NOT_EXISTS) {
+	else if (r != MEMC_NOT_EXISTS) {
 		msg_err ("mlfi_data: cannot read data from memcached: %s", memc_strerror (r));
 		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
 		memc_close_ctx (&mctx);

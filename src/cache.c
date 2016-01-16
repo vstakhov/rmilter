@@ -131,7 +131,6 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			memset (&mctx, 0, sizeof (mctx));
 			mctx.addr = serv->addr;
 			mctx.port = serv->port;
-			mctx.protocol = TCP_TEXT;
 			mctx.timeout = cfg->memcached_connect_timeout;
 
 			assert (datalen != NULL && *datalen != 0);
@@ -149,7 +148,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 
 			rep = memc_get (&mctx, &memc_param, &nelems);
 
-			if (rep != OK) {
+			if (rep != MEMC_OK) {
 				msg_err ("cannot get key on %s:%d: %s", serv->addr,
 						(int)serv->port, memc_strerror (rep));
 				free (memc_param.buf);
@@ -218,7 +217,6 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			memset (&mctx, 0, sizeof (mctx));
 			mctx.addr = serv->addr;
 			mctx.port = serv->port;
-			mctx.protocol = TCP_TEXT;
 			mctx.timeout = cfg->memcached_connect_timeout;
 			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
 			memc_param.buf = (void *)data;
@@ -234,7 +232,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 			rep = memc_set (&mctx, &memc_param, &nelems, expire);
 
-			if (rep != OK) {
+			if (rep != MEMC_OK) {
 				msg_err ("cannot set key on %s:%d: %s", serv->addr,
 						(int)serv->port, memc_strerror (rep));
 			}
@@ -289,7 +287,6 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			memset (&mctx, 0, sizeof (mctx));
 			mctx.addr = serv->addr;
 			mctx.port = serv->port;
-			mctx.protocol = TCP_TEXT;
 			mctx.timeout = cfg->memcached_connect_timeout;
 			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
 			memc_param.buf = NULL;
@@ -305,7 +302,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 			rep = memc_delete (&mctx, &memc_param, &nelems);
 
-			if (rep != OK) {
+			if (rep != MEMC_OK) {
 				msg_err ("cannot delete key on %s:%d: %s", serv->addr,
 						(int)serv->port, memc_strerror (rep));
 			}
