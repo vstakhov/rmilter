@@ -56,4 +56,7 @@ bool rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 		const unsigned char *key, size_t keylen,
 		const unsigned char *data, size_t datalen, unsigned expire);
 
+bool rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
+		const unsigned char *key, size_t keylen);
+
 #endif /* INCLUDE_CACHE_H_ */

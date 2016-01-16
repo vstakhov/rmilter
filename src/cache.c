@@ -130,7 +130,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			mctx.timeout = cfg->memcached_connect_timeout;
 
 			assert (datalen != NULL && *datalen != 0);
-
+			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
 			memc_param.buf = malloc (*datalen);
 			memc_param.bufsize = *datalen;
 
@@ -211,6 +211,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			mctx.port = serv->port;
 			mctx.protocol = TCP_TEXT;
 			mctx.timeout = cfg->memcached_connect_timeout;
+			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
 			memc_param.buf = (void *)data;
 			memc_param.bufsize = datalen;
 
@@ -225,6 +226,73 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 			if (rep != OK) {
 				msg_err ("cannot set key on %s:%d: %s", serv->addr,
+						(int)serv->port, memc_strerror (rep));
+			}
+
+			memc_close_ctx (&mctx);
+		}
+	}
+
+	return true;
+}
+
+bool
+rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
+		const unsigned char *key, size_t keylen)
+{
+	struct cache_server *serv;
+	redisContext *redis;
+	redisReply *r;
+	struct timeval tv;
+	memcached_ctx_t mctx;
+	memcached_param_t memc_param;
+	size_t nelems = 1;
+	int rep;
+
+	serv = rmilter_get_server (cfg, type, key, keylen);
+
+	if (serv) {
+		if (cfg->use_redis) {
+			msec_to_tv (cfg->memcached_connect_timeout, &tv);
+			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
+
+			if (redis == NULL || redis->err != 0) {
+				msg_err ("cannot connect to %s:%d: %s", serv->addr,
+						(int)serv->port, redis ? redis->errstr : "unknown error");
+
+				return false;
+			}
+			else {
+				r = redisCommand (redis, "DELETE %b", key, keylen);
+
+				if (r != NULL) {
+					freeReplyObject (r);
+				}
+
+				redisFree (redis);
+			}
+		}
+		else {
+			memset (&mctx, 0, sizeof (mctx));
+			mctx.addr = serv->addr;
+			mctx.port = serv->port;
+			mctx.protocol = TCP_TEXT;
+			mctx.timeout = cfg->memcached_connect_timeout;
+			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
+			memc_param.buf = NULL;
+			memc_param.bufsize = 0;
+
+			if (memc_init_ctx (&mctx) != 0) {
+				msg_err ("cannot connect to %s:%d: %s", serv->addr,
+						(int)serv->port, strerror (errno));
+
+				return false;
+			}
+
+			rep = memc_delete (&mctx, &memc_param, &nelems);
+
+			if (rep != OK) {
+				msg_err ("cannot delete key on %s:%d: %s", serv->addr,
 						(int)serv->port, memc_strerror (rep));
 			}
 
