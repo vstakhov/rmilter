@@ -245,6 +245,8 @@ ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
 	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
 ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
 	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
+ProcessPackage(CURL LIBRARY curl INCLUDE curl.h INCLUDE_SUFFIXES include/curl
+	ROOT ${CURL_ROOT_DIR} MODULES curl)
 
 IF(ENABLE_DKIM MATCHES "ON")
     SET(WITH_DKIM 1)
@@ -371,6 +373,7 @@ SET(RMILTERSRC
                 src/fasthash.c
                 src/upstream.c
                 src/util.c
+                src/radix.c
                 src/regexp.c
                 src/cache.c
                 src/memcached.c
@@ -378,7 +381,6 @@ SET(RMILTERSRC
                 src/libclamc.c
                 src/ratelimit.c
                 src/main.c
-                src/radix.c
                 src/awl.c
                 src/libspamd.c
                 src/greylist.c
