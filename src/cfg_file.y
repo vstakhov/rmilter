@@ -359,6 +359,7 @@ clamavcmd:
 	| clamav_error_time
 	| clamav_dead_time
 	| clamav_maxerrors
+	| clamav_whitelist
 	;
 
 clamav_servers:
@@ -427,6 +428,22 @@ clamav_port_timeout:
 clamav_results_timeout:
 	RESULTS_TIMEOUT EQSIGN SECONDS {
 		cfg->clamav_results_timeout = $3;
+	}
+	;
+clamav_whitelist:
+	WHITELIST EQSIGN clamav_ip_list
+	;
+
+clamav_ip_list:
+	clamav_ip
+	| clamav_ip_list COMMA clamav_ip
+	;
+
+clamav_ip:
+	ip_net {
+		if (add_ip_radix (cfg->clamav_whitelist, $1) == 0) {
+			YYERROR;
+		}
 	}
 	;
 
@@ -841,6 +858,7 @@ greylisted_message:
 ip_net:
 	IPADDR
 	| IPNETWORK
+	| QUOTEDSTRING
 	;
 
 memcached:
