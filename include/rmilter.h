@@ -28,7 +28,7 @@
 #define RMILTER_H
 
 #include "config.h"
-
+#include "util.h"
 #include "cfg_file.h"
 
 #ifdef WITH_DKIM
@@ -59,14 +59,7 @@ struct rcpt {
 };
 
 struct mlfi_priv {
-	struct {
-		int family;
-		union {
-			struct sockaddr_in sa4;
-			struct sockaddr_in6 sa6;
-			struct sockaddr sa;
-		} addr;
-	} priv_addr;
+	struct rmilter_inet_address priv_addr;
 	char priv_ip[INET6_ADDRSTRLEN + 1];
 	char priv_hostname[ADDRLEN + 1];
 	char priv_helo[ADDRLEN + 1];

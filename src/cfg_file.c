@@ -500,41 +500,12 @@ create_cond(enum condition_type type, const char *arg1, const char *arg2)
 	return new;
 }
 
-int add_ip_radix(radix_tree_t *tree, char *ipnet)
+int add_ip_radix (radix_compressed_t *tree, char *ipnet)
 {
-	uint32_t mask = 0xFFFFFFFF;
-	uint32_t ip;
-	char *token;
-	struct in_addr ina;
-	int k;
-
-	token = strsep (&ipnet, "/");
-
-	if (ipnet != NULL) {
-		k = atoi (ipnet);
-		if (k > 32 || k < 0) {
-			yyerror ("add_ip_radix: invalid netmask value: %d", k);
-			k = 32;
-		}
-		k = 32 - k;
-		mask = mask << k;
-	}
-
-	if (inet_aton (token, &ina) == 0) {
-		yyerror ("add_ip_radix: invalid ip address: %s", token);
+	if (!radix_add_generic_iplist (ipnet, &tree)) {
+		yyerror ("add_ip_radix: cannot insert ip to tree: %s",
+				ipnet);
 		return 0;
-	}
-
-	ip = ntohl((uint32_t )ina.s_addr);
-	k = radix32tree_insert (tree, ip, mask, 1);
-	if (k == -1) {
-		yyerror ("add_ip_radix: cannot insert ip to tree: %s, mask %X",
-				inet_ntoa (ina), mask);
-		return 0;
-	}
-	else if (k == 1) {
-		yywarn ("add_ip_radix: ip %s, mask %X, value already exists",
-				inet_ntoa (ina), mask);
 	}
 
 	return 1;
@@ -592,9 +563,10 @@ void init_defaults(struct config_file *cfg)
 	cfg->copy_server = NULL;
 	cfg->spam_server = NULL;
 
-	cfg->grey_whitelist_tree = radix_tree_create ();
-	cfg->limit_whitelist_tree = radix_tree_create ();
-	cfg->spamd_whitelist = radix_tree_create ();
+	cfg->grey_whitelist_tree = radix_create_compressed ();
+	cfg->limit_whitelist_tree = radix_create_compressed ();
+	cfg->spamd_whitelist = radix_create_compressed ();
+	cfg->clamav_whitelist = radix_create_compressed ();
 	cfg->greylisted_message = strdup (DEFAULT_GREYLISTED_MESSAGE);
 
 	cfg->awl_enable = 0;
@@ -726,14 +698,10 @@ void free_config(struct config_file *cfg)
 		free (addr_cur);
 	}
 
-	radix_tree_free (cfg->grey_whitelist_tree);
-	free (cfg->grey_whitelist_tree);
-
-	radix_tree_free (cfg->spamd_whitelist);
-	free (cfg->spamd_whitelist);
-
-	radix_tree_free (cfg->limit_whitelist_tree);
-	free (cfg->limit_whitelist_tree);
+	radix_destroy_compressed (cfg->grey_whitelist_tree);
+	radix_destroy_compressed (cfg->spamd_whitelist);
+	radix_destroy_compressed (cfg->clamav_whitelist);
+	radix_destroy_compressed (cfg->limit_whitelist_tree);
 
 	if (cfg->spamd_reject_message) {
 		free (cfg->spamd_reject_message);

@@ -26,6 +26,15 @@
 
 #include "config.h"
 
+struct rmilter_inet_address {
+	int family;
+	union {
+		struct sockaddr_in sa4;
+		struct sockaddr_in6 sa6;
+		struct sockaddr sa;
+	} addr;
+};
+
 /**
  * Copy src to dest limited to len, in compare with standard strlcpy(3) rmilter_strlcpy does not
  * traverse the whole string and it is possible to use it for non NULL terminated strings. This is
@@ -65,6 +74,8 @@ int rmilter_pidfile_remove (rmilter_pidfh_t *pfh);
 #else
 #define msg_debug(args...) do {} while(0)
 #endif
+
+
 
 char * rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 		size_t *outlen);

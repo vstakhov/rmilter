@@ -204,6 +204,28 @@ radix_find_compressed (radix_compressed_t * tree, const uint8_t *key, size_t key
 	return value;
 }
 
+uintptr_t
+radix_find_rmilter_addr (radix_compressed_t * tree,
+		const struct rmilter_inet_address *addr)
+{
+	const uint8_t *key;
+	size_t keylen;
+
+	switch (addr->family) {
+	case AF_INET:
+		key = (const uint8_t *)&addr->addr.sa4.sin_addr;
+		keylen = sizeof (addr->addr.sa4.sin_addr);
+		break;
+	case AF_INET6:
+		key = (const uint8_t *)&addr->addr.sa6.sin6_addr;
+		keylen = sizeof (addr->addr.sa6.sin6_addr);
+		break;
+	default:
+		return RADIX_NO_VALUE;
+	}
+
+	return radix_find_compressed (tree, key, keylen);
+}
 
 static struct radix_compressed_node *
 radix_uncompress_path (radix_compressed_t *tree,
@@ -627,7 +649,7 @@ rspamd_radix_add_iplist (const char *list, const char *separators,
 	cpy = strdup (list);
 	to_free = cpy;
 
-	while ((cur = strsep (&cpy, ",;")) != NULL) {
+	while ((cur = strsep (&cpy, separators)) != NULL) {
 		af = AF_UNSPEC;
 		if (*cur == '\0') {
 			continue;

@@ -62,6 +62,8 @@ radix_insert_compressed (radix_compressed_t * tree,
 uintptr_t radix_find_compressed (radix_compressed_t * tree, const uint8_t *key,
 		size_t keylen);
 
+uintptr_t radix_find_rmilter_addr (radix_compressed_t * tree,
+		const struct rmilter_inet_address *addr);
 
 /**
  * Destroy the complete radix trie

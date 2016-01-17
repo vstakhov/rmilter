@@ -248,6 +248,7 @@ struct config_file {
 	unsigned int clamav_connect_timeout;
 	unsigned int clamav_port_timeout;
 	unsigned int clamav_results_timeout;
+	radix_compressed_t *clamav_whitelist;
 
 	unsigned int tempfiles_mode;
 
@@ -260,7 +261,7 @@ struct config_file {
 	unsigned int spamd_maxerrors;
 	unsigned int spamd_connect_timeout;
 	unsigned int spamd_results_timeout;
-	radix_tree_t *spamd_whitelist;
+	radix_compressed_t *spamd_whitelist;
 	char *spamd_reject_message;
 	char *rspamd_metric;
 	char *diff_dir;
@@ -335,8 +336,8 @@ struct config_file {
 	char *grey_prefix;
 	char *white_prefix;
 	char *greylisted_message;
-	radix_tree_t *grey_whitelist_tree;
-	radix_tree_t *limit_whitelist_tree;
+	radix_compressed_t *grey_whitelist_tree;
+	radix_compressed_t *limit_whitelist_tree;
 	/* Autowhitelist section */
 	u_char awl_enable;
 	awl_hash_t *awl_hash;
@@ -368,7 +369,7 @@ struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
-int add_ip_radix (radix_tree_t *tree, char *ipnet);
+int add_ip_radix (radix_compressed_t *tree, char *ipnet);
 void add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global);
 int is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global);
 char *trim_quotes (char *in);
