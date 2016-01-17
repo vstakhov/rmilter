@@ -120,6 +120,13 @@ parse_flag (const char *str)
 		*(str + 2) == '\0') {
 		return 0;
 	}
+	
+	if (strcmp (str, "true") == 0 || strcmp (str, "TRUE") == 0) {
+		return 1;
+	}
+	if (strcmp (str, "false") == 0 || strcmp (str, "FALSE") == 0) {
+		return 0;
+	}
 
 	return -1;
 }
