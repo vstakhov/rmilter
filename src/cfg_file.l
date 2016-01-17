@@ -221,6 +221,7 @@ lifetime						return LIFETIME;
 grey_prefix						return GREY_PREFIX;
 white_prefix					return WHITE_PREFIX;
 memcached						return MEMCACHED;
+redis							return REDIS;
 beanstalk						return BEANSTALK;
 send_beanstalk_copy				return SEND_BEANSTALK_COPY;
 send_beanstalk_headers			return SEND_BEANSTALK_HEADERS;
