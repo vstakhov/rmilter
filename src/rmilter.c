@@ -1140,12 +1140,9 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 #endif
-
-	if (priv->priv_addr.family == AF_INET) {
-		if (radix32tree_find (cfg->spamd_whitelist,
-				ntohl((uint32_t)priv->priv_addr.addr.sa4.sin_addr.s_addr)) != RADIX_NO_VALUE) {
-			ip_whitelisted = true;
-		}
+	if (radix_find_rmilter_addr (cfg->spamd_whitelist, &priv->priv_addr)
+			!= RADIX_NO_VALUE) {
+		ip_whitelisted = true;
 	}
 
 	/* Check spamd */
@@ -1285,8 +1282,15 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 
+	ip_whitelisted = false;
+
+	if (radix_find_rmilter_addr (cfg->clamav_whitelist, &priv->priv_addr)
+			!= RADIX_NO_VALUE) {
+		ip_whitelisted = true;
+	}
+
 	/* Check clamav */
-	if (cfg->clamav_servers_num != 0) {
+	if (cfg->clamav_servers_num != 0 && !ip_whitelisted) {
 		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
 		r = check_clamscan (priv->file, strres, sizeof (strres));
 		if (r < 0) {

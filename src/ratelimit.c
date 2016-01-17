@@ -74,7 +74,8 @@ static size_t extract_user_part(const char *str)
 	return user_part_len;
 }
 
-static int is_whitelisted(struct in_addr *addr, const char *rcpt,
+static int
+is_whitelisted (struct rmilter_inet_address *addr, const char *rcpt,
 		struct config_file *cfg)
 {
 	if (is_whitelisted_rcpt (cfg, rcpt, 0)
@@ -82,8 +83,8 @@ static int is_whitelisted(struct in_addr *addr, const char *rcpt,
 		return 1;
 	}
 
-	if (radix32tree_find (cfg->limit_whitelist_tree,
-			ntohl((uint32_t )addr->s_addr)) != RADIX_NO_VALUE) {
+	if (radix_find_rmilter_addr (cfg->limit_whitelist_tree, addr)
+			!= RADIX_NO_VALUE) {
 		return 2;
 	}
 
@@ -213,7 +214,7 @@ int rate_check(struct mlfi_priv *priv, struct config_file *cfg,
 	int r;
 
 	if (priv->priv_addr.family == AF_INET
-			&& is_whitelisted (&priv->priv_addr.addr.sa4.sin_addr, rcpt, cfg)
+			&& is_whitelisted (&priv->priv_addr, rcpt, cfg)
 					!= 0) {
 		msg_info("rate_check: address is whitelisted, skipping checks");
 		return 1;

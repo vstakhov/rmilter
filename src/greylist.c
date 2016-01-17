@@ -218,11 +218,9 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 		  ? (void *) &priv->priv_addr.addr.sa6.sin6_addr :
 		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
 
-	if (priv->priv_addr.family == AF_INET) {
-		if (radix32tree_find (cfg->grey_whitelist_tree,
-				ntohl(*(uint32_t *)addr)) != RADIX_NO_VALUE) {
-			return GREY_WHITELISTED;
-		}
+	if (radix_find_rmilter_addr (cfg->grey_whitelist_tree,
+			&priv->priv_addr) != RADIX_NO_VALUE) {
+		return GREY_WHITELISTED;
 	}
 
 	/* Check whitelist */
