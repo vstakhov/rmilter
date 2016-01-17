@@ -245,8 +245,6 @@ ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
 	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
 ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
 	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
-ProcessPackage(CURL LIBRARY curl INCLUDE curl.h INCLUDE_SUFFIXES include/curl
-	ROOT ${CURL_ROOT_DIR} MODULES curl)
 
 IF(ENABLE_DKIM MATCHES "ON")
     SET(WITH_DKIM 1)
@@ -378,15 +376,15 @@ SET(RMILTERSRC
                 src/cache.c
                 src/memcached.c
                 src/beanstalk.c
+                ${CMAKE_BINARY_DIR}/cfg_lex.c
+                ${CMAKE_BINARY_DIR}/cfg_yacc.c
+                src/cfg_file.c
                 src/libclamc.c
                 src/ratelimit.c
                 src/main.c
                 src/awl.c
                 src/libspamd.c
                 src/greylist.c
-                cfg_lex.c
-                cfg_yacc.c
-                src/cfg_file.c
                 src/rmilter.c)
 
 LIST(APPEND RMILTER_REQUIRED_LIBRARIES m)

@@ -154,10 +154,10 @@ int add_memcached_server(struct config_file *cf, char *str, char *str2,
 
 	/* cur_tok - server name, str - server port */
 	if (str == NULL) {
-		port = htons(DEFAULT_MEMCACHED_PORT);
+		port = DEFAULT_MEMCACHED_PORT;
 	}
 	else {
-		port = htons((uint16_t )strtoul (str, &err_str, 10));
+		port = strtoul (str, &err_str, 10);
 		if (*err_str != '\0') {
 			yyerror ("yyparse: bad memcached port: %s", str);
 			return 0;
@@ -212,62 +212,23 @@ int add_clamav_server(struct config_file *cf, char *str)
 	if (srv == NULL)
 		return 0;
 
-	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
-		srv->sock.unix_path = strdup (cur_tok);
-		srv->sock_type = AF_UNIX;
-		srv->name = srv->sock.unix_path;
-		if (str != NULL && *str != '\0') {
-			srv->up.priority = strtoul (str, &err_str, 10);
-			if (*err_str != '\0') {
-				yyerror ("yyparse: bad clamav port %s", str);
-				return 0;
-			}
-			cf->weighted_clamav = 1;
-		}
+	cur_tok = strsep (&str, ":");
 
-		cf->clamav_servers_num++;
-		return 1;
-
+	if (cur_tok == NULL || *cur_tok == '\0') {
+		return 0;
 	}
-	else {
-		if (str == '\0') {
-			srv->sock.inet.port = htons(DEFAULT_CLAMAV_PORT);
-		}
-		else {
-			srv->sock.inet.port = htons((uint16_t )strtoul (str, &err_str, 10));
-			if (*err_str != '\0') {
-				return 0;
-			}
 
-		}
+	srv->name = strdup (cur_tok);
 
-		if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
-			/* Try to call gethostbyname */
-			he = gethostbyname (cur_tok);
-			if (he == NULL) {
-				yyerror ("yyparse: bad clamav host %s", cur_tok);
-				return 0;
-			}
-			else {
-				srv->name = strdup (cur_tok);
-				memcpy((char * )&srv->sock.inet.addr, he->h_addr,
-						sizeof(struct in_addr));
-			}
-		}
-		/* Try to parse priority */
-		cur_tok = strsep (&str, ":");
-		if (str != NULL && *str != '\0') {
-			srv->up.priority = strtoul (str, &err_str, 10);
-			if (*err_str != '\0') {
-				yyerror ("yyparse: bad clamav priority %s", str);
-				return 0;
-			}
-			cf->weighted_clamav = 1;
-		}
+	if (str != NULL) {
+		/* We have also port */
+		srv->port = strtoul (str, NULL, 10);
+	}
 
-		srv->sock_type = AF_INET;
-		cf->clamav_servers_num++;
-		return 1;
+	/* Try to parse priority */
+	cur_tok = strsep (&str, ":");
+	if (str != NULL && *str != '\0') {
+		srv->up.priority = strtoul (str, NULL, 10);
 	}
 
 	return 0;
@@ -309,65 +270,35 @@ int add_spamd_server(struct config_file *cf, char *str, int is_extra)
 		str += 2;
 	}
 	else {
-		srv->type = SPAMD_SPAMASSASSIN;
+		srv->type = SPAMD_RSPAMD;
 	}
 
 	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0')
+	if (cur_tok == NULL || *cur_tok == '\0') {
 		return 0;
+	}
 
-	if (cur_tok[0] == '/' || cur_tok[0] == '.') {
-		srv->sock.unix_path = strdup (cur_tok);
-		srv->sock_type = AF_UNIX;
-		srv->name = srv->sock.unix_path;
+	srv->name = strdup (cur_tok);
 
-		if (is_extra) {
-			cf->extra_spamd_servers_num++;
-		}
-		else {
-			cf->spamd_servers_num++;
-		}
-		return 1;
+	if (str != NULL) {
+		/* We have also port */
+		srv->port = strtoul (str, NULL, 10);
+	}
 
+	/* Try to parse priority */
+	cur_tok = strsep (&str, ":");
+	if (str != NULL && *str != '\0') {
+		srv->up.priority = strtoul (str, NULL, 10);
+	}
+
+	if (is_extra) {
+		cf->extra_spamd_servers_num++;
 	}
 	else {
-		if (str == '\0') {
-			srv->sock.inet.port = htons(DEFAULT_SPAMD_PORT);
-		}
-		else {
-			srv->sock.inet.port = htons((uint16_t )strtoul (str, &err_str, 10));
-			if (*err_str != '\0') {
-				yyerror ("yyparse: bad spamd port %s", str);
-				return 0;
-			}
-		}
-
-		if (!inet_aton (cur_tok, &srv->sock.inet.addr)) {
-			/* Try to call gethostbyname */
-			he = gethostbyname (cur_tok);
-			if (he == NULL) {
-				yyerror ("yyparse: bad spamd host %s", cur_tok);
-				return 0;
-			}
-			else {
-				memcpy((char * )&srv->sock.inet.addr, he->h_addr,
-						sizeof(struct in_addr));
-			}
-		}
-		srv->name = strdup (cur_tok);
-
-		srv->sock_type = AF_INET;
-		if (is_extra) {
-			cf->extra_spamd_servers_num++;
-		}
-		else {
-			cf->spamd_servers_num++;
-		}
-		return 1;
+		cf->spamd_servers_num++;
 	}
-
-	return 0;
+	return 1;
 }
 
 int add_beanstalk_server(struct config_file *cf, char *str, int type)
@@ -406,10 +337,10 @@ int add_beanstalk_server(struct config_file *cf, char *str, int type)
 		return 0;
 
 	if (str == '\0') {
-		srv->port = htons(DEFAULT_BEANSTALK_PORT);
+		srv->port = DEFAULT_BEANSTALK_PORT;
 	}
 	else {
-		srv->port = htons((uint16_t )strtoul (str, &err_str, 10));
+		srv->port = strtoul (str, &err_str, 10);
 		if (*err_str != '\0') {
 			yyerror ("yyparse: bad beanstalk port %s", str);
 			return 0;

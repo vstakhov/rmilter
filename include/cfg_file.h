@@ -57,7 +57,7 @@
 #define MAX_BEANSTALK_SERVERS 48
 #define DEFAULT_MEMCACHED_PORT 11211
 #define DEFAULT_CLAMAV_PORT 3310
-#define DEFAULT_SPAMD_PORT 783
+#define DEFAULT_SPAMD_PORT 11333
 #define DEFAULT_BEANSTALK_PORT 11300
 #define DEFAULT_BEANSTALK_LIFETIME 172800
 /* Clamav timeouts */
@@ -117,8 +117,7 @@ enum action_type {
 };
 
 enum spamd_type {
-	SPAMD_SPAMASSASSIN = 0,
-	SPAMD_RSPAMD
+	SPAMD_RSPAMD = 0
 };
 
 typedef struct bucket_s {
@@ -151,34 +150,15 @@ struct rule {
 
 struct clamav_server {
 	struct upstream up;
-	int sock_type;
-
-	union {
-		char *unix_path;
-		struct {
-			struct in_addr addr;
-			uint16_t port;
-		} inet;
-	} sock;
-
+	int port;
 	char *name;
 };
 
 struct spamd_server {
 	struct upstream up;
-	int sock_type;
-
 	enum spamd_type type;
-
-	union {
-		char *unix_path;
-		struct {
-			struct in_addr addr;
-			uint16_t port;
-		} inet;
-	} sock;
-
 	char *name;
+	int port;
 };
 
 struct cache_server {
@@ -190,7 +170,7 @@ struct cache_server {
 
 struct beanstalk_server {
 	struct upstream up;
-	uint16_t port;
+	int port;
 	char *name;
 };
 
