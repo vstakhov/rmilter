@@ -45,11 +45,11 @@ Spamd scanning (supports rspamd and spamassassin)
 .It
 Spf checking (via libspf2)
 .It
-Greylisting with memcached upstream
+Greylisting with memcached/redis upstream
 .It
-Ratelimit with memcached upstream
+Ratelimit with memcached/redis upstream
 .It
-Auto-whitelisting (internal and via memcached upstream)
+Auto-whitelisting (internal and via memcached/redis upstream)
 .It
 Regexp checks.
 .It
@@ -225,16 +225,12 @@ Spamd section:
 .Bl -dash
 .It
 .Sy servers
-- spamd (or rspamd) socket definitions in format:
+- rspamd socket definitions in format:
 .Bl -enum -compact
 .It
 /path/to/file
 .It
 host[:port]
-.It
-r:/path/to/file - for rspamd protocol
-.It
-r:host[:port] - for rspamd protocol
 .El
 .Dl sockets are separated by Ql ,
 .Dl Em Default: Li empty (spam checks disabled)
@@ -312,27 +308,26 @@ r:host[:port] - for rspamd protocol
 .Dl Em Default: Li false
 .El
 .It
-.\" Memcached section
-Memcached section:
+.\" Memcached (or redis) section
+Memcached/redis section:
 .Bl -dash
 .It
 .Sy servers_grey
-- memcached servers for greylisting in format:
+- memcached/redis servers for greylisting in format:
 .Dl host Bo :port Bc Bo , host Bo :port Bc Bc
-It is possible to make memcached mirroring, its syntax is {server1, server2}
 .Dl Em Default: Li empty
 .It
 .Sy servers_white
-- memcached servers for whitelisting in format similar to that is used in
+- memcached/redis servers for whitelisting in format similar to that is used in
 .Em servers_grey
 .Dl Em Default: Li empty
 .It
 .Sy servers_limits
-- memcached servers used for limits storing, can not be mirrored
+- memcached/redis servers used for limits storing, can not be mirrored
 .Dl Em Default: Li empty
 .It
 .Sy connect_timeout
-- timeout in miliseconds for connecting to memcached
+- timeout in miliseconds for connecting to memcached/redis
 .Dl Em Default: Li 1s
 .It
 .Sy error_time
@@ -346,10 +341,6 @@ It is possible to make memcached mirroring, its syntax is {server1, server2}
 .Sy maxerrors
 - maximum number of errors that can occur during error_time to make us thinking that this upstream is dead
 .Dl Em Default: Li 10
-.It
-.Sy protocol
-- protocol that is using for connecting to memcached (tcp or udp)
-.Dl Em Default: Li udp
 .El
 .It
 .\" Beanstalk section
@@ -401,10 +392,6 @@ now this regexp checks only In-Reply-To headers
 .Sy send_beanstalk_spam
 - defines whether we should send copy of spam messages to beanstalk server (from spam_server option)
 .Dl Em Default: Li no
-.It
-.Sy protocol
-- protocol that is using for connecting to beanstalk (tcp or udp)
-.Dl Em Default: Li tcp
 .El
 .It
 .\" Greylisting section
@@ -619,7 +606,7 @@ spamd {
 	whitelist = 127.0.0.1/32, 192.168.0.0/16;
 };
 
-memcached {
+redis {
 	# servers_grey - memcached servers for greylisting in format:
 	# host[:port][, host[:port]]
 	# It is possible to make memcached mirroring, its syntax is {server1, server2}
@@ -648,10 +635,6 @@ memcached {
 	# this upstream is dead
 	# Default: 10
 	maxerrors = 10;
-
-	# protocol - protocol that is using for connecting to memcached (tcp or udp)
-	# Default: udp
-	protocol = tcp;
 };
 
 # bind_socket - socket credits for local bind:
@@ -721,9 +704,7 @@ limits {
 
 beanstalk {
 	# List of beanstalk servers, random selected
-	servers = bot01.example.com:3132;
-	# Beanstalk protocol
-	protocol = tcp;
+	servers = queue.example.com:3132;
 	# Time to live for task in seconds
 	lifetime = 172800;
 	# Regexp that define for which messages we should put the whole message to beanstalk
@@ -778,7 +759,7 @@ Beanstalk (EOM)
 DKIM add signature (EOM)
 .El
 .Pp
-.Sh Keys used in memcached:
+.Sh Keys used in memcached/redis:
 .Bl -bullet -compact
 .It
 .Em rcpt

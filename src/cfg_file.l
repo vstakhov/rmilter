@@ -193,8 +193,8 @@ rspamd_metric					return RSPAMD_METRIC;
 spamd_soft_fail					return SPAMD_SOFT_FAIL;
 spamd_never_reject				return SPAMD_NEVER_REJECT;
 spamd_greylist					return SPAMD_GREYLIST;
-spam_header                     return SPAM_HEADER;
-spam_header_value		return SPAM_HEADER_VALUE;
+spam_header						return SPAM_HEADER;
+spam_header_value				return SPAM_HEADER_VALUE;
 extended_spam_headers			return EXTENDED_SPAM_HEADERS;
 retry_count						return SPAMD_RETRY_COUNT;
 retry_timeout					return SPAMD_RETRY_TIMEOUT;
@@ -227,6 +227,7 @@ send_beanstalk_headers			return SEND_BEANSTALK_HEADERS;
 send_beanstalk_spam				return SEND_BEANSTALK_SPAM;
 copy_probability				return COPY_PROBABILITY;
 send_beanstalk_spam_extra_diff	return SEND_BEANSTALK_SPAM_EXTRA_DIFF;
+use_redis						return USE_REDIS;
 
 dkim							return DKIM_SECTION;
 key								return DKIM_KEY;

@@ -524,6 +524,8 @@ static void add_hashed_header(const char *name, struct dkim_hash_entry **hash)
 
 void init_defaults(struct config_file *cfg)
 {
+	memset (cfg, 0, sizeof (*cfg));
+
 	LIST_INIT(&cfg->rules);
 	cfg->wlist_rcpt_global = NULL;
 	cfg->wlist_rcpt_limit = NULL;
