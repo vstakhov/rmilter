@@ -518,55 +518,88 @@ rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 int
 rmilter_connect_addr (const char *addr, int port, int msec)
 {
-	struct sockaddr_in sc;
+	struct sockaddr_un su;
 	int ofl, r;
 	struct addrinfo hints, *res, *res0;
 	int error;
 	int s;
 	const char *cause = NULL;
 	char portbuf[32];
+	socklen_t slen;
 
-	memset(&hints, 0, sizeof(hints));
-	snprintf(portbuf, sizeof(portbuf), "%d", port);
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_NUMERICSERV;
-	error = getaddrinfo (addr, portbuf, &hints, &res0);
-
-	if (error) {
-		msg_err ("rmilter_connect_addr: getaddrinfo failed for %s:%d: %s",
-				addr, port, gai_strerror (error));
-		return -1;
-	}
-
-	s = -1;
-	for (res = res0; res; res = res->ai_next) {
-		s = socket (res->ai_family, res->ai_socktype, res->ai_protocol);
+	if (addr[0] == '/' || addr[0] == '.') {
+		/* Unix socket */
+		su.sun_family = AF_UNIX;
+		rmilter_strlcpy (su.sun_path, addr, sizeof (su.sun_path));
+#if defined(FREEBSD) || defined(__APPLE__)
+		su.sun_len = SUN_LEN (&su);
+#endif
+		s = socket (AF_UNIX, SOCK_STREAM, 0);
 		if (s < 0) {
 			cause = "socket";
 			error = errno;
-			continue;
 		}
 
 		ofl = fcntl (s, F_GETFL, 0);
 		fcntl (s, F_SETFL, ofl | O_NONBLOCK);
+#ifdef SUN_LEN
+		slen = SUN_LEN (&su);
+#else
+		slen = sizeof (su);
+#endif
 
-		if (connect (s, res->ai_addr, res->ai_addrlen) < 0) {
-			if (errno == EINPROGRESS || errno == EAGAIN) {
-				break;
+		if (connect (s, (struct sockaddr *)&su, slen) < 0) {
+			if (errno != EINPROGRESS && errno != EAGAIN) {
+				cause = "connect";
+				error = errno;
+				close (s);
+				s = -1;
 			}
+		}
+	}
+	else {
+		memset(&hints, 0, sizeof(hints));
+		snprintf(portbuf, sizeof(portbuf), "%d", port);
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_flags = AI_NUMERICSERV;
+		error = getaddrinfo (addr, portbuf, &hints, &res0);
 
-			cause = "connect";
-			error = errno;
-			close (s);
-			s = -1;
-			continue;
+		if (error) {
+			msg_err ("rmilter_connect_addr: getaddrinfo failed for %s:%d: %s",
+					addr, port, gai_strerror (error));
+			return -1;
 		}
 
-		break; /* okay we got one */
-	}
+		s = -1;
+		for (res = res0; res; res = res->ai_next) {
+			s = socket (res->ai_family, res->ai_socktype, res->ai_protocol);
+			if (s < 0) {
+				cause = "socket";
+				error = errno;
+				continue;
+			}
 
-	freeaddrinfo (res0);
+			ofl = fcntl (s, F_GETFL, 0);
+			fcntl (s, F_SETFL, ofl | O_NONBLOCK);
+
+			if (connect (s, res->ai_addr, res->ai_addrlen) < 0) {
+				if (errno == EINPROGRESS || errno == EAGAIN) {
+					break;
+				}
+
+				cause = "connect";
+				error = errno;
+				close (s);
+				s = -1;
+				continue;
+			}
+
+			break; /* okay we got one */
+		}
+
+		freeaddrinfo (res0);
+	}
 
 	if (s < 0) {
 		msg_err ("rmilter_connect_addr: connect failed: %s: %s",
