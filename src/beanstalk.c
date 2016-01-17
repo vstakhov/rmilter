@@ -46,104 +46,17 @@
 #define MAX_RETRIES 3
 
 /*
- * Poll file descriptor for read or write during specified timeout
- */
-static int poll_d(int fd, u_char want_read, u_char want_write, int timeout)
-{
-	int r;
-	struct pollfd fds[1];
-
-	fds->fd = fd;
-	fds->revents = 0;
-	fds->events = 0;
-
-	if (want_read != 0) {
-		fds->events |= POLLIN;
-	}
-	if (want_write != 0) {
-		fds->events |= POLLOUT;
-	}
-	while ((r = poll (fds, 1, timeout)) < 0) {
-		if (errno != EINTR)
-			break;
-	}
-
-	return r;
-}
-
-/*
  * Make socket for tcp connection
  */
 static int bean_make_tcp_sock(beanstalk_ctx_t *ctx)
 {
-	struct sockaddr_in sc;
-	int ofl, r;
-	struct addrinfo hints, *res, *res0;
-	int error;
-	int s;
-	const char *cause = NULL;
-	char portbuf[32];
+	ctx->sock = rmilter_connect_addr (ctx->addr, ctx->port, ctx->timeout);
 
-	memset(&hints, 0, sizeof(hints));
-	snprintf(portbuf, sizeof(portbuf), "%d", (int) ntohs (ctx->port));
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_NUMERICSERV;
-	error = getaddrinfo (ctx->addr, portbuf, &hints, &res0);
-
-	if (error) {
-		msg_err ("bean_make_tcp_sock: getaddrinfo failed: %s",
-				gai_strerror (error));
+	if (ctx->sock == -1) {
 		return -1;
 	}
 
-	s = -1;
-	for (res = res0; res; res = res->ai_next) {
-		s = socket (res->ai_family, res->ai_socktype, res->ai_protocol);
-		if (s < 0) {
-			cause = "socket";
-			error = errno;
-			continue;
-		}
-
-		ofl = fcntl (s, F_GETFL, 0);
-		fcntl (s, F_SETFL, ofl | O_NONBLOCK);
-
-		if (connect (s, res->ai_addr, res->ai_addrlen) < 0) {
-			if (errno == EINPROGRESS || errno == EAGAIN) {
-				break;
-			}
-
-			cause = "connect";
-			error = errno;
-			close (s);
-			s = -1;
-			continue;
-		}
-
-		break; /* okay we got one */
-	}
-
-	freeaddrinfo (res0);
-	ctx->sock = s;
-
-	if (s < 0) {
-		msg_err ("bean_make_tcp_sock: connect failed: %s: %s", cause,
-				strerror (error));
-		return -1;
-	}
-
-	/* Get write readiness */
-	if (poll_d (ctx->sock, 0, 1, ctx->timeout) == 1) {
-		return 0;
-	}
-	else {
-		msg_err ("bean_make_tcp_sock: poll() timeout");
-		close (ctx->sock);
-		ctx->sock = -1;
-	}
-
-	return -1;
+	return 0;
 }
 
 /* 
@@ -202,7 +115,7 @@ bean_error_t bean_read(beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
 		/* Read reply from server */
 		retries = 0;
 
-		if (poll_d (ctx->sock, 1, 0, wait) != 1) {
+		if (rmilter_poll_fd (ctx->sock, wait, POLLIN|POLLPRI) != 1) {
 			return BEANSTALK_SERVER_TIMEOUT;
 		}
 		r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
@@ -254,7 +167,7 @@ bean_error_t bean_read(beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
 
 		while (sum < datalen + sizeof(CRLF) - 2) {
 			retries = 0;
-			if (poll_d (ctx->sock, 1, 0, wait) != 1) {
+			if (rmilter_poll_fd (ctx->sock, wait, POLLIN|POLLPRI) != 1) {
 				return BEANSTALK_SERVER_TIMEOUT;
 			}
 			r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
@@ -311,12 +224,12 @@ bean_error_t bean_write(beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
 		writev (ctx->sock, iov, 3);
 
 		/* Read reply from server */
-		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+		if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
 			return BEANSTALK_SERVER_ERROR;
 		}
 		/* Read header */
 		retries = 0;
-		if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+		if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
 			return BEANSTALK_SERVER_TIMEOUT;
 		}
 		r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);
@@ -370,7 +283,7 @@ bean_error_t bean_del(beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
 
 	/* Read reply from server */
 	retries = 0;
-	if (poll_d (ctx->sock, 1, 0, ctx->timeout) != 1) {
+	if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
 		return BEANSTALK_SERVER_TIMEOUT;
 	}
 	r = read (ctx->sock, udp_buf, UDP_BUFSIZ - 1);

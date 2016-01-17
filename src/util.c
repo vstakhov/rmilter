@@ -514,3 +514,92 @@ rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 {
 	return rmilter_encode_base64_common (in, inlen, str_len, outlen, 0);
 }
+
+int
+rmilter_connect_addr (const char *addr, int port, int msec)
+{
+	struct sockaddr_in sc;
+	int ofl, r;
+	struct addrinfo hints, *res, *res0;
+	int error;
+	int s;
+	const char *cause = NULL;
+	char portbuf[32];
+
+	memset(&hints, 0, sizeof(hints));
+	snprintf(portbuf, sizeof(portbuf), "%d", port);
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_NUMERICSERV;
+	error = getaddrinfo (addr, portbuf, &hints, &res0);
+
+	if (error) {
+		msg_err ("rmilter_connect_addr: getaddrinfo failed for %s:%d: %s",
+				addr, port, gai_strerror (error));
+		return -1;
+	}
+
+	s = -1;
+	for (res = res0; res; res = res->ai_next) {
+		s = socket (res->ai_family, res->ai_socktype, res->ai_protocol);
+		if (s < 0) {
+			cause = "socket";
+			error = errno;
+			continue;
+		}
+
+		ofl = fcntl (s, F_GETFL, 0);
+		fcntl (s, F_SETFL, ofl | O_NONBLOCK);
+
+		if (connect (s, res->ai_addr, res->ai_addrlen) < 0) {
+			if (errno == EINPROGRESS || errno == EAGAIN) {
+				break;
+			}
+
+			cause = "connect";
+			error = errno;
+			close (s);
+			s = -1;
+			continue;
+		}
+
+		break; /* okay we got one */
+	}
+
+	freeaddrinfo (res0);
+
+	if (s < 0) {
+		msg_err ("rmilter_connect_addr: connect failed: %s: %s",
+				cause, strerror (error));
+		return -1;
+	}
+
+	/* Get write readiness */
+	if (rmilter_poll_fd (s, msec, POLL_OUT) == 1) {
+		return s;
+	}
+	else {
+		msg_err ("rmilter_connect_addr: connect failed: timeout");
+		close (s);
+	}
+
+	return -1;
+}
+
+int
+rmilter_poll_fd (int fd, int timeout, short events)
+{
+	int r;
+	struct pollfd fds[1];
+
+	fds->fd = fd;
+	fds->events = events;
+	fds->revents = 0;
+	while ((r = poll (fds, 1, timeout)) < 0) {
+		if (errno != EINTR)
+			break;
+	}
+
+
+	return r;
+}
