@@ -157,7 +157,18 @@ parse_bucket (char *str, bucket_t *bucket)
 %option noyywrap
 %option yylineno
 
+dec-octet     [0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]
+IPv4address   {dec-octet}\.{dec-octet}\.{dec-octet}\.{dec-octet}
+h16           [0-9A-Fa-f]{1,4}
+ls32          {h16}:{h16}|{IPv4address}
+IPv6address   ({h16}:){6}{ls32}|::({h16}:){5}{ls32}|({h16})?::({h16}:){4}{ls32}|(({h16}:){0,1}{h16})?::({h16}:){3}{ls32}|(({h16}:){0,2}{h16})?::({h16}:){2}{ls32}|(({h16}:){0,3}{h16})?::{h16}:{ls32}|(({h16}:){0,4}{h16})?::{ls32}|(({h16}:){0,5}{h16})?::{h16}|(({h16}:){0,6}{h16})?::
+IPaddress      {IPv4address}|\[{IPv6address}\]
+IPnetwork      {IPaddress}\/[0-9]{1,3}
+flag           yes|YES|no|NO|true|TRUE|false|FALSE
 %%
+%{
+/* Rules section */
+%}
 ^[ \t]*#.*						/* ignore comments */;
 .include						BEGIN(incl);
 tempdir							return TEMPDIR;
@@ -271,7 +282,7 @@ tempfail						return TEMPFAIL;
 ;								return SEMICOLON;
 ,								return COMMA;
 =								return EQSIGN;
-yes|YES|no|NO|[yY]|[nN]			yylval.flag=parse_flag(yytext); return FLAG;
+{flag}							yylval.flag=parse_flag(yytext); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
 \"[^"]*\"						yylval.string=trim_quotes(strdup(yytext)); return QUOTEDSTRING;
@@ -283,9 +294,9 @@ yes|YES|no|NO|[yY]|[nN]			yylval.flag=parse_flag(yytext); return FLAG;
 unix:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 local:[a-zA-Z0-9\/.-]+ 			yylval.string=strdup(yytext); return SOCKCRED;
 inet6?:[0-9]+(@\[?[a-zA-Z0-9.-:]+\]?)?	yylval.string=strdup(yytext); return SOCKCRED;
-fd:[0-9]+		yylval.string=strdup(yytext); return SOCKCRED;
-[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}	yylval.string=strdup(yytext); return IPADDR;
-[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\/[0-9]{1,2}	yylval.string=strdup(yytext); return IPNETWORK;
+fd:[0-9]+						yylval.string=strdup(yytext); return SOCKCRED;
+{IPaddress}						yylval.string=strdup(yytext); return IPADDR;
+{IPnetwork}						yylval.string=strdup(yytext); return IPNETWORK;
 \/[^/\n]+\/						yylval.string=strdup(yytext); return REGEXP;
 [a-zA-Z<@][.a-zA-Z@+>_-]*			yylval.string=strdup(yytext); return STRING;
 [a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN_STR;
