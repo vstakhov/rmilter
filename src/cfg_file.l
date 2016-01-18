@@ -239,6 +239,7 @@ body_canon						return DKIM_BODY_CANON;
 sign_alg						return DKIM_SIGN_ALG;
 auth_only						return DKIM_AUTH_ONLY;
 fold_header						return DKIM_FOLD_HEADER;
+sign_networks					return DKIM_SIGN_NETWORKS;
 
 relaxed							return DKIM_RELAXED;
 simple							return DKIM_SIMPLE;

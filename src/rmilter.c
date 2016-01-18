@@ -717,7 +717,9 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (domain_pos) {
 		HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
 
-		if (!cfg->dkim_auth_only || priv->authenticated) {
+		if (!cfg->dkim_auth_only || priv->authenticated ||
+				radix_find_rmilter_addr (cfg->dkim_ip_tree, &priv->priv_addr)
+					!= RADIX_NO_VALUE) {
 			if (dkim_domain && dkim_domain->is_loaded) {
 				priv->dkim = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
 						(u_char *)dkim_domain->key,  (u_char *)dkim_domain->selector,
