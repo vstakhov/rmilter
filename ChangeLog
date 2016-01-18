@@ -1,3 +1,27 @@
+1.7.0:
+	* Removed support of SPF (lives in rspamd now)
+	* Removed support of spamassassin (never ever used)
+	* Rework cache backend:
+		- add support of redis (via hiredis);
+		- remove legacy code from memcached/beanstalk (such as udp support)
+		- fix logging in memcached backend;
+		- drop mirroring support (no evidence that it is used by anybody)
+		- allow both `redis` and `memcached` sections;
+	* Fix greediness of flex expressions
+	* Add `tempfiles_mode` option
+	* Relax separators in grammar (allow statements without `;`)
+	* Rework upstreams code:
+		- add fasthash instead of stupid hand-made crc32
+		- remove ketama support (broken from the beginning)
+		- use consistent hashing for upstreams
+	* Resolve addresses of memcached/redis/beanstalk/clamav and spamd servers
+	* Import compressed radix from rspamd and add support of IPv6 in all lists
+	* Support IPv6 addresses and networks in configuration grammar
+	* Allow clamav whitelisting
+	* Allow dkim signing from specific networks by `sign_networks` param
+	* Add generic routines to make and poll TCP andf Unix sockets
+	* Other bugfixes and documentation improvements
+
 1.6.7:
 	* true requires stdbool.h for some libmilter versions
 	* Fix hint for FreeBSD rc script (by @moisseev)
