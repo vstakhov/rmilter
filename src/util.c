@@ -608,7 +608,7 @@ rmilter_connect_addr (const char *addr, int port, int msec)
 	}
 
 	/* Get write readiness */
-	if (rmilter_poll_fd (s, msec, POLL_OUT) == 1) {
+	if (rmilter_poll_fd (s, msec, POLLOUT) == 1) {
 		return s;
 	}
 	else {
