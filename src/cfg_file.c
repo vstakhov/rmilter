@@ -231,7 +231,7 @@ int add_clamav_server(struct config_file *cf, char *str)
 		srv->up.priority = strtoul (str, NULL, 10);
 	}
 
-	return 0;
+	return 1;
 }
 
 int add_spamd_server(struct config_file *cf, char *str, int is_extra)
