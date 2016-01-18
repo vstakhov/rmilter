@@ -149,8 +149,6 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			rep = memc_get (&mctx, &memc_param, &nelems);
 
 			if (rep != MEMC_OK) {
-				msg_err ("cannot get key on %s:%d: %s", serv->addr,
-						(int)serv->port, memc_strerror (rep));
 				free (memc_param.buf);
 				*datalen = 0;
 			}
@@ -199,8 +197,11 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				r = redisCommand (redis, "SET %b %b", key, keylen,
 						data, datalen);
 
-				if (expire > 0 && r != NULL) {
+				if (r != NULL) {
 					freeReplyObject (r);
+				}
+
+				if (expire > 0) {
 					r = redisCommand (redis, "EXPIRE %b %d", key, keylen,
 							expire);
 
@@ -301,11 +302,6 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 
 			rep = memc_delete (&mctx, &memc_param, &nelems);
-
-			if (rep != MEMC_OK) {
-				msg_err ("cannot delete key on %s:%d: %s", serv->addr,
-						(int)serv->port, memc_strerror (rep));
-			}
 
 			memc_close_ctx (&mctx);
 			upstream_ok (&serv->up, time (NULL));
