@@ -3,7 +3,7 @@
 %define rmilter_home      %{_localstatedir}/run/rmilter
 
 Name:           rmilter
-Version:        1.6.3
+Version:        1.7.0
 Release:        1
 Summary:        Multi-purpose milter
 Group:          System Environment/Daemons

@@ -51,7 +51,7 @@ spamd {
 	# sockets are separated by ','
 	# is server name is prefixed with r: it is rspamd server
 	# Default: empty
-	servers = r:localhost:11333;
+	servers = localhost:11333;
 
 	# also_check - extra spamd servers to check
 	#also_check = r:spam.example.com;
@@ -86,14 +86,14 @@ spamd {
 
 	# whitelist - list of ips or nets that should be not checked with spamd
 	# Default: empty
-	whitelist = 127.0.0.1/32, 192.168.0.0/16;
+	whitelist = 127.0.0.1/32, 192.168.0.0/16, [::1]/128;
 
 	# rspamd_metric - metric for using with rspamd
 	# Default: "default"
 	rspamd_metric = "default";
 };
 
-memcached {
+redis {
 	# servers_grey - memcached servers for greylisting in format:
 	# host[:port][, host[:port]]
 	# It is possible to make memcached mirroring, its syntax is {server1, server2}
@@ -234,7 +234,8 @@ greylisting {
 	expire = 3d;
 	whitelist = 127.0.0.1, 
 				192.168.1.1,
-				192.168.2.0/24;
+				192.168.2.0/24,
+				[::1]/128;
 	awl_enable = yes;
 	awl_pool = 10M;
 	awl_hits = 10;
