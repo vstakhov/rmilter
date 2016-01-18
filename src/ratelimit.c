@@ -165,8 +165,12 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_RATELIMIT, key, klen,
 			(unsigned char **) &b, &dlen)) {
-		msg_err("check_specific_limit: got error on reading key: %s", key);
-		return -1;
+		b = calloc (1, sizeof (*b));
+
+		if (b == NULL) {
+			msg_err("check_specific_limit: calloc failed: %s", strerror (errno));
+			return -1;
+		}
 	}
 
 	msg_debug("check_specific_limit: got limit for key: '%s', "
@@ -175,6 +179,7 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 	if (b->count > 0) {
 		b->count -= (tm - b->tm) * bucket->rate;
 	}
+
 	b->count += is_update;
 	b->tm = tm;
 	if (b->count < 0) {
