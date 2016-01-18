@@ -81,7 +81,7 @@ spamd {
 
 	# whitelist - list of ips or nets that should be not checked with spamd
 	# Default: empty
-	whitelist = 127.0.0.1/32, 192.168.0.0/16, [::1/128];
+	whitelist = 127.0.0.1/32, 192.168.0.0/16, [::1]/128;
 
 	# rspamd_metric - metric for using with rspamd
 	# Default: "default"

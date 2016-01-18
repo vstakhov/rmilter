@@ -642,6 +642,7 @@ rspamd_radix_add_iplist (const char *list, const char *separators,
 	struct in_addr ina;
 	struct in6_addr ina6;
 	unsigned int k = INT_MAX;
+	bool v6_braces = false;
 	int af;
 	int res = 0;
 
@@ -664,7 +665,7 @@ rspamd_radix_add_iplist (const char *list, const char *separators,
 			/* Get mask */
 			k = strtoul (ipnet, &err_str, 10);
 			if (errno != 0) {
-				msg_debug_radix (
+				msg_err (
 						"invalid netmask, error detected on symbol: %s, erorr: %s",
 						err_str,
 						strerror (errno));
@@ -672,15 +673,38 @@ rspamd_radix_add_iplist (const char *list, const char *separators,
 			}
 		}
 
-		/* Check IP */
-		if (inet_pton (AF_INET, token, &ina) == 1) {
-			af = AF_INET;
+		if (token[0] == '[') {
+			v6_braces = true;
 		}
-		else if (inet_pton (AF_INET6, token, &ina6) == 1) {
-			af = AF_INET6;
+
+		if (v6_braces) {
+			token ++;
+			cur = strrchr (token, ']');
+			if (cur) {
+				*cur = '\0';
+			}
+
+			if (inet_pton (AF_INET6, token, &ina6) == 1) {
+				af = AF_INET6;
+			}
+			else if (inet_pton (AF_INET, token, &ina) == 1) {
+				af = AF_INET;
+			}
+			else {
+				msg_err ("invalid IP address: %s", token);
+			}
 		}
 		else {
-			msg_debug_radix ("invalid IP address: %s", token);
+			/* Check IP */
+			if (inet_pton (AF_INET, token, &ina) == 1) {
+				af = AF_INET;
+			}
+			else if (inet_pton (AF_INET6, token, &ina6) == 1) {
+				af = AF_INET6;
+			}
+			else {
+				msg_err ("invalid IP address: %s", token);
+			}
 		}
 
 		if (af == AF_INET) {
