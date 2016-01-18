@@ -44,15 +44,19 @@
 /*
  * Write to syslog if OPT_DEBUG is specified
  */
-static void memc_log(const memcached_ctx_t *ctx, int line, const char *fmt, ...)
+static void memc_log(bool debug, const memcached_ctx_t *ctx, int line, const char *fmt, ...)
 {
 	va_list args;
+	int facility;
 
-	va_start (args, fmt);
-	syslog (LOG_DEBUG, "memc_debug(%d): host: %s, port: %d", line, ctx->addr,
-			ntohs(ctx->port));
-	vsyslog (LOG_DEBUG, fmt, args);
-	va_end (args);
+	if (!debug || (ctx->options & MEMC_OPT_DEBUG)) {
+		facility = debug ? LOG_DEBUG : LOG_INFO;
+		va_start (args, fmt);
+		syslog (facility, "memc_log(%d): host: %s, port: %d", line, ctx->addr,
+				ntohs(ctx->port));
+		vsyslog (facility, fmt, args);
+		va_end (args);
+	}
 }
 
 /*
@@ -125,10 +129,10 @@ memc_error_t memc_read(memcached_ctx_t *ctx, const char *cmd,
 
 	for (i = 0; i < *nelem; i++) {
 		r = snprintf(read_buf, READ_BUFSIZ, "%s %s" CRLF, cmd, params[i].key);
-		memc_log (ctx, __LINE__,
+		memc_log (true, ctx, __LINE__,
 				"memc_read: send read request to memcached: %s", read_buf);
 		if (write (ctx->sock, read_buf, r) == -1) {
-			memc_log (ctx, __LINE__, "memc_read: write failed, %d, %m",
+			memc_log (false, ctx, __LINE__, "memc_read: write failed, %d, %m",
 					errno);
 			return MEMC_SERVER_ERROR;
 		}
@@ -136,7 +140,7 @@ memc_error_t memc_read(memcached_ctx_t *ctx, const char *cmd,
 		/* Read reply from server */
 		retries = 0;
 		if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
-			memc_log (ctx, __LINE__, "memc_read: timeout waiting reply");
+			memc_log (false, ctx, __LINE__, "memc_read: timeout waiting reply");
 			return MEMC_SERVER_TIMEOUT;
 		}
 		r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
@@ -146,22 +150,22 @@ memc_error_t memc_read(memcached_ctx_t *ctx, const char *cmd,
 			read_buf[r] = 0;
 			r = memc_parse_header (read_buf, &datalen, &p);
 			if (r < 0) {
-				memc_log (ctx, __LINE__,
+				memc_log (false, ctx, __LINE__,
 						"memc_read: cannot parse memcached reply");
 				return MEMC_SERVER_ERROR;
 			}
 			else if (r == 0) {
-				memc_log (ctx, __LINE__, "memc_read: record does not exists");
+				memc_log (true, ctx, __LINE__, "memc_read: record does not exists");
 				return MEMC_NOT_EXISTS;
 			}
 
 			if (datalen != params[i].bufsize) {
 #ifndef FREEBSD_LEGACY
-				memc_log (ctx, __LINE__,
+				memc_log (false, ctx, __LINE__,
 						"memc_read: user's buffer is too small: %zd, %zd required",
 						params[i].bufsize, datalen);
 #else
-				memc_log (ctx, __LINE__, "memc_read: user's buffer is too small: %ld, %ld required", (long int)params[i].bufsize,
+				memc_log (false, ctx, __LINE__, "memc_read: user's buffer is too small: %ld, %ld required", (long int)params[i].bufsize,
 						(long int)datalen);
 #endif
 				return MEMC_WRONG_LENGTH;
@@ -185,7 +189,7 @@ memc_error_t memc_read(memcached_ctx_t *ctx, const char *cmd,
 			}
 		}
 		else {
-			memc_log (ctx, __LINE__, "memc_read: read(v) failed: %d, %m", r);
+			memc_log (false, ctx, __LINE__, "memc_read: read(v) failed: %d, %m", r);
 			return MEMC_SERVER_ERROR;
 		}
 		/* Read data from multiply datagrams */
@@ -194,7 +198,7 @@ memc_error_t memc_read(memcached_ctx_t *ctx, const char *cmd,
 		while ((size_t) sum < datalen + sizeof(END_TRAILER) + sizeof(CRLF) - 2) {
 			retries = 0;
 			if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
-				memc_log (ctx, __LINE__,
+				memc_log (false, ctx, __LINE__,
 						"memc_read: timeout waiting reply");
 				return MEMC_SERVER_TIMEOUT;
 			}
@@ -238,7 +242,7 @@ memc_error_t memc_write(memcached_ctx_t *ctx, const char *cmd,
 
 		r = snprintf(read_buf, READ_BUFSIZ, "%s %s 0 %d %u" CRLF, cmd,
 				params[i].key, expire, (unsigned)params[i].bufsize);
-		memc_log (ctx, __LINE__,
+		memc_log (true, ctx, __LINE__,
 				"memc_write: send write request to memcached: %s", read_buf);
 		/* Set socket blocking */
 		ofl = fcntl (ctx->sock, F_GETFL, 0);
@@ -251,7 +255,7 @@ memc_error_t memc_write(memcached_ctx_t *ctx, const char *cmd,
 		iov[2].iov_base = CRLF;
 		iov[2].iov_len = sizeof(CRLF) - 1;
 		if (writev (ctx->sock, iov, 3) == -1) {
-			memc_log (ctx, __LINE__, "memc_write: writev failed, %d, %m",
+			memc_log (false, ctx, __LINE__, "memc_write: writev failed, %d, %m",
 					errno);
 			return MEMC_SERVER_ERROR;
 		}
@@ -259,14 +263,14 @@ memc_error_t memc_write(memcached_ctx_t *ctx, const char *cmd,
 		fcntl (ctx->sock, F_SETFL, ofl);
 		/* Read reply from server */
 		if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
-			memc_log (ctx, __LINE__,
+			memc_log (false, ctx, __LINE__,
 					"memc_write: server timeout while reading reply");
 			return MEMC_SERVER_ERROR;
 		}
 		/* Read header */
 		retries = 0;
 		if (rmilter_poll_fd (ctx->sock, ctx->timeout, POLLIN|POLLPRI) != 1) {
-			memc_log (ctx, __LINE__, "memc_write: timeout waiting reply");
+			memc_log (false, ctx, __LINE__, "memc_write: timeout waiting reply");
 			return MEMC_SERVER_TIMEOUT;
 		}
 		r = read (ctx->sock, read_buf, READ_BUFSIZ - 1);
@@ -305,10 +309,10 @@ memc_error_t memc_delete(memcached_ctx_t *ctx, memcached_param_t *params,
 
 	for (i = 0; i < *nelem; i++) {
 		r = snprintf(read_buf, READ_BUFSIZ, "delete %s" CRLF, params[i].key);
-		memc_log (ctx, __LINE__,
+		memc_log (true, ctx, __LINE__,
 				"memc_delete: send delete request to memcached: %s", read_buf);
 		if (write (ctx->sock, read_buf, r) == -1) {
-			memc_log (ctx, __LINE__, "memc_delete: write failed, %d, %m",
+			memc_log (false, ctx, __LINE__, "memc_delete: write failed, %d, %m",
 					errno);
 			return MEMC_SERVER_ERROR;
 		}
@@ -351,7 +355,7 @@ memc_error_t memc_write_mirror(memcached_ctx_t *ctx, size_t memcached_num,
 		if (ctx[memcached_num].alive == 1) {
 			r = memc_write (&ctx[memcached_num], cmd, params, nelem, expire);
 			if (r != MEMC_OK) {
-				memc_log (&ctx[memcached_num], __LINE__,
+				memc_log (true, &ctx[memcached_num], __LINE__,
 						"memc_write_mirror: cannot write to mirror server: %s",
 						memc_strerror (r));
 				result = r;
@@ -379,12 +383,12 @@ memc_error_t memc_read_mirror(memcached_ctx_t *ctx, size_t memcached_num,
 				result = r;
 				if (r != MEMC_NOT_EXISTS) {
 					ctx[memcached_num].alive = 0;
-					memc_log (&ctx[memcached_num], __LINE__,
+					memc_log (true, &ctx[memcached_num], __LINE__,
 							"memc_read_mirror: cannot write read from mirror server: %s",
 							memc_strerror (r));
 				}
 				else {
-					memc_log (&ctx[memcached_num], __LINE__,
+					memc_log (true, &ctx[memcached_num], __LINE__,
 							"memc_read_mirror: record not exists",
 							memc_strerror (r));
 				}
@@ -414,7 +418,7 @@ memc_error_t memc_delete_mirror(memcached_ctx_t *ctx, size_t memcached_num,
 				result = r;
 				if (r != MEMC_NOT_EXISTS) {
 					ctx[memcached_num].alive = 0;
-					memc_log (&ctx[memcached_num], __LINE__,
+					memc_log (true, &ctx[memcached_num], __LINE__,
 							"memc_delete_mirror: cannot delete from mirror server: %s",
 							memc_strerror (r));
 				}
@@ -447,7 +451,7 @@ int memc_init_ctx_mirror(memcached_ctx_t *ctx, size_t memcached_num)
 			r = memc_init_ctx (&ctx[memcached_num]);
 			if (r == -1) {
 				ctx[memcached_num].alive = 0;
-				memc_log (&ctx[memcached_num], __LINE__,
+				memc_log (false, &ctx[memcached_num], __LINE__,
 						"memc_init_ctx_mirror: cannot connect to server");
 			}
 			else {
@@ -491,7 +495,7 @@ int memc_close_ctx_mirror(memcached_ctx_t *ctx, size_t memcached_num)
 	while (memcached_num--) {
 		r = memc_close_ctx (&ctx[memcached_num]);
 		if (r == -1) {
-			memc_log (&ctx[memcached_num], __LINE__,
+			memc_log (false, &ctx[memcached_num], __LINE__,
 					"memc_close_ctx_mirror: cannot close connection to server properly");
 			ctx[memcached_num].alive = 0;
 		}
