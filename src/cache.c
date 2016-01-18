@@ -31,6 +31,8 @@
 #include "util.h"
 #include <assert.h>
 
+#define DEFAULT_REDIS_PORT 6379
+
 static struct cache_server *
 rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 		const unsigned char *key, size_t keylen)
@@ -95,6 +97,11 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 
 	if (serv) {
 		if (cfg->use_redis) {
+			/* Special workaround */
+			if (serv->port == DEFAULT_MEMCACHED_PORT) {
+				serv->port = DEFAULT_REDIS_PORT;
+			}
+
 			msec_to_tv (cfg->memcached_connect_timeout, &tv);
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
@@ -183,6 +190,10 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 	if (serv) {
 		if (cfg->use_redis) {
+			if (serv->port == DEFAULT_MEMCACHED_PORT) {
+				serv->port = DEFAULT_REDIS_PORT;
+			}
+
 			msec_to_tv (cfg->memcached_connect_timeout, &tv);
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
@@ -263,6 +274,10 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 	if (serv) {
 		if (cfg->use_redis) {
+			if (serv->port == DEFAULT_MEMCACHED_PORT) {
+				serv->port = DEFAULT_REDIS_PORT;
+			}
+
 			msec_to_tv (cfg->memcached_connect_timeout, &tv);
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
