@@ -198,7 +198,6 @@ main(int argc, char *argv[])
 	}
 
 	openlog("rmilter", LOG_PID, LOG_MAIL);
-	msg_warn ("main: starting rmilter version %s", MVERSION);
 
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
@@ -288,6 +287,9 @@ main(int argc, char *argv[])
 		msg_err("Unable to daemonize");
 		exit(EX_UNAVAILABLE);
 	}
+
+	msg_info ("main: starting rmilter version %s, listen on %s", MVERSION,
+			cfg->sock_cred);
 
 	if (pthread_create (&reload_thr, NULL, reload_thread, NULL)) {
 		msg_warn ("main: cannot start reload thread, ignoring error");
