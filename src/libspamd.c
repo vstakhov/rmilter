@@ -31,6 +31,7 @@
 #include "rmilter.h"
 #include "libspamd.h"
 #include "mfapi.h"
+#include "sds.h"
 
 /* Maximum time in seconds during which spamd server is marked inactive after scan error */
 #define INACTIVE_INTERVAL 60.0
@@ -58,7 +59,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		const struct spamd_server *srv, struct config_file *cfg,
 		rspamd_result_t *res, char **mid)
 {
-	char buf[16384];
+	char buf[8192];
+	sds readbuf;
 	char *c, *p, *err_str;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
@@ -224,36 +226,42 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 #endif
 #endif
 
-	fcntl (s, F_SETFL, ofl);
+	fcntl (s, F_SETFL, ofl|O_NONBLOCK);
 	close (fd);
-
-	/* wait for reply */
-
-	if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
-		msg_warn("rspamd: timeout waiting results %s", srv->name);
-		close (s);
-		return -1;
-	}
 
 	/*
 	 * read results
 	 */
+	readbuf = sdsempty ();
 
-	buf[0] = 0;
-	size = 0;
+	for (;;) {
+		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
+			msg_warn("rspamd: timeout waiting results %s", srv->name);
+			close (s);
+			return -1;
+		}
 
-	/* XXX: in fact here should be some FSM to parse reply and this one just skip long replies */
-	while ((r = read (s, buf + size, sizeof(buf) - size - 1)) > 0
-			&& size < sizeof(buf) - 1) {
-		size += r;
+		r = read (s, buf, sizeof (buf));
+
+		if (r == -1) {
+			if (errno == EAGAIN || errno == EINTR) {
+				continue;
+			}
+			else {
+				msg_warn("rspamd: read, %s, %s", srv->name, strerror (errno));
+				close (s);
+				return -1;
+			}
+		}
+		else if (r == 0) {
+			break;
+		}
+		else {
+			readbuf = sdscatlen (readbuf, buf, r);
+		}
 	}
 
-	if (r < 0) {
-		msg_warn("rspamd: read, %s, %s", srv->name, strerror (errno));
-		close (s);
-		return -1;
-	}
-	buf[size] = '\0';
+	size = sdslen (readbuf);
 	close (s);
 
 #define TEST_WORD(x)																\
@@ -266,8 +274,8 @@ do {																				\
 	remain -= sizeof((x)) - 1;														\
 } while (0)
 
-	c = buf;
-	p = buf;
+	c = readbuf;
+	p = readbuf;
 	remain = size - 1;
 	state = 0;
 	next_state = 100;
@@ -283,6 +291,7 @@ do {																				\
 			if ((c = strchr (p, ' ')) == NULL) {
 				msg_warn("invalid reply from server %s on state %d", srv->name,
 						state);
+				sdsfree (readbuf);
 				return -1;
 			}
 			/* Well now in c we have space symbol, skip all */
@@ -293,12 +302,14 @@ do {																				\
 			if (*c != '0') {
 				msg_warn("invalid reply from server %s on state %d, code: %c",
 						srv->name, state, *c);
+				sdsfree (readbuf);
 				return -1;
 			}
 			/* Now skip everything till \n */
 			if ((c = strchr (c, '\n')) == NULL) {
 				msg_warn("invalid reply from server %s on state %d", srv->name,
 						state);
+				sdsfree (readbuf);
 				return -1;
 			}
 			c++;
@@ -315,6 +326,7 @@ do {																				\
 			cur = malloc (sizeof(struct rspamd_metric_result));
 			if (cur == NULL) {
 				msg_err("malloc failed: %s", strerror (errno));
+				sdsfree (readbuf);
 				return -1;
 			}
 			cur->subject = NULL;
@@ -332,12 +344,14 @@ do {																				\
 				msg_warn(
 						"invalid reply from server %s on state %d, at position: %s",
 						srv->name, state, p);
+				sdsfree (readbuf);
 				return -1;
 			}
 			/* Now in c we have end of name and in p - begin of name, so copy this data to temp buffer */
 			cur->metric_name = malloc (c - p + 1);
 			if (cur->metric_name == NULL) {
 				msg_err("malloc failed: %s", strerror (errno));
+				sdsfree (readbuf);
 				return -1;
 			}
 			rmilter_strlcpy (cur->metric_name, p, c - p + 1);
@@ -348,6 +362,7 @@ do {																				\
 				msg_warn(
 						"invalid reply from server %s on state %d, at position: %s",
 						srv->name, state, p);
+				sdsfree (readbuf);
 				return -1;
 			}
 			remain -= c - p + 1;
@@ -363,6 +378,7 @@ do {																				\
 				msg_warn(
 						"invalid reply from server %s on state %d, error converting score number: %s",
 						srv->name, state, err_str);
+				sdsfree (readbuf);
 				return -1;
 			}
 			remain -= err_str - p;
@@ -378,6 +394,7 @@ do {																				\
 				msg_warn(
 						"invalid reply from server %s on state %d, error converting required score number: %s",
 						srv->name, state, err_str);
+				sdsfree (readbuf);
 				return -1;
 			}
 			remain -= err_str - p;
@@ -415,6 +432,7 @@ do {																				\
 				cur = malloc (sizeof(struct rspamd_metric_result));
 				if (cur == NULL) {
 					msg_err("malloc failed: %s", strerror (errno));
+					sdsfree (readbuf);
 					return -1;
 				}
 				TAILQ_INIT(&cur->symbols);
@@ -438,6 +456,7 @@ do {																				\
 				toklen = strcspn (p, "\r\n");
 				if (toklen > remain) {
 					msg_info("bad symbol name detected");
+					sdsfree (readbuf);
 					return -1;
 				}
 				remain -= toklen;
@@ -452,16 +471,19 @@ do {																				\
 			if (toklen == 0 || toklen > remain) {
 				/* Bad symbol name */
 				msg_info("bad symbol name detected");
+				sdsfree (readbuf);
 				return -1;
 			}
 			cur_symbol = malloc (sizeof(struct rspamd_symbol));
 			if (cur_symbol == NULL) {
 				msg_err("malloc failed: %s", strerror (errno));
+				sdsfree (readbuf);
 				return -1;
 			}
 			cur_symbol->symbol = malloc (toklen + 1);
 			if (cur_symbol->symbol == NULL) {
 				msg_err("malloc failed: %s", strerror (errno));
+				sdsfree (readbuf);
 				return -1;
 			}
 			rmilter_strlcpy (cur_symbol->symbol, p, toklen + 1);
@@ -470,6 +492,7 @@ do {																				\
 			toklen = strcspn (p, "\r\n");
 			if (toklen > remain) {
 				msg_info("bad symbol name detected");
+				sdsfree (readbuf);
 				return -1;
 			}
 			remain -= toklen;
@@ -499,6 +522,7 @@ do {																				\
 			toklen = strcspn (p, "\r\n");
 			if (toklen > remain) {
 				msg_info("bad symbol name detected");
+				sdsfree (readbuf);
 				return -1;
 			}
 			remain -= toklen;
@@ -541,6 +565,7 @@ do {																				\
 		default:
 			msg_err("state machine breakage detected, state = %d, p = %s",
 					state, p);
+			sdsfree (readbuf);
 			return -1;
 		}
 	}
@@ -548,6 +573,8 @@ do {																				\
 	if (cur != NULL) {
 		TAILQ_INSERT_HEAD(res, cur, entry);
 	}
+	sdsfree (readbuf);
+
 	return 0;
 }
 #undef TEST_WORD

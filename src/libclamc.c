@@ -203,7 +203,6 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	}
 
 	/* wait for reply */
-
 	if (rmilter_poll_fd (s, cfg->clamav_results_timeout, POLLIN) < 1) {
 		msg_warn("clamav: timeout waiting results %s", srv->name);
 		close (s);
