@@ -1,3 +1,7 @@
+1.7.1:
+	* Fixed crash on replies checks (#71)
+	* Fixed crash in the memcached backend logic (#70)
+
 1.7.0:
 	* Removed support of SPF (lives in rspamd now)
 	* Removed support of spamassassin (never ever used)
