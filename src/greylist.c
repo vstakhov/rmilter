@@ -72,7 +72,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 {
 	char key[MAXKEYLEN];
 	int r, keylen;
-	struct timeval *tm1, tm;
+	struct timeval *tm1 = NULL, tm;
 	size_t dlen;
 	void *addr;
 
@@ -92,11 +92,18 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		return GREY_WHITELISTED;
 	}
 
+	if (tm1) {
+		free (tm1);
+	}
+
 	/* Try to get record from memcached_grey */
 	keylen = make_greylisting_key (key,
 			sizeof (key),
 			cfg->grey_prefix,
 			blake_hash);
+
+	tm1 = NULL;
+	dlen = sizeof (*tm1);
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
 			(unsigned char **)&tm1, &dlen)) {
@@ -122,9 +129,15 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 
 		if ((unsigned int) tm.tv_sec - tm1->tv_sec < cfg->greylisting_timeout) {
 			/* Client comes too early */
+			if (tm1) {
+				free (tm1);
+			}
 			return GREY_GREYLISTED;
 		}
 		else {
+			if (tm1) {
+				free (tm1);
+			}
 			/* Write to autowhitelist */
 			if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
 				awl_add (*(uint32_t *) addr, cfg->awl_hash,
