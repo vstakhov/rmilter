@@ -237,9 +237,14 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	int r, keylen;
 	size_t s, dlen;
 
+	if (header == NULL) {
+		return;
+	}
+
+	s = strlen (header);
+
 	/* First of all do regexp check of message to determine special message id */
 	if (cfg->special_mid_re) {
-		s = strlen (header);
 		if ((r = pcre_exec (cfg->special_mid_re, NULL, header, s, 0, 0, NULL, 0)) >= 0) {
 			priv->complete_to_beanstalk = 1;
 		}
