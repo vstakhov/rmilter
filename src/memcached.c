@@ -160,14 +160,9 @@ memc_error_t memc_read(memcached_ctx_t *ctx, const char *cmd,
 			}
 
 			if (datalen != params[i].bufsize) {
-#ifndef FREEBSD_LEGACY
 				memc_log (false, ctx, __LINE__,
-						"memc_read: user's buffer is too small: %zd, %zd required",
-						params[i].bufsize, datalen);
-#else
-				memc_log (false, ctx, __LINE__, "memc_read: user's buffer is too small: %ld, %ld required", (long int)params[i].bufsize,
-						(long int)datalen);
-#endif
+						"memc_read: got length of key %s: %zd when %zd required",
+						params[i].key, params[i].bufsize, datalen);
 				return MEMC_WRONG_LENGTH;
 			}
 

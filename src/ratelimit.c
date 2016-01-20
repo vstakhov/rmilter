@@ -166,6 +166,7 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_RATELIMIT, key, klen,
 			(unsigned char **) &b, &dlen)) {
 		b = calloc (1, sizeof (*b));
+		dlen = sizeof (*b);
 
 		if (b == NULL) {
 			msg_err("check_specific_limit: calloc failed: %s", strerror (errno));
