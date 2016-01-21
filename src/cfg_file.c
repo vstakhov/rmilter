@@ -197,11 +197,6 @@ int add_clamav_server(struct config_file *cf, char *str)
 	if (str == NULL)
 		return 0;
 
-	cur_tok = strsep (&str, ":");
-
-	if (cur_tok == NULL || *cur_tok == '\0')
-		return 0;
-
 	if (cf->clamav_servers_num == MAX_CLAMAV_SERVERS) {
 		yyerror ("yyparse: maximum number of clamav servers is reached %d",
 				MAX_CLAMAV_SERVERS);
