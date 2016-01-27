@@ -53,6 +53,10 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 			ptr = cfg->memcached_servers_white;
 			mlen = cfg->memcached_servers_white_num;
 		}
+		else if (cfg->memcached_servers_grey_num > 0) {
+			ptr = cfg->memcached_servers_grey;
+			mlen = cfg->memcached_servers_grey_num;
+		}
 		break;
 	case RMILTER_QUERY_RATELIMIT:
 		if (cfg->memcached_servers_limits_num > 0) {
