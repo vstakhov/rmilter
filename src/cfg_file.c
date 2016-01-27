@@ -497,6 +497,15 @@ void init_defaults(struct config_file *cfg)
 	cfg->clamav_whitelist = radix_create_compressed ();
 	cfg->dkim_ip_tree = radix_create_compressed ();
 	cfg->greylisted_message = strdup (DEFAULT_GREYLISTED_MESSAGE);
+	/* Defaults for greylisting */
+	/* 1d for greylisting data */
+	cfg->greylisting_expire = 86400;
+	/* 3d for whitelisting */
+	cfg->whitelisting_expire = cfg->greylisting_expire * 3;
+	cfg->greylisting_timeout = 300;
+	cfg->white_prefix = strdup ("white");
+	cfg->grey_prefix = strdup ("grey");
+	cfg->id_prefix = strdup ("id");
 
 	cfg->awl_enable = 0;
 	cfg->beanstalk_copy_prob = 100.0;
