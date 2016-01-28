@@ -668,7 +668,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	cur = TAILQ_FIRST(&res);
 	while (cur) {
 		if (cur->metric_name) {
-			if (cfg->extended_spam_headers) {
+			if (cfg->extended_spam_headers && !priv->authenticated) {
 				hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
 						cur->metric_name,
 						cur->score > cur->required_score ? "True" : "False",
