@@ -67,7 +67,7 @@ pthread_mutex_t mx_clamav_write = PTHREAD_MUTEX_INITIALIZER;
 /*
  * clamscan_socket() - send file to specified host. See clamscan() for
  * load-balanced wrapper.
- * 
+ *
  * returns 0 when checked, -1 on some error during scan (try another server), -2
  * on unexpected error (probably clamd died on our file, fallback to another
  * host not recommended)
@@ -88,6 +88,7 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in, server_w;
 	int s, sw, r, fd, port = 0, path_len, ofl;
+	size_t size;
 	struct stat sb;
 
 	*strres = '\0';
@@ -214,16 +215,34 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	 */
 	readbuf = sdsempty();
 
-	while ((r = read (s, buf, sizeof(buf))) > 0) {
-		readbuf = sdscatlen (readbuf, buf, r);
+	for (;;) {
+		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
+			msg_warn("clamav: timeout waiting results %s", srv->name);
+			close (s);
+			return -1;
+		}
+
+		r = read (s, buf, sizeof (buf));
+
+		if (r == -1) {
+			if (errno == EAGAIN || errno == EINTR) {
+				continue;
+			}
+			else {
+				msg_warn("clamav: read, %s, %s", srv->name, strerror (errno));
+				close (s);
+				return -1;
+			}
+		}
+		else if (r == 0) {
+			break;
+		}
+		else {
+			readbuf = sdscatlen (readbuf, buf, r);
+		}
 	}
 
-	if (sdslen (readbuf)) {
-		sdsfree (readbuf);
-		msg_warn("clamav: read, %s: %s", srv->name, strerror (errno));
-		close (s);
-		return -1;
-	}
+	size = sdslen (readbuf);
 
 	close (s);
 
@@ -282,7 +301,7 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 /*
  * clamscan() - send file to one of remote clamd, with pseudo load-balancing
  * (select one random server, fallback to others in case of errors).
- * 
+ *
  * returns 0 if file scanned (or not scanned due to filesize limit), -1 when
  * retry limit exceeded, -2 on unexpected error, e.g. unexpected reply from
  * server (suppose scanned message killed clamd...)
@@ -367,7 +386,3 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 
 	return r;
 }
-
-/* 
- * vi:ts=4 
- */
