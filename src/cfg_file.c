@@ -226,6 +226,8 @@ int add_clamav_server(struct config_file *cf, char *str)
 		srv->up.priority = strtoul (str, NULL, 10);
 	}
 
+	cf->clamav_servers_num ++;
+
 	return 1;
 }
 
