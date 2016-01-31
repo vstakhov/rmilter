@@ -318,6 +318,7 @@ struct config_file {
 	char *greylisted_message;
 	radix_compressed_t *grey_whitelist_tree;
 	radix_compressed_t *limit_whitelist_tree;
+	radix_compressed_t *our_networks;
 	/* Autowhitelist section */
 	u_char awl_enable;
 	awl_hash_t *awl_hash;

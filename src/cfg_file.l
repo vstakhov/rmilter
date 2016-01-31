@@ -182,6 +182,7 @@ tempdir							return TEMPDIR;
 tempfiles_mode					return TEMPFILES_MODE;
 pidfile							return PIDFILE;
 strict_auth						return STRICT_AUTH;
+check_auth						return STRICT_AUTH;
 rule							return RULE;
 clamav							return CLAMAV;
 spamd							return SPAMD;
@@ -284,6 +285,7 @@ not								return NOT;
 quarantine						return QUARANTINE;
 reject							return REJECTL;
 tempfail						return TEMPFAIL;
+our_networks					return OUR_NETWORKS;
 
 
 \"								return QUOTE;

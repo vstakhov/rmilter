@@ -69,7 +69,7 @@ uint8_t cur_flags = 0;
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
-%token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS
+%token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -121,6 +121,7 @@ command	:
 	| whitelist
 	| dkim
 	| use_redis
+	| our_networks
 	;
 
 tempdir :
@@ -1517,6 +1518,22 @@ use_redis:
 	}
 	;
 
+our_networks:
+	OUR_NETWORKS EQSIGN our_networks_list
+	;
+
+our_networks_list:
+	our_networks_elt
+	| our_networks_list COMMA our_networks_elt
+	;
+
+our_networks_elt:
+	ip_net {
+		if (add_ip_radix (cfg->our_networks, $1) == 0) {
+			YYERROR;
+		}
+	}
+	;
 %%
 /*
  * vi:ts=4

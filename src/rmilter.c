@@ -709,6 +709,15 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	if (tmpfrom != NULL) {
 		priv->authenticated = 1;
 		rmilter_strlcpy (priv->priv_user, tmpfrom, sizeof (priv->priv_user));
+		msg_info ("mlfi_envfrom: client is authenticated as: %s",
+					priv->priv_user);
+	}
+	else if (radix_find_rmilter_addr (cfg->dkim_ip_tree, &priv->priv_addr) !=
+			RADIX_NO_VALUE) {
+		priv->authenticated = 1;
+		rmilter_strlcpy (priv->priv_user, priv->priv_from, sizeof (priv->priv_user));
+		msg_info ("mlfi_envfrom: client comes from our network: %s",
+				priv->priv_user);
 	}
 
 	/* Check whether we need to sign this message */

@@ -498,6 +498,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->spamd_whitelist = radix_create_compressed ();
 	cfg->clamav_whitelist = radix_create_compressed ();
 	cfg->dkim_ip_tree = radix_create_compressed ();
+	cfg->our_networks = radix_create_compressed ();
 	cfg->greylisted_message = strdup (DEFAULT_GREYLISTED_MESSAGE);
 	/* Defaults for greylisting */
 	/* 1d for greylisting data */
@@ -643,6 +644,7 @@ void free_config(struct config_file *cfg)
 	radix_destroy_compressed (cfg->clamav_whitelist);
 	radix_destroy_compressed (cfg->limit_whitelist_tree);
 	radix_destroy_compressed (cfg->dkim_ip_tree);
+	radix_destroy_compressed (cfg->our_networks);
 
 	if (cfg->spamd_reject_message) {
 		free (cfg->spamd_reject_message);
