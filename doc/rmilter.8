@@ -167,6 +167,10 @@ inet:port@host - bind to inet socket
 - strict checks for mails from authenticated senders
 .Dl Em Default: Li no
 .It
+.Sy our_networks
+- list of ips or nets mail for which should be treated as for authenticated users
+.Dl Em Default: Li empty
+.It
 .Sy spf_domains
 - list of domains that would be checked with spf
 .Dl Em Default: Li empty Pq spf disabled
@@ -218,6 +222,10 @@ host[:port]
 .Sy maxerrors
 - maximum number of errors that can occur during error_time to make us thinking that this upstream is dead
 .Dl Em Default: Li 10
+.It
+.Sy whitelist
+- list of ips or nets that should be not checked with clamav
+.Dl Em Default: Li empty
 .El
 .It
 .\" Spamd section
