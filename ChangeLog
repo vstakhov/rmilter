@@ -1,3 +1,12 @@
+1.7.2:
+	* Use grey servers if white servers are absent for storage
+	* Add more sane defaults for greylisting
+	* Never add extended spam headers for authenticated users
+	* Fix critical bug in clamav scanning (#77)
+	* Implement `our_networks` option
+	* Fix ratelimit and memcached backend (#72)
+	* Fix clamav servers parsing (#21)
+
 1.7.1:
 	* Fixed crash on replies checks (#71)
 	* Fixed crash in the memcached backend logic (#70)
