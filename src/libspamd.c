@@ -684,7 +684,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 			free (cur->metric_name);
 		}
 		else {
-			if (cfg->extended_spam_headers) {
+			if (cfg->extended_spam_headers && !priv->authenticated) {
 				hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
 						"default",
 						cur->score > cur->required_score ? "True" : "False",
@@ -734,7 +734,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 							to_trace++;
 						}
 					}
-					if (cfg->extended_spam_headers) {
+					if (cfg->extended_spam_headers && !priv->authenticated) {
 						if (TAILQ_NEXT(cur_symbol, entry)) {
 							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
 									" %s\n", cur_symbol->symbol);
@@ -760,7 +760,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		cur = TAILQ_NEXT(cur, entry);
 
 		free (tmp);
-		if (cfg->extended_spam_headers) {
+		if (cfg->extended_spam_headers && !priv->authenticated) {
 			if (extra) {
 				smfi_addheader (ctx, "X-Spamd-Extra-Result", hdrbuf);
 			}
@@ -770,7 +770,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		}
 	}
 	/* All other statistic headers */
-	if (cfg->extended_spam_headers) {
+	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
 			smfi_addheader (ctx, "X-Spamd-Extra-Server", selected->name);
 			snprintf(hdrbuf, sizeof(hdrbuf), "%.2f", tf - ts);
