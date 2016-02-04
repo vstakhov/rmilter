@@ -794,7 +794,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				 */
 
 				if (cur->score > 0) {
-					for (i = 0; i < cur->score; i ++) {
+					for (i = 0; i < (int)cur->score; i ++) {
 						if (i > 50) {
 							break;
 						}
