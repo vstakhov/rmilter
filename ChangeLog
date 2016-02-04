@@ -1,3 +1,9 @@
+1.7.3:
+	* Really disable extended headers for authenticated users
+	* Add support of X-Spamd-Bar
+	* Fix default expire value in docs
+	* Print symbols scores, add SA compaitble headers
+
 1.7.2:
 	* Use grey servers if white servers are absent for storage
 	* Add more sane defaults for greylisting
