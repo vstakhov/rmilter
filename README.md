@@ -208,7 +208,7 @@ Greylisting related options.
 - `timeout (required)`: time during which we mark message greylisted
 	+ Default: `300s`
 - `expire (required)`: time during which we save a greylisting record
-	+ Default: `empty (greylisting disabled)`
+	+ Default: `1d`
 - `whitelist`: list of ip addresses or networks that should be whitelisted from greylisting
 	+ Default: `empty`
 - `awl_enable`: enable internal auto-whitelist mechanics
