@@ -718,12 +718,12 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 			while (cur_symbol) {
 				if (cur_symbol->symbol) {
 					if (TAILQ_NEXT(cur_symbol, entry)) {
-						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s, ",
-								cur_symbol->symbol);
+						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.1f), ",
+								cur_symbol->symbol, cur_symbol->score);
 					}
 					else {
-						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s",
-								cur_symbol->symbol);
+						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.1f)",
+								cur_symbol->symbol, cur_symbol->score);
 					}
 					if (cfg->trace_symbol) {
 						c = strchr (cur_symbol->symbol, '(');
@@ -737,11 +737,13 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					if (cfg->extended_spam_headers && !priv->authenticated) {
 						if (TAILQ_NEXT(cur_symbol, entry)) {
 							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-									" %s\n", cur_symbol->symbol);
+									" %s(%.1f)\n", cur_symbol->symbol,
+									cur_symbol->score);
 						}
 						else {
 							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-									" %s", cur_symbol->symbol);
+									" %s(%.1f)", cur_symbol->symbol,
+									cur_symbol->score);
 						}
 					}
 					free (cur_symbol->symbol);
@@ -766,7 +768,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 
 				j = (int) fabs (cur->score);
 
-				/* Fill spam bar */
+				/* Fill spam bar (exim compatible) */
 				if (j != 0) {
 					char sc = cur->score > 0 ? '+' : '-';
 
@@ -786,6 +788,30 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				}
 
 				smfi_addheader (ctx, "X-Spamd-Bar", bar_buf);
+
+				/*
+				 * SA compatible headers:
+				 * X-Spam-Level
+				 * X-Spam-Status
+				 */
+
+				if (j > 0) {
+					for (i = 0; i < j; i ++) {
+						if (i > 50) {
+							break;
+						}
+
+						bar_buf[i] = '*';
+					}
+
+					bar_buf[i] = '\0';
+					smfi_addheader (ctx, "X-Spam-Level", bar_buf);
+				}
+
+				snprintf (hdrbuf, sizeof (hdrbuf), "%s, score=%.1f",
+						cur->action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
+						cur->score);
+				smfi_addheader (ctx, "X-Spam-Status", hdrbuf);
 			}
 		}
 
