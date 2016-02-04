@@ -592,11 +592,11 @@ do {																				\
 int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		char **subject, int extra)
 {
-	int retry, r = -2, hr = 0, to_trace = 0;
+	int retry, r = -2, hr = 0, to_trace = 0, i, j;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
-	char rbuf[BUFSIZ], hdrbuf[BUFSIZ];
+	char rbuf[1024], hdrbuf[1024], bar_buf[128];
 	char *prefix = "s", *mid = NULL, *c;
 	rspamd_result_t res;
 	struct rspamd_metric_result *cur = NULL, *tmp;
@@ -751,23 +751,47 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				free (tmp_symbol);
 			}
 		}
+
 		msg_info("%s", rbuf);
 		if (cur->subject != NULL) {
 			free (cur->subject);
 		}
 
-		tmp = cur;
-		cur = TAILQ_NEXT(cur, entry);
-
-		free (tmp);
 		if (cfg->extended_spam_headers && !priv->authenticated) {
 			if (extra) {
 				smfi_addheader (ctx, "X-Spamd-Extra-Result", hdrbuf);
 			}
 			else {
 				smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
+
+				j = (int) fabs (cur->score);
+
+				/* Fill spam bar */
+				if (j != 0) {
+					char sc = cur->score > 0 ? '+' : '-';
+
+					for (i = 0; i < j; i ++) {
+						if (i > 50) {
+							break;
+						}
+
+						bar_buf[i] = sc;
+					}
+
+					bar_buf[i] = '\0';
+				}
+				else {
+					bar_buf[0] = '/';
+					bar_buf[1] = '\0';
+				}
+
+				smfi_addheader (ctx, "X-Spamd-Bar", bar_buf);
 			}
 		}
+
+		tmp = cur;
+		cur = TAILQ_NEXT(cur, entry);
+		free (tmp);
 	}
 	/* All other statistic headers */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
