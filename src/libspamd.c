@@ -718,12 +718,12 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 			while (cur_symbol) {
 				if (cur_symbol->symbol) {
 					if (TAILQ_NEXT(cur_symbol, entry)) {
-						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.1f), ",
-								cur_symbol->symbol, cur_symbol->score);
+						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s, ",
+								cur_symbol->symbol);
 					}
 					else {
-						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.1f)",
-								cur_symbol->symbol, cur_symbol->score);
+						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s",
+								cur_symbol->symbol);
 					}
 					if (cfg->trace_symbol) {
 						c = strchr (cur_symbol->symbol, '(');
@@ -737,13 +737,11 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					if (cfg->extended_spam_headers && !priv->authenticated) {
 						if (TAILQ_NEXT(cur_symbol, entry)) {
 							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-									" %s(%.1f)\n", cur_symbol->symbol,
-									cur_symbol->score);
+									" %s\n", cur_symbol->symbol);
 						}
 						else {
 							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-									" %s(%.1f)", cur_symbol->symbol,
-									cur_symbol->score);
+									" %s", cur_symbol->symbol);
 						}
 					}
 					free (cur_symbol->symbol);
