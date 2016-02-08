@@ -6,7 +6,7 @@ SET(RMILTER_VERSION_MAJOR 1)
 SET(RMILTER_VERSION_MINOR 7)
 SET(RMILTER_VERSION_PATCH 4)
 
-SET(RMILTER_VERSION         "${RMILTER_VERSION_MAJOR}.${RMILTER_VERSION_MINOR}.${RMILTER_VERSION_PATCH}")
+SET(RMILTER_VERSION         "${RMILTER_VERSION_MAJOR}.${RMILTER_VERSION_MINOR}.${RMILTER_VERSION_PATCH}${GIT_ID}")
 SET(RMILTER_MASTER_SITE_URL "https://rspamd.com")
 
 IF(NOT RMILTER_USER)
@@ -32,7 +32,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 
 OPTION(ENABLE_DEBUG        "Enable debug output [default: OFF]"              OFF)
 OPTION(ENABLE_OPTIMIZATION "Enable optimization [default: OFF]"              OFF)
-OPTION(ENABLE_DKIM         "Enable dkim signatures [default: OFF]"           ON)
+OPTION(ENABLE_DKIM         "Enable dkim signatures [default: ON]"           ON)
 OPTION(WANT_SYSTEMD_UNITS  "Install systemd unit files on Linux [default: OFF]" OFF)
 
 ############################# INCLUDE SECTION #############################################
