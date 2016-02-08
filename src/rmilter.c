@@ -313,7 +313,7 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 
 		msg_debug ("check_greylisting_ctx: %s: checking greylisting", priv->mlfi_id);
 
-		r = check_greylisting (cfg, priv);
+		r = check_greylisting (ctx, cfg, priv);
 		switch (r) {
 		case GREY_GREYLISTED:
 			if (smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, cfg->greylisted_message) != MI_SUCCESS) {

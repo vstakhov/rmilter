@@ -21,7 +21,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <rmilter.h>
 #include "config.h"
 #include "radix.h"
 #include "upstream.h"
@@ -30,9 +29,12 @@
 #include "blake2.h"
 #include "rmilter.h"
 #include "utlist.h"
+#include "mfapi.h"
 #include <assert.h>
 #include <stdbool.h>
+#include <math.h>
 
+#define GREYLISTING_HEADER "X-Rmilter-Greylist"
 
 static int
 make_greylisting_key (char *key, size_t keylen, char *prefix, const u_char *hash)
@@ -68,11 +70,14 @@ greylisting_sort_rcpt_func (struct rcpt *r1, struct rcpt *r2)
 
 static int
 greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
-		const u_char *blake_hash, bool *exists)
+		const u_char *blake_hash, bool *exists,
+		char *hdr_buf, size_t hdr_size, const char *type)
 {
-	char key[MAXKEYLEN];
+	char key[MAXKEYLEN], timebuf[64];
 	int r, keylen;
+	time_t elapsed;
 	struct timeval *tm1 = NULL, tm;
+	struct tm tm_parsed;
 	size_t dlen;
 	void *addr;
 
@@ -89,6 +94,12 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 
 	if (rmilter_query_cache (cfg, RMILTER_QUERY_WHITELIST, key, keylen,
 			(unsigned char **)&tm1, &dlen)) {
+		elapsed = tm1->tv_sec + cfg->whitelisting_expire;
+		localtime_r (&elapsed, &tm_parsed);
+		strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+		snprintf (hdr_buf, hdr_size, "Whitelisted till %s, type: %s",
+				timebuf, type);
+
 		return GREY_WHITELISTED;
 	}
 
@@ -132,12 +143,22 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			if (tm1) {
 				free (tm1);
 			}
+
 			return GREY_GREYLISTED;
 		}
 		else {
+			elapsed = tm1->tv_sec + cfg->whitelisting_expire;
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+			snprintf (hdr_buf, hdr_size, "Greylisted for %d seconds, "
+					"whitelisted till %s, type: %s",
+					(int)(tm.tv_sec - tm1->tv_sec),
+					timebuf, type);
+
 			if (tm1) {
 				free (tm1);
 			}
+
 			/* Write to autowhitelist */
 			if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
 				awl_add (*(uint32_t *) addr, cfg->awl_hash,
@@ -159,11 +180,12 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 }
 
 int
-check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
+check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 {
 	blake2b_state mdctx;
 	u_char final[BLAKE2B_OUTBYTES];
-	char ip_ptr[16];
+	char greylist_buf[1024];
+	char ip_ptr[16], ip_str[INET6_ADDRSTRLEN + 1];
 	struct rcpt *rcpt;
 	const char *from;
 	void *addr, *map;
@@ -171,8 +193,10 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 	unsigned long map_len;
 	const long max_map_len = 10 * 1024;
 	bool exists = false;
-	int ret = GREY_ERROR, fd;
+	int ret = GREY_ERROR, fd, ahits;
+	SMFICTX *ctx = _ctx;
 
+	greylist_buf[0] = 0;
 	/* First of all, check if we have some body */
 	if (priv->eoh_pos > 0 && stat (priv->file, &st) != -1) {
 		fd = open (priv->file, O_RDONLY);
@@ -209,13 +233,14 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 				blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
 				munmap (map, st.st_size);
 
-				ret = greylisting_check_hash (cfg, priv, final, &exists);
+				ret = greylisting_check_hash (cfg, priv, final, &exists,
+						greylist_buf, sizeof (greylist_buf), "data hash");
 			}
 		}
 	}
 
 	if (ret == GREY_GREYLISTED && exists) {
-		return ret;
+		goto end;
 	}
 
 	/* Try also to set envelope hash */
@@ -233,15 +258,28 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 
 	if (radix_find_rmilter_addr (cfg->grey_whitelist_tree,
 			&priv->priv_addr) != RADIX_NO_VALUE) {
-		return GREY_WHITELISTED;
+		snprintf (greylist_buf, sizeof (greylist_buf),
+				"Sender IP %s is whitelisted by configuration",
+				ip_str);
+		ret = GREY_WHITELISTED;
+		goto end;
 	}
 
 	/* Check whitelist */
-	if (cfg->awl_enable && priv->priv_addr.family == AF_INET &&
-			awl_check (*(uint32_t *)addr, cfg->awl_hash, priv->conn_tm.tv_sec) ==
-					1) {
-		/* Auto whitelisted */
-		return GREY_WHITELISTED;
+	if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
+
+		ahits = awl_check (*(uint32_t *)addr, cfg->awl_hash, priv->conn_tm.tv_sec);
+
+		if (ahits > 0) {
+			/* Auto whitelisted */
+			ret = GREY_WHITELISTED;
+			memset (ip_str, 0, sizeof (ip_str));
+			inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
+			snprintf (greylist_buf, sizeof (greylist_buf),
+					"Sender IP %s is auto-whitelisted after %d hits",
+					ip_str, ahits);
+			goto end;
+		}
 	}
 
 	memset (ip_ptr, 0, sizeof (ip_ptr));
@@ -273,7 +311,14 @@ check_greylisting (struct config_file *cfg, struct mlfi_priv *priv)
 
 	blake2b_final (&mdctx, final, BLAKE2B_OUTBYTES);
 
-	ret = greylisting_check_hash (cfg, priv, final, &exists);
+	ret = greylisting_check_hash (cfg, priv, final, &exists,
+			greylist_buf, sizeof (greylist_buf), "sender, IP, recipients");
+
+end:
+
+	if (greylist_buf[0] != 0) {
+		smfi_addheader (ctx, GREYLISTING_HEADER, greylist_buf);
+	}
 
 	return ret;
 }

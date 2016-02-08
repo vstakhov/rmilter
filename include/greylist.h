@@ -35,6 +35,6 @@ struct rcpt;
 struct mlfi_priv;
 
 int
-check_greylisting (struct config_file *cfg, struct mlfi_priv *priv);
+check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv);
 
 #endif /* GREYLIST_H_ */

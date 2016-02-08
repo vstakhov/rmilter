@@ -47,7 +47,7 @@ awl_pool_alloc (int nest, size_t offset, awl_hash_t *hash)
 	if (hash->free[nest] < offset + sizeof (awl_item_t )) {
 		return NULL;
 	}
-	
+
 	hash->free[nest] -= sizeof (awl_item_t);
 	return hash->pool + nest * (hash->poolsize / NEST_NUMBER) + offset;
 }
@@ -75,7 +75,7 @@ awl_init (size_t poolsize, int hits, int ttl)
 	if (poolsize < sizeof (awl_item_t) * NEST_NUMBER) {
 		return NULL;
 	}
-	
+
 	result = malloc (sizeof (awl_hash_t));
 
 	if (result == NULL) {
@@ -91,7 +91,7 @@ awl_init (size_t poolsize, int hits, int ttl)
 	}
 	bzero (result->pool, poolsize);
 	result->poolsize = poolsize;
-	
+
 	for (i = 0; i < NEST_NUMBER; i++) {
 		result->free[i] = poolsize / NEST_NUMBER;
 #ifdef _THREAD_SAFE
@@ -112,9 +112,9 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 	struct in_addr in = {.s_addr = ip};
 
 	nest = awl_get_hash (ip);
-	
+
 	cur = hash->nests[nest];
-	
+
 	A_LOCK (nest, hash);
 	while (cur) {
 		/* Found record */
@@ -125,7 +125,7 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 			if (cur->hits >= hash->white_hits) {
 				/* Address whitelisted */
 				msg_info ("awl_check: ip %s is whitelisted, hits %d", inet_ntoa (in), cur->hits);
-				return 1;
+				return cur->hits;
 			}
 			else {
 				cur->hits ++;
