@@ -69,7 +69,7 @@ uint8_t cur_flags = 0;
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
-%token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS
+%token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -483,6 +483,7 @@ spamdcmd:
 	| spamd_retry_timeout
 	| spamd_tempfail
 	| spamd_never_reject
+	| spam_bar_char
 	;
 
 diff_dir :
@@ -713,6 +714,11 @@ spamd_tempfail:
 		cfg->spamd_temp_fail = $3;
 	}
 	;
+spam_bar_char:
+	SPAM_BAR_CHAR EQSIGN QUOTEDSTRING {
+		free (cfg->spam_bar_char);
+		cfg->spam_bar_char = $3;
+	}
 
 
 spf:

@@ -793,13 +793,13 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				 * X-Spam-Status
 				 */
 
-				if (cur->score > 0) {
+				if (cur->score > 0 && cfg->spam_bar_char) {
 					for (i = 0; i < (int)cur->score; i ++) {
 						if (i > 50) {
 							break;
 						}
 
-						bar_buf[i] = '*';
+						bar_buf[i] = cfg->spam_bar_char[0];
 					}
 
 					bar_buf[i] = '\0';

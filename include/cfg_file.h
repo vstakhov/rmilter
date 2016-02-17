@@ -253,6 +253,7 @@ struct config_file {
 	char *trace_addr;
 	char *spam_header;
 	char *spam_header_value;
+	char *spam_bar_char;
 	u_char extended_spam_headers;
 	unsigned int spamd_retry_timeout;
 	unsigned int spamd_retry_count;

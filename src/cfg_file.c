@@ -481,6 +481,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->spamd_retry_count = DEFAULT_SPAMD_RETRY_COUNT;
 	cfg->spamd_retry_timeout = DEFAULT_SPAMD_RETRY_TIMEOUT;
 	cfg->spamd_temp_fail = 0;
+	cfg->spam_bar_char = strdup ("x");
 
 	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
 	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
@@ -675,6 +676,9 @@ void free_config(struct config_file *cfg)
 	}
 	if (cfg->greylisted_message) {
 		free (cfg->greylisted_message);
+	}
+	if (cfg->spam_bar_char) {
+		free (cfg->spam_bar_char);
 	}
 
 	if (cfg->awl_enable && cfg->awl_hash != NULL) {

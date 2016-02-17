@@ -196,6 +196,7 @@ spamd_never_reject				return SPAMD_NEVER_REJECT;
 spamd_greylist					return SPAMD_GREYLIST;
 spam_header						return SPAM_HEADER;
 spam_header_value				return SPAM_HEADER_VALUE;
+spam_bar_char					return SPAM_BAR_CHAR;
 extended_spam_headers			return EXTENDED_SPAM_HEADERS;
 retry_count						return SPAMD_RETRY_COUNT;
 retry_timeout					return SPAMD_RETRY_TIMEOUT;
