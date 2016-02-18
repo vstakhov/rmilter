@@ -117,8 +117,8 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 	dlen = sizeof (*tm1);
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
-			(unsigned char **)&tm1, &dlen)) {
-		/* Greylisting record does not exist, writing new one */
+			(unsigned char **)&tm1, &dlen) || (tm1 && tm1->tv_sec > tm.tv_sec)) {
+		/* Greylisting record does not exist or is insane, writing new one */
 		gettimeofday (&tm, NULL);
 
 		rmilter_set_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
@@ -137,6 +137,10 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		msg_info ("greylisting_check_hash: greylisted <%s>: %s",
 				priv->mlfi_id, hdr_buf);
 
+		if (tm1) {
+			free (tm1);
+		}
+
 		return GREY_GREYLISTED;
 	}
 	else {
@@ -149,9 +153,6 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 
 		if ((unsigned int) tm.tv_sec - tm1->tv_sec < cfg->greylisting_timeout) {
 			/* Client comes too early */
-			if (tm1) {
-				free (tm1);
-			}
 
 			elapsed = tm1->tv_sec + cfg->greylisting_timeout;
 			localtime_r (&elapsed, &tm_parsed);
@@ -162,6 +163,10 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 					timebuf, type);
 			msg_info ("greylisting_check_hash: greylisted <%s>: %s",
 					priv->mlfi_id, hdr_buf);
+
+			if (tm1) {
+				free (tm1);
+			}
 
 			return GREY_GREYLISTED;
 		}
