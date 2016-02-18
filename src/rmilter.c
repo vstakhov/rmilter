@@ -1035,6 +1035,25 @@ mlfi_eoh(SMFICTX * ctx)
 	return SMFIS_CONTINUE;
 }
 
+static const char *
+action_to_string (int act)
+{
+	if (act == METRIC_ACTION_REJECT) {
+		return "reject";
+	}
+	else if (act == METRIC_ACTION_ADD_HEADER) {
+		return "add header";
+	}
+	else if (act == METRIC_ACTION_REWRITE_SUBJECT) {
+		return "rewrite subject";
+	}
+	else if (act == METRIC_ACTION_GREYLIST) {
+		return "greylist";
+	}
+
+	return "no action";
+}
+
 static sfsistat
 mlfi_eom(SMFICTX * ctx)
 {
@@ -1047,6 +1066,7 @@ mlfi_eom(SMFICTX * ctx)
 #else
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
+	char tmpbuf[128], ip_str[INET6_ADDRSTRLEN + 1];
 	char *id, *subject = NULL;
 	int prob_max;
 	double prob_cur;
@@ -1054,6 +1074,11 @@ mlfi_eom(SMFICTX * ctx)
 	struct action *act;
 	struct rcpt *rcpt;
 	bool ip_whitelisted = false;
+	int ret = SMFIS_CONTINUE;
+	const char *spam_check_result = "unknown",
+			*av_check_result = "unknown",
+			*dkim_result = "unsigned";
+	void *addr;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1107,8 +1132,10 @@ mlfi_eom(SMFICTX * ctx)
 	if (stat (priv->file, &sb) == -1) {
 		msg_warn ("mlfi_eom: %s: stat failed: %s", priv->mlfi_id,
 				strerror (errno));
-		CFG_UNLOCK();
-		return mlfi_cleanup (ctx, true);
+		spam_check_result = "skipped(internal failure)";
+		av_check_result = "skipped(internal failure)";
+		dkim_result = "skipped(internal failure)";
+		goto end;
 	}
 	else if (cfg->sizelimit != 0 && sb.st_size > (off_t)cfg->sizelimit) {
 #ifndef FREEBSD_LEGACY
@@ -1118,15 +1145,13 @@ mlfi_eom(SMFICTX * ctx)
 		msg_warn ("mlfi_eom: %s: message size(%ld) exceeds limit(%ld), not scanned, %s",
 				priv->mlfi_id, (long int)sb.st_size, (long int)cfg->sizelimit, priv->file);
 #endif
-		CFG_UNLOCK();
-		return mlfi_cleanup (ctx, true);
+		spam_check_result = "skipped(oversized)";
+		av_check_result = "skipped(oversized)";
+		goto dkim_sign;
 	}
+
 	msg_info ("mlfi_eom: %s: tempfile=%s, size=%lu",
 			priv->mlfi_id, priv->file, (unsigned long int)sb.st_size);
-
-	if (!priv->strict) {
-
-	}
 
 #ifdef HAVE_DCC
 	/* Check dcc */
@@ -1140,15 +1165,13 @@ mlfi_eom(SMFICTX * ctx)
 		case 'G':
 			msg_warn ("mlfi_eom: %s: greylisting by dcc", priv->mlfi_id);
 			smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Try again later");
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
+			ret = SMFIS_TEMPFAIL;
+			goto end;
 		case 'R':
 			msg_warn ("mlfi_eom: %s: rejected by dcc", priv->mlfi_id);
 			smfi_setreply (ctx, "550", XCODE_REJECT, "Message content rejected");
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_REJECT;
+			ret = SMFIS_REJECT;
+			goto end;
 		case 'S': /* XXX - dcc selective reject - not implemented yet */
 		case 'T': /* Temp failure by dcc */
 		default:
@@ -1159,6 +1182,11 @@ mlfi_eom(SMFICTX * ctx)
 	if (radix_find_rmilter_addr (cfg->spamd_whitelist, &priv->priv_addr)
 			!= RADIX_NO_VALUE) {
 		ip_whitelisted = true;
+		spam_check_result = "skipped, ip whitelist";
+	}
+
+	if (cfg->spamd_servers_num == 0) {
+		spam_check_result = "skipped, no spamd servers defined";
 	}
 
 	/* Check spamd */
@@ -1187,9 +1215,13 @@ mlfi_eom(SMFICTX * ctx)
 
 			if (cfg->spamd_temp_fail) {
 				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
-				CFG_UNLOCK();
-				mlfi_cleanup (ctx, false);
-				return SMFIS_TEMPFAIL;
+				ret = SMFIS_TEMPFAIL;
+				spam_check_result = "delayed, temporary fail";
+				goto end;
+			}
+			else {
+				spam_check_result = "ignored, temporary fail";
+				goto av_check;
 			}
 
 		}
@@ -1197,6 +1229,7 @@ mlfi_eom(SMFICTX * ctx)
 			if (cfg->spam_server && cfg->send_beanstalk_spam) {
 				send_beanstalk_copy (priv, cfg->spam_server);
 			}
+
 			if (! cfg->spamd_soft_fail || r == METRIC_ACTION_REJECT) {
 				if (!cfg->spamd_never_reject) {
 					msg_info ("mlfi_eom: %s: rejecting spam", priv->mlfi_id);
@@ -1205,9 +1238,11 @@ mlfi_eom(SMFICTX * ctx)
 							cfg->spamd_reject_message,
 							NULL);
 					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
-					CFG_UNLOCK();
-					mlfi_cleanup (ctx, false);
-					return SMFIS_REJECT;
+					snprintf (tmpbuf, sizeof (tmpbuf), "rejected, action: %s",
+										action_to_string (r));
+					spam_check_result = tmpbuf;
+					ret = SMFIS_REJECT;
+					goto end;
 				}
 				else {
 					/* Add header instead */
@@ -1221,6 +1256,12 @@ mlfi_eom(SMFICTX * ctx)
 								cfg->spam_header,
 								1,
 								cfg->spam_header_value);
+						snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
+								action_to_string (r));
+						spam_check_result = tmpbuf;
+					}
+					else {
+						spam_check_result = "ignored, authenticated user";
 					}
 				}
 			}
@@ -1233,14 +1274,20 @@ mlfi_eom(SMFICTX * ctx)
 				if (r >= METRIC_ACTION_GREYLIST && cfg->spamd_greylist) {
 					/* Perform greylisting */
 					CFG_UNLOCK();
+					/* Unlock config to avoid recursion, since check_greylisting locks cfg as well */
 					if (!priv->authenticated &&
 							check_greylisting_ctx (ctx, priv) !=
 									SMFIS_CONTINUE) {
+						CFG_RLOCK();
 						msg_info (
 								"mlfi_eom: %s: greylisting message according to spamd action",
 								priv->mlfi_id);
-						mlfi_cleanup (ctx, false);
-						return SMFIS_TEMPFAIL;
+						snprintf (tmpbuf, sizeof (tmpbuf), "greylisted, action: %s",
+														action_to_string (r));
+						spam_check_result = tmpbuf;
+
+						ret = SMFIS_TEMPFAIL;
+						goto end;
 					}
 					CFG_RLOCK();
 				}
@@ -1249,10 +1296,16 @@ mlfi_eom(SMFICTX * ctx)
 						msg_info (
 								"mlfi_eom: %s: add spam header to message according to spamd action",
 								priv->mlfi_id);
+						snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
+														action_to_string (r));
+						spam_check_result = tmpbuf;
 						smfi_chgheader (ctx,
 								cfg->spam_header,
 								1,
 								cfg->spam_header_value);
+					}
+					else {
+						spam_check_result = "ignored, authenticated user";
 					}
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
@@ -1281,7 +1334,17 @@ mlfi_eom(SMFICTX * ctx)
 							smfi_chgheader (ctx, "Subject", 1, subject);
 							free (subject);
 						}
+
+						snprintf (tmpbuf, sizeof (tmpbuf), "rewrite subject, action: %s",
+								action_to_string (r));
+						spam_check_result = tmpbuf;
 					}
+					else {
+						spam_check_result = "ignored, authenticated user";
+					}
+				}
+				else {
+					spam_check_result = "passed";
 				}
 			}
 		}
@@ -1310,7 +1373,14 @@ mlfi_eom(SMFICTX * ctx)
 	if (radix_find_rmilter_addr (cfg->clamav_whitelist, &priv->priv_addr)
 			!= RADIX_NO_VALUE) {
 		ip_whitelisted = true;
+		av_check_result = "skipped, ip whitelist";
 	}
+
+	if (cfg->clamav_servers_num == 0) {
+		av_check_result = "skipped, no av servers";
+	}
+
+av_check:
 
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0 && !ip_whitelisted) {
@@ -1318,23 +1388,25 @@ mlfi_eom(SMFICTX * ctx)
 		r = check_clamscan (priv->file, strres, sizeof (strres));
 		if (r < 0) {
 			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_TEMPFAIL;
+			ret = SMFIS_TEMPFAIL;
+			av_check_result = "delayed, temporary fail";
+			goto end;
 		}
 		if (*strres) {
 			msg_warn ("mlfi_eom: %s: rejecting virus %s", priv->mlfi_id, strres);
 			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
-			CFG_UNLOCK();
-			mlfi_cleanup (ctx, false);
-			return SMFIS_REJECT;
+			ret = SMFIS_REJECT;
+			av_check_result = "rejected, virus found";
+			goto end;
 		}
 	}
 
 	/* Update rate limits for message */
 	msg_debug ("mlfi_eom: %s: updating rate limits", priv->mlfi_id);
 
+
+dkim_sign:
 
 #if 0
 	char rcptbuf[8192];
@@ -1352,9 +1424,9 @@ mlfi_eom(SMFICTX * ctx)
 #else
 	DL_FOREACH (priv->rcpts, rcpt) {
 		rate_check (priv, cfg, rcpt->r_addr, 1);
-
 	}
 #endif
+	dkim_result = "not signed, ignored";
 #ifdef WITH_DKIM
 	/* Add dkim signature */
 	char *hdr;
@@ -1375,6 +1447,7 @@ mlfi_eom(SMFICTX * ctx)
 						dkim_getdomain (priv->dkim),
 						priv->dkim_domain->selector);
 				smfi_addheader (ctx, DKIM_SIGNHEADER, dkim_stripcr (hdr));
+				dkim_result = "signed";
 			}
 			else {
 				msg_info ("mlfi_eom: %s: d=%s, s=%s, sign failed: %s",
@@ -1382,6 +1455,7 @@ mlfi_eom(SMFICTX * ctx)
 						dkim_getdomain (priv->dkim),
 						priv->dkim_domain->selector,
 						dkim_geterror (priv->dkim));
+				dkim_result = "not signed, internal failure";
 			}
 		}
 		else {
@@ -1390,11 +1464,31 @@ mlfi_eom(SMFICTX * ctx)
 					dkim_getdomain (priv->dkim),
 					priv->dkim_domain->selector,
 					dkim_geterror (priv->dkim));
+			dkim_result = "not signed, internal failure";
 		}
 	}
 #endif
+
+end:
+
+	addr = priv->priv_addr.family == AF_INET6
+		  ? (void *) &priv->priv_addr.addr.sa6.sin6_addr :
+		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
+	memset (ip_str, 0, sizeof (ip_str));
+	inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
+	msg_info ("msg p: %s: ip: %s; from: %s; rcpt: %s; user: %s; "
+			"spam scan: %s; virus scan: %s dkim sign: %s",
+			priv->mlfi_id,
+			ip_str,
+			priv->priv_from,
+			priv->rcpts->r_addr,
+			priv->priv_user[0] ? priv->priv_user : "unauthorized",
+			spam_check_result,
+			av_check_result,
+			dkim_result);
 	CFG_UNLOCK();
-	return mlfi_cleanup (ctx, true);
+	mlfi_cleanup (ctx, true);
+	return ret;
 }
 
 static sfsistat
