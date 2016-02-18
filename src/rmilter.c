@@ -1211,14 +1211,17 @@ mlfi_eom(SMFICTX * ctx)
 				}
 				else {
 					/* Add header instead */
-					msg_info (
-							"mlfi_eom: %s: add spam header to message instead"
-									" of rejection",
-							priv->mlfi_id);
-					smfi_chgheader (ctx,
-							cfg->spam_header,
-							1,
-							cfg->spam_header_value);
+
+					if (!priv->authenticated || !cfg->spam_no_auth_header) {
+						msg_info (
+								"mlfi_eom: %s: add spam header to message instead"
+								" of rejection",
+								priv->mlfi_id);
+						smfi_chgheader (ctx,
+								cfg->spam_header,
+								1,
+								cfg->spam_header_value);
+					}
 				}
 			}
 			else {
@@ -1242,38 +1245,42 @@ mlfi_eom(SMFICTX * ctx)
 					CFG_RLOCK();
 				}
 				if (r == METRIC_ACTION_ADD_HEADER) {
-					msg_info (
-							"mlfi_eom: %s: add spam header to message according to spamd action",
-							priv->mlfi_id);
-					smfi_chgheader (ctx,
-							cfg->spam_header,
-							1,
-							cfg->spam_header_value);
+					if (!priv->authenticated || !cfg->spam_no_auth_header) {
+						msg_info (
+								"mlfi_eom: %s: add spam header to message according to spamd action",
+								priv->mlfi_id);
+						smfi_chgheader (ctx,
+								cfg->spam_header,
+								1,
+								cfg->spam_header_value);
+					}
 				}
 				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
-					msg_info (
-							"mlfi_eom: %s: rewriting spam subject and adding spam header",
-							priv->mlfi_id);
+					if (!priv->authenticated || !cfg->spam_no_auth_header) {
+						msg_info (
+								"mlfi_eom: %s: rewriting spam subject and adding spam header",
+								priv->mlfi_id);
 
-					smfi_chgheader (ctx,
-							cfg->spam_header,
-							1,
-							cfg->spam_header_value);
-					if (subject == NULL) {
-						/* Use own settings */
-						if (priv->priv_subject) {
-							smfi_chgheader (ctx,
-									"Subject",
-									1,
-									priv->priv_subject);
+						smfi_chgheader (ctx,
+								cfg->spam_header,
+								1,
+								cfg->spam_header_value);
+						if (subject == NULL) {
+							/* Use own settings */
+							if (priv->priv_subject) {
+								smfi_chgheader (ctx,
+										"Subject",
+										1,
+										priv->priv_subject);
+							}
+							else {
+								smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+							}
 						}
 						else {
-							smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+							smfi_chgheader (ctx, "Subject", 1, subject);
+							free (subject);
 						}
-					}
-					else {
-						smfi_chgheader (ctx, "Subject", 1, subject);
-						free (subject);
 					}
 				}
 			}
