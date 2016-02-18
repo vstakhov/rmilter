@@ -1344,9 +1344,12 @@ mlfi_eom(SMFICTX * ctx)
 					}
 				}
 				else {
-					spam_check_result = "passed";
+					spam_check_result = "no spam";
 				}
 			}
+		}
+		else {
+			spam_check_result = "no spam";
 		}
 	}
 
@@ -1477,7 +1480,7 @@ end:
 	memset (ip_str, 0, sizeof (ip_str));
 	inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
 	msg_info ("msg p: %s: ip: %s; from: %s; rcpt: %s; user: %s; "
-			"spam scan: %s; virus scan: %s dkim sign: %s",
+			"spam scan: %s; virus scan: %s; dkim: %s",
 			priv->mlfi_id,
 			ip_str,
 			priv->priv_from,
