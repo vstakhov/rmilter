@@ -277,6 +277,8 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 
 	if (radix_find_rmilter_addr (cfg->grey_whitelist_tree,
 			&priv->priv_addr) != RADIX_NO_VALUE) {
+		memset (ip_str, 0, sizeof (ip_str));
+		inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
 		snprintf (greylist_buf, sizeof (greylist_buf),
 				"Sender IP %s is whitelisted by configuration",
 				ip_str);
