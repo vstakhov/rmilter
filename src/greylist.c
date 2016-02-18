@@ -128,6 +128,15 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			*exists = false;
 		}
 
+		elapsed = time (NULL) + cfg->greylisting_timeout;
+		localtime_r (&elapsed, &tm_parsed);
+		strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+		snprintf (hdr_buf, hdr_size, "0 seconds passed, "
+				"greylisted till %s, type: %s",
+				timebuf, type);
+		msg_info ("greylisting_check_hash: greylisted <%s>: %s",
+				priv->mlfi_id, hdr_buf);
+
 		return GREY_GREYLISTED;
 	}
 	else {
@@ -143,6 +152,16 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			if (tm1) {
 				free (tm1);
 			}
+
+			elapsed = tm1->tv_sec + cfg->greylisting_timeout;
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+			snprintf (hdr_buf, hdr_size, "%d seconds passed, "
+					"greylisted till %s, type: %s",
+					(int)(tm.tv_sec - tm1->tv_sec),
+					timebuf, type);
+			msg_info ("greylisting_check_hash: greylisted <%s>: %s",
+					priv->mlfi_id, hdr_buf);
 
 			return GREY_GREYLISTED;
 		}
