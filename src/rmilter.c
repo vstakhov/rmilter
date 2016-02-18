@@ -1247,18 +1247,42 @@ mlfi_eom(SMFICTX * ctx)
 				else {
 					/* Add header instead */
 
-					if (!priv->authenticated || !cfg->spam_no_auth_header) {
-						msg_info (
-								"mlfi_eom: %s: add spam header to message instead"
-								" of rejection",
-								priv->mlfi_id);
-						smfi_chgheader (ctx,
-								cfg->spam_header,
-								1,
-								cfg->spam_header_value);
-						snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
-								action_to_string (r));
-						spam_check_result = tmpbuf;
+					if (!priv->authenticated) {
+
+						if (cfg->spamd_greylist) {
+							/* Perform greylisting */
+							CFG_UNLOCK();
+							/* Unlock config to avoid recursion, since check_greylisting locks cfg as well */
+							if (!priv->authenticated &&
+									check_greylisting_ctx (ctx, priv) !=
+											SMFIS_CONTINUE) {
+								CFG_RLOCK();
+								msg_info (
+										"mlfi_eom: %s: greylisting message according to spamd action",
+										priv->mlfi_id);
+								snprintf (tmpbuf, sizeof (tmpbuf), "greylisted, action: %s",
+										action_to_string (r));
+								spam_check_result = tmpbuf;
+
+								ret = SMFIS_TEMPFAIL;
+								goto end;
+							}
+							CFG_RLOCK();
+						}
+
+						if (!cfg->spam_no_auth_header) {
+							msg_info (
+									"mlfi_eom: %s: add spam header to message instead"
+									" of rejection",
+									priv->mlfi_id);
+							smfi_chgheader (ctx,
+									cfg->spam_header,
+									1,
+									cfg->spam_header_value);
+							snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
+									action_to_string (r));
+							spam_check_result = tmpbuf;
+						}
 					}
 					else {
 						spam_check_result = "ignored, authenticated user";
