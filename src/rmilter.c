@@ -838,6 +838,7 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 	}
 
 	DL_APPEND(priv->rcpts, newrcpt);
+	priv->priv_rcptcount ++;
 	/* Check recipient */
 	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
 	if (act != NULL) {
@@ -1528,7 +1529,7 @@ end:
 		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
 	memset (ip_str, 0, sizeof (ip_str));
 	inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
-	msg_info ("msg p: %s: ip: %s; from: %s; rcpt: %s (%d total); user: %s; "
+	msg_info ("msg done: %s: ip: %s; from: %s; rcpt: %s (%d total); user: %s; "
 			"spam scan: %s; virus scan: %s; dkim: %s",
 			priv->mlfi_id,
 			ip_str,
