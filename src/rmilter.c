@@ -1183,11 +1183,6 @@ mlfi_eom(SMFICTX * ctx)
 	if (radix_find_rmilter_addr (cfg->spamd_whitelist, &priv->priv_addr)
 			!= RADIX_NO_VALUE) {
 		ip_whitelisted = true;
-		spam_check_result = "skipped, ip whitelist";
-	}
-
-	if (cfg->spamd_servers_num == 0) {
-		spam_check_result = "skipped, no spamd servers defined";
 	}
 
 	/* Check spamd */
@@ -1397,6 +1392,14 @@ mlfi_eom(SMFICTX * ctx)
 		}
 		else {
 			spam_check_result = "no spam";
+		}
+	}
+	else {
+		if (cfg->spamd_servers_num == 0) {
+			spam_check_result = "skipped, no spamd servers defined";
+		}
+		else {
+			spam_check_result = "skipped, whitelisted";
 		}
 	}
 
