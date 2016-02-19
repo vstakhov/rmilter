@@ -1449,6 +1449,9 @@ av_check:
 			av_check_result = "rejected, virus found";
 			goto end;
 		}
+		else {
+			av_check_result = "clean";
+		}
 	}
 
 	/* Update rate limits for message */
