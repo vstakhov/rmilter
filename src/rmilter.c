@@ -1217,6 +1217,8 @@ mlfi_eom(SMFICTX * ctx)
 				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
 				ret = SMFIS_TEMPFAIL;
 				spam_check_result = "delayed, temporary fail";
+				av_check_result = "skipped, spamd tempfail";
+				dkim_result = "skipped, spamd tempfail";
 				goto end;
 			}
 			else {
@@ -1241,6 +1243,8 @@ mlfi_eom(SMFICTX * ctx)
 					snprintf (tmpbuf, sizeof (tmpbuf), "rejected, action: %s",
 										action_to_string (r));
 					spam_check_result = tmpbuf;
+					av_check_result = "skipped, spamd result";
+					dkim_result = "skipped, spamd result";
 					ret = SMFIS_REJECT;
 					goto end;
 				}
@@ -1265,11 +1269,27 @@ mlfi_eom(SMFICTX * ctx)
 								spam_check_result = tmpbuf;
 
 								ret = SMFIS_TEMPFAIL;
+								av_check_result = "skipped, spamd greylist";
+								dkim_result = "skipped, spamd greylist";
 								goto end;
 							}
 							CFG_RLOCK();
 						}
 
+						msg_info (
+								"mlfi_eom: %s: add spam header to message instead"
+								" of rejection",
+								priv->mlfi_id);
+						smfi_chgheader (ctx,
+								cfg->spam_header,
+								1,
+								cfg->spam_header_value);
+						snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
+								action_to_string (r));
+						spam_check_result = tmpbuf;
+
+					}
+					else {
 						if (!cfg->spam_no_auth_header) {
 							msg_info (
 									"mlfi_eom: %s: add spam header to message instead"
@@ -1283,9 +1303,9 @@ mlfi_eom(SMFICTX * ctx)
 									action_to_string (r));
 							spam_check_result = tmpbuf;
 						}
-					}
-					else {
-						spam_check_result = "ignored, authenticated user";
+						else {
+							spam_check_result = "ignored, authenticated user";
+						}
 					}
 				}
 			}
@@ -1309,6 +1329,8 @@ mlfi_eom(SMFICTX * ctx)
 						snprintf (tmpbuf, sizeof (tmpbuf), "greylisted, action: %s",
 														action_to_string (r));
 						spam_check_result = tmpbuf;
+						av_check_result = "skipped, spamd greylist";
+						dkim_result = "skipped, spamd greylist";
 
 						ret = SMFIS_TEMPFAIL;
 						goto end;
@@ -1503,12 +1525,13 @@ end:
 		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
 	memset (ip_str, 0, sizeof (ip_str));
 	inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
-	msg_info ("msg p: %s: ip: %s; from: %s; rcpt: %s; user: %s; "
+	msg_info ("msg p: %s: ip: %s; from: %s; rcpt: %s (%d total); user: %s; "
 			"spam scan: %s; virus scan: %s; dkim: %s",
 			priv->mlfi_id,
 			ip_str,
 			priv->priv_from,
 			priv->rcpts->r_addr,
+			priv->priv_rcptcount,
 			priv->priv_user[0] ? priv->priv_user : "unauthorized",
 			spam_check_result,
 			av_check_result,
