@@ -1,3 +1,12 @@
+1.7.4:
+	* Add extended greylisting header (#80)
+	* Add `spam_bar_char` option to set the spam bar character
+	* Add log message about greylisting
+	* Add `spam_no_auth_header` option (#84)
+	* Add summary for each email scanned via rmilter
+	* Fix use after free (#85)
+	* Add workaround for never_reject option (#85)
+
 1.7.3:
 	* Really disable extended headers for authenticated users
 	* Add support of X-Spamd-Bar
