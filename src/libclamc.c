@@ -315,6 +315,7 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 	struct timeval t;
 	double ts, tf;
 	struct clamav_server *selected = NULL;
+	struct timespec sleep_ts;
 
 	*strres = '\0';
 	/*
@@ -327,6 +328,9 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 	 */
 	gettimeofday (&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
+	retry = cfg->spamd_retry_count;
+	sleep_ts.tv_sec = cfg->spamd_retry_timeout / 1000;
+	sleep_ts.tv_nsec = (cfg->spamd_retry_timeout % 1000) * 1000000ULL;
 
 	/* try to scan with available servers */
 	while (1) {
@@ -367,7 +371,7 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 		}
 		msg_warn("clamscan: failed to scan, retry, %s, %s", selected->name,
 				file);
-		sleep (1);
+		nanosleep (&sleep_ts, NULL);
 	}
 
 	/*
