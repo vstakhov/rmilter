@@ -80,13 +80,13 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	/* Get file size */
 	fd = open (priv->file, O_RDONLY);
 	if (fstat (fd, &sb) == -1) {
-		msg_warn("rspamd: stat failed: %s", strerror (errno));
+		msg_warn("<%s> rspamd: stat failed: %s",  priv->mlfi_id, strerror (errno));
 		close (s);
 		return -1;
 	}
 
 	if (rmilter_poll_fd (s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
-		msg_warn("rspamd: timeout waiting writing, %s", srv->name);
+		msg_warn("<%s> rspamd: timeout waiting writing, %s",  priv->mlfi_id, srv->name);
 		close (s);
 		return -1;
 	}
@@ -100,8 +100,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			"SYMBOLS RSPAMC/1.2\r\nContent-length: %ld\r\n",
 			(long int )sb.st_size);
 	if (written > to_write) {
-		msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-				srv->name);
+		msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+				 priv->mlfi_id, srv->name);
 		close (fd);
 		close (s);
 		return -1;
@@ -113,8 +113,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "Rcpt: %s\r\n", rcpt->r_addr);
 		if (written > to_write) {
-			msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-					srv->name);
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
 			return -1;
@@ -126,8 +126,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "From: %s\r\n", priv->priv_from);
 		if (written > to_write) {
-			msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-					srv->name);
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
 			return -1;
@@ -138,8 +138,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "Helo: %s\r\n", priv->priv_helo);
 		if (written > to_write) {
-			msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-					srv->name);
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
 			return -1;
@@ -152,8 +152,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		written = snprintf(buf + r, to_write, "Hostname: %s\r\n",
 				priv->priv_hostname);
 		if (written > to_write) {
-			msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-					srv->name);
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
 			return -1;
@@ -164,8 +164,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "IP: %s\r\n", priv->priv_ip);
 		if (written > to_write) {
-			msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-					srv->name);
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
 			return -1;
@@ -176,8 +176,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "User: %s\r\n", priv->priv_user);
 		if (written > to_write) {
-			msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-					srv->name);
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
 			return -1;
@@ -188,8 +188,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	written = snprintf(buf + r, to_write, "Queue-ID: %s\r\n\r\n",
 			priv->mlfi_id);
 	if (written > to_write) {
-		msg_warn("rspamd: buffer overflow while filling buffer (%s)",
-				srv->name);
+		msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+				 priv->mlfi_id, srv->name);
 		close (fd);
 		close (s);
 		return -1;
@@ -197,7 +197,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	r += written;
 
 	if (write (s, buf, r) == -1) {
-		msg_warn("rspamd: write (%s), %s", srv->name, strerror (errno));
+		msg_warn("<%s> rspamd: write (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
 		close (fd);
 		close (s);
 		return -1;
@@ -206,7 +206,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-		msg_warn("rspamd: sendfile (%s), %s", srv->name, strerror (errno));
+		msg_warn("<%s> rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -214,7 +214,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 #elif defined(LINUX)
 	off_t off = 0;
 	if (sendfile(s, fd, &off, sb.st_size) == -1) {
-		msg_warn("rspamd: sendfile (%s), %s", srv->name, strerror (errno));
+		msg_warn("<%s> rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -236,7 +236,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	for (;;) {
 		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
-			msg_warn("rspamd: timeout waiting results %s", srv->name);
+			msg_warn("<%s> rspamd: timeout waiting results %s", priv->mlfi_id,
+					srv->name);
 			close (s);
 			return -1;
 		}
@@ -248,7 +249,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 				continue;
 			}
 			else {
-				msg_warn("rspamd: read, %s, %s", srv->name, strerror (errno));
+				msg_warn("<%s> rspamd: read, %s, %s", priv->mlfi_id,  srv->name,
+						strerror (errno));
 				close (s);
 				return -1;
 			}
@@ -267,7 +269,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 #define TEST_WORD(x)																\
 do {																				\
 	if (remain < sizeof ((x)) - 1 || memcmp (p, (x), sizeof ((x)) - 1) != 0) {		\
-		msg_warn ("invalid reply from server %s at state %d, expected: %s, got %*s", srv->name, state, ((x)), (int)sizeof((x)), p);				\
+		msg_warn ("<%s> invalid reply from server %s at state %d, expected: %s, got %*s", priv->mlfi_id, srv->name, state, ((x)), (int)sizeof((x)), p);				\
 		return -1;																	\
 	}																				\
 	p += sizeof((x)) - 1;															\
@@ -289,7 +291,8 @@ do {																				\
 			 */
 			TEST_WORD("RSPAMD/");
 			if ((c = strchr (p, ' ')) == NULL) {
-				msg_warn("invalid reply from server %s on state %d", srv->name,
+				msg_warn("<%s> invalid reply from server %s on state %d",
+						priv->mlfi_id, srv->name,
 						state);
 				sdsfree (readbuf);
 				return -1;
@@ -300,14 +303,15 @@ do {																				\
 			}
 			/* Now check code */
 			if (*c != '0') {
-				msg_warn("invalid reply from server %s on state %d, code: %c",
-						srv->name, state, *c);
+				msg_warn("<%s> invalid reply from server %s on state %d, code: %c",
+						 priv->mlfi_id, srv->name, state, *c);
 				sdsfree (readbuf);
 				return -1;
 			}
 			/* Now skip everything till \n */
 			if ((c = strchr (c, '\n')) == NULL) {
-				msg_warn("invalid reply from server %s on state %d", srv->name,
+				msg_warn("<%s> invalid reply from server %s on state %d",
+						priv->mlfi_id, srv->name,
 						state);
 				sdsfree (readbuf);
 				return -1;
@@ -325,7 +329,7 @@ do {																				\
 			TEST_WORD("Metric:");
 			cur = malloc (sizeof(struct rspamd_metric_result));
 			if (cur == NULL) {
-				msg_err("malloc failed: %s", strerror (errno));
+				msg_err("<%s> malloc failed: %s", priv->mlfi_id, strerror (errno));
 				sdsfree (readbuf);
 				return -1;
 			}
@@ -342,15 +346,15 @@ do {																				\
 			 */
 			if ((c = strchr (p, ';')) == NULL) {
 				msg_warn(
-						"invalid reply from server %s on state %d, at position: %s",
-						srv->name, state, p);
+						"<%s> invalid reply from server %s on state %d, at position: %s",
+						 priv->mlfi_id, srv->name, state, p);
 				sdsfree (readbuf);
 				return -1;
 			}
 			/* Now in c we have end of name and in p - begin of name, so copy this data to temp buffer */
 			cur->metric_name = malloc (c - p + 1);
 			if (cur->metric_name == NULL) {
-				msg_err("malloc failed: %s", strerror (errno));
+				msg_err("<%s> malloc failed: %s",  priv->mlfi_id, strerror (errno));
 				sdsfree (readbuf);
 				return -1;
 			}
@@ -360,8 +364,8 @@ do {																				\
 			/* Now skip result from rspamd, just extract 2 numbers */
 			if ((c = strchr (p, ';')) == NULL) {
 				msg_warn(
-						"invalid reply from server %s on state %d, at position: %s",
-						srv->name, state, p);
+						"<%s> invalid reply from server %s on state %d, at position: %s",
+						 priv->mlfi_id, srv->name, state, p);
 				sdsfree (readbuf);
 				return -1;
 			}
@@ -376,8 +380,8 @@ do {																				\
 			cur->score = strtod (p, &err_str);
 			if (err_str != NULL && (*err_str != ' ' && *err_str != '/')) {
 				msg_warn(
-						"invalid reply from server %s on state %d, error converting score number: %s",
-						srv->name, state, err_str);
+						"<%s> invalid reply from server %s on state %d, error converting score number: %s",
+						 priv->mlfi_id, srv->name, state, err_str);
 				sdsfree (readbuf);
 				return -1;
 			}
@@ -392,8 +396,8 @@ do {																				\
 			if (err_str != NULL
 					&& (*err_str != ' ' && *err_str != '/' && *err_str != '\r')) {
 				msg_warn(
-						"invalid reply from server %s on state %d, error converting required score number: %s",
-						srv->name, state, err_str);
+						"<%s> invalid reply from server %s on state %d, error converting required score number: %s",
+						 priv->mlfi_id, srv->name, state, err_str);
 				sdsfree (readbuf);
 				return -1;
 			}
@@ -431,7 +435,7 @@ do {																				\
 				TAILQ_INSERT_HEAD(res, cur, entry);
 				cur = malloc (sizeof(struct rspamd_metric_result));
 				if (cur == NULL) {
-					msg_err("malloc failed: %s", strerror (errno));
+					msg_err("<%s> malloc failed: %s", priv->mlfi_id, strerror (errno));
 					sdsfree (readbuf);
 					return -1;
 				}
@@ -470,7 +474,7 @@ do {																				\
 			toklen = strcspn (p, ";\r\n");
 			if (toklen == 0 || toklen > remain) {
 				/* Bad symbol name */
-				msg_info("bad symbol name detected");
+				msg_info("<%s> bad symbol name detected", priv->mlfi_id);
 				sdsfree (readbuf);
 				return -1;
 			}
@@ -563,8 +567,8 @@ do {																				\
 			}
 			break;
 		default:
-			msg_err("state machine breakage detected, state = %d, p = %s",
-					state, p);
+			msg_err("<%s> state machine breakage detected, state = %d, p = %s",
+					 priv->mlfi_id, state, p);
 			sdsfree (readbuf);
 			return -1;
 		}
@@ -630,7 +634,8 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					cfg->spamd_maxerrors);
 		}
 		if (selected == NULL) {
-			msg_err("spamdscan: upstream get error, %s", priv->file);
+			msg_err("<%s> spamdscan: upstream get error, %s", priv->mlfi_id,
+					priv->file);
 			return -1;
 		}
 
@@ -643,17 +648,20 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-			msg_warn("%spamdscan: unexpected problem, %s, %s", prefix,
+			msg_warn("<%s> %spamdscan: unexpected problem, %s, %s",
+					priv->mlfi_id, prefix,
 					selected->name, priv->file);
 			break;
 		}
 		if (--retry < 1) {
-			msg_warn("%spamdscan: retry limit exceeded, %s, %s", prefix,
+			msg_warn("<%s> %spamdscan: retry limit exceeded, %s, %s",
+					priv->mlfi_id, prefix,
 					selected->name, priv->file);
 			break;
 		}
 
-		msg_warn("%spamdscan: failed to scan, retry, %s, %s", prefix,
+		msg_warn("<%s> %spamdscan: failed to scan, retry, %s, %s",
+				priv->mlfi_id, prefix,
 				selected->name, priv->file);
 		nanosleep (&sleep_ts, NULL);
 	}
