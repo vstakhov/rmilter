@@ -1440,17 +1440,26 @@ av_check:
 		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
 		r = check_clamscan (priv->file, strres, sizeof (strres));
 		if (r < 0) {
-			msg_warn ("mlfi_eom: %s: check_clamscan() failed, %d", priv->mlfi_id, r);
-			ret = SMFIS_TEMPFAIL;
-			av_check_result = "delayed, temporary fail";
-			goto end;
+			if (cfg->spamd_temp_fail) {
+				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
+				ret = SMFIS_TEMPFAIL;
+				av_check_result = "delayed, temporary fail";
+				dkim_result = "skipped, clamav tempfail";
+				goto end;
+			}
+			else {
+				av_check_result = "ignored, temporary fail";
+				goto dkim_sign;
+			}
 		}
+
 		if (*strres) {
 			msg_warn ("mlfi_eom: %s: rejecting virus %s", priv->mlfi_id, strres);
 			snprintf (buf, sizeof (buf), "Infected: %s", strres);
 			smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, buf);
 			ret = SMFIS_REJECT;
 			av_check_result = "rejected, virus found";
+			dkim_result = "skipped, clamav virus";
 			goto end;
 		}
 		else {
