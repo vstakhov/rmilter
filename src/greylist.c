@@ -121,24 +121,34 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		/* Greylisting record does not exist or is insane, writing new one */
 		gettimeofday (&tm, NULL);
 
-		rmilter_set_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
-				(unsigned char *)&tm, sizeof (tm), cfg->greylisting_expire);
+		if (rmilter_set_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
+				(unsigned char *)&tm, sizeof (tm), cfg->greylisting_expire)) {
 
-		if (exists) {
-			*exists = false;
+			if (exists) {
+				*exists = false;
+			}
+
+			elapsed = time (NULL) + cfg->greylisting_timeout;
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+			snprintf (hdr_buf, hdr_size, "0 seconds passed (new record), "
+					"greylisted till %s, type: %s",
+					timebuf, type);
+			msg_info ("greylisting_check_hash: greylisted <%s>: %s",
+					priv->mlfi_id, hdr_buf);
+			if (tm1) {
+				free (tm1);
+			}
 		}
+		else {
+			msg_err ("greylisting_check_hash: cannot store greylisting data "
+					"for <%s>: %s",
+					priv->mlfi_id, type);
+			if (tm1) {
+				free (tm1);
+			}
 
-		elapsed = time (NULL) + cfg->greylisting_timeout;
-		localtime_r (&elapsed, &tm_parsed);
-		strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
-		snprintf (hdr_buf, hdr_size, "0 seconds passed, "
-				"greylisted till %s, type: %s",
-				timebuf, type);
-		msg_info ("greylisting_check_hash: greylisted <%s>: %s",
-				priv->mlfi_id, hdr_buf);
-
-		if (tm1) {
-			free (tm1);
+			return GREY_WHITELISTED;
 		}
 
 		return GREY_GREYLISTED;
