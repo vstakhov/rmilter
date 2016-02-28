@@ -112,14 +112,19 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			sizeof (key),
 			cfg->grey_prefix,
 			blake_hash);
-
 	tm1 = NULL;
 	dlen = sizeof (*tm1);
+
+	if (gettimeofday (&tm, NULL) == -1) {
+		msg_err ("<%s>: gettimeofday failed: %s", priv->mlfi_id,
+				strerror (errno));
+
+		return GREY_WHITELISTED;
+	}
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
 			(unsigned char **)&tm1, &dlen) || (tm1 && tm1->tv_sec > tm.tv_sec)) {
 		/* Greylisting record does not exist or is insane, writing new one */
-		gettimeofday (&tm, NULL);
 
 		if (rmilter_set_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
 				(unsigned char *)&tm, sizeof (tm), cfg->greylisting_expire)) {
@@ -158,8 +163,6 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		if (exists) {
 			*exists = true;
 		}
-
-		gettimeofday (&tm, NULL);
 
 		if ((unsigned int) tm.tv_sec - tm1->tv_sec < cfg->greylisting_timeout) {
 			/* Client comes too early */
