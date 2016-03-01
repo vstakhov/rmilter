@@ -277,6 +277,8 @@ struct config_file {
 	unsigned int memcached_dead_time;
 	unsigned int memcached_maxerrors;
 	unsigned int memcached_connect_timeout;
+	char *memcached_password;
+	char *memcached_dbname;
 
 	struct beanstalk_server beanstalk_servers[MAX_BEANSTALK_SERVERS];
 	size_t beanstalk_servers_num;

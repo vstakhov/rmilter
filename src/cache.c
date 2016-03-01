@@ -117,7 +117,30 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 				return false;
 			}
 			else {
-				r = redisCommand (redis, "GET %b", key, keylen);
+				rep = 1;
+				if (cfg->memcached_password) {
+					redisAppendCommand (redis, "AUTH %s",
+							cfg->memcached_password);
+					rep ++;
+				}
+				if (cfg->memcached_dbname) {
+					redisAppendCommand (redis, "SELECT %s",
+							cfg->memcached_dbname);
+					rep ++;
+				}
+
+				redisAppendCommand (redis, "GET %b", key, keylen);
+
+				while (rep > 0) {
+					redisGetReply (redis, (void **)&r);
+
+					/* Ignore all replies but the last one */
+					if (r != NULL && rep != 1) {
+						freeReplyObject (r);
+						r = NULL;
+					}
+					rep --;
+				}
 
 				if (r != NULL) {
 					if (r->type == REDIS_REPLY_STRING) {
@@ -209,8 +232,31 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				return false;
 			}
 			else {
-				r = redisCommand (redis, "SET %b %b", key, keylen,
-						data, datalen);
+				rep = 1;
+				if (cfg->memcached_password) {
+					redisAppendCommand (redis, "AUTH %s",
+							cfg->memcached_password);
+					rep ++;
+				}
+				if (cfg->memcached_dbname) {
+					redisAppendCommand (redis, "SELECT %s",
+							cfg->memcached_dbname);
+					rep ++;
+				}
+
+				redisAppendCommand (redis, "SET %b %b", key, keylen,
+										data, datalen);
+
+				while (rep > 0) {
+					redisGetReply (redis, (void **)&r);
+
+					/* Ignore all replies but the last one */
+					if (r != NULL && rep != 1) {
+						freeReplyObject (r);
+						r = NULL;
+					}
+					rep --;
+				}
 
 				if (r != NULL) {
 					freeReplyObject (r);
@@ -293,7 +339,31 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				return false;
 			}
 			else {
-				r = redisCommand (redis, "DELETE %b", key, keylen);
+
+				rep = 1;
+				if (cfg->memcached_password) {
+					redisAppendCommand (redis, "AUTH %s",
+							cfg->memcached_password);
+					rep ++;
+				}
+				if (cfg->memcached_dbname) {
+					redisAppendCommand (redis, "SELECT %s",
+							cfg->memcached_dbname);
+					rep ++;
+				}
+
+				redisAppendCommand (redis, "DELETE %b", key, keylen);
+
+				while (rep > 0) {
+					redisGetReply (redis, (void **)&r);
+
+					/* Ignore all replies but the last one */
+					if (r != NULL && rep != 1) {
+						freeReplyObject (r);
+						r = NULL;
+					}
+					rep --;
+				}
 
 				if (r != NULL) {
 					freeReplyObject (r);

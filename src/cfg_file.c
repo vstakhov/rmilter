@@ -668,6 +668,12 @@ void free_config(struct config_file *cfg)
 	if (cfg->white_prefix) {
 		free (cfg->white_prefix);
 	}
+	if (cfg->memcached_password) {
+		free (cfg->memcached_password);
+	}
+	if (cfg->memcached_dbname) {
+		free (cfg->memcached_dbname);
+	}
 	if (cfg->copy_server) {
 		free (cfg->copy_server);
 	}
