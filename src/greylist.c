@@ -276,7 +276,10 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 		}
 	}
 
-	if (ret == GREY_GREYLISTED && exists) {
+	if (exists) {
+		/*
+		 * If data hash exists, there is no reason to check more hashes
+		 */
 		goto end;
 	}
 
