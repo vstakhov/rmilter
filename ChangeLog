@@ -1,3 +1,12 @@
+1.7.5:
+	* Improve logging for rspamd checks
+	* Fix timeouts in clamav checks
+	* Use spamd_soft_fail for clamav as well (#87)
+	* Handle greylisting write errors (#88)
+	* Fix gettimeofday call (#88)
+	* If data hash exists do not check other hashes (#40)
+	* Add ability to select db and password for redis (#83, #74)
+
 1.7.4:
 	* Add extended greylisting header (#80)
 	* Add `spam_bar_char` option to set the spam bar character
