@@ -759,6 +759,19 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				if (priv->dkim) {
 					msg_debug ("try to add signature for %s domain", domain_pos + 1);
 				}
+				else {
+					if (dkim_domain) {
+						msg_warn ("cannot add signature for domain %s: "
+								"not loaded key from %s",
+								domain_pos + 1,
+								dkim_domain->keyfile);
+					}
+					else {
+						msg_info ("cannot add signature for domain %s: "
+								"not found",
+								domain_pos + 1);
+					}
+				}
 			}
 		}
 		else if (dkim_domain) {
