@@ -197,8 +197,8 @@ struct dkim_domain_entry {
 	char *keyfile;
 	size_t keylen;
 	UT_hash_handle hh;
-	unsigned is_wildcard:1;
-	unsigned is_loaded:1;
+	unsigned int is_wildcard;
+	unsigned int is_loaded;
 };
 
 struct whitelisted_rcpt_entry {

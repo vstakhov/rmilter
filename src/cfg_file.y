@@ -1445,6 +1445,10 @@ dkim_key:
 				}
 				close (fd);
 			}
+			else {
+				yyerror ("yyparse: cannot open: %s, %s", $3, strerror (errno));
+				YYERROR;
+			}
 		}
 		cur_domain->keyfile = strdup ($3);
 	}
@@ -1467,6 +1471,10 @@ dkim_key:
 					cur_domain->is_loaded = 1;
 				}
 				close (fd);
+			}
+			else {
+				yyerror ("yyparse: cannot open: %s, %s", $3, strerror (errno));
+				YYERROR;
 			}
 		}
 		cur_domain->keyfile = strdup ($3);
