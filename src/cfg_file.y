@@ -1448,6 +1448,29 @@ dkim_key:
 		}
 		cur_domain->keyfile = strdup ($3);
 	}
+	| DKIM_KEY EQSIGN QUOTEDSTRING {
+		struct stat st;
+		int fd;
+		if (cur_domain == NULL) {
+			cur_domain = malloc (sizeof (struct dkim_domain_entry));
+			memset (cur_domain, 0, sizeof (struct dkim_domain_entry));
+		}
+		if (stat ($3, &st) != -1 && S_ISREG (st.st_mode)) {
+			cur_domain->keylen = st.st_size;
+			if ((fd = open ($3, O_RDONLY)) != -1) {
+				if ((cur_domain->key = mmap (NULL, cur_domain->keylen, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
+					yyerror ("yyparse: cannot mmap: %s, %s", $3, strerror (errno));
+					close (fd);
+					YYERROR;
+				}
+				else {
+					cur_domain->is_loaded = 1;
+				}
+				close (fd);
+			}
+		}
+		cur_domain->keyfile = strdup ($3);
+	}
 	;
 
 dkim_domain:
