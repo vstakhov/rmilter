@@ -639,8 +639,14 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 			return -1;
 		}
 
+		msg_info ("<%s> spamdscan: start scanning message on %s", priv->mlfi_id,
+				selected->name);
+
 		prefix = "rs";
 		r = rspamdscan_socket (ctx, priv, selected, cfg, &res, &mid);
+
+		msg_info ("<%s> spamdscan: finish scanning message on %s", priv->mlfi_id,
+						selected->name);
 
 		if (r == 0 || r == 1) {
 			upstream_ok (&selected->up, t.tv_sec);
