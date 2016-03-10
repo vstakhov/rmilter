@@ -61,7 +61,7 @@ static sfsistat mlfi_eom(SMFICTX *);
 static sfsistat mlfi_close(SMFICTX *);
 static sfsistat mlfi_abort(SMFICTX *);
 static sfsistat mlfi_cleanup(SMFICTX *, bool);
-static int check_clamscan(const char *, char *, size_t);
+static int check_clamscan(void *ctx, struct mlfi_priv *priv, char *, size_t);
 static void send_beanstalk (const struct mlfi_priv *);
 #ifdef HAVE_DCC
 static int check_dcc(const struct mlfi_priv *);
@@ -1451,7 +1451,7 @@ av_check:
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0 && !ip_whitelisted) {
 		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
-		r = check_clamscan (priv->file, strres, sizeof (strres));
+		r = check_clamscan (ctx, priv, strres, sizeof (strres));
 		if (r < 0) {
 			if (cfg->spamd_temp_fail) {
 				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
@@ -1713,14 +1713,15 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
  */
 
 static int
-check_clamscan(const char *file, char *strres, size_t strres_len)
+check_clamscan(void *ctx, struct mlfi_priv *priv,
+		char *strres, size_t strres_len)
 {
 	int r = -2;
 
 	*strres = '\0';
 
 	/* scan using libclamc clamscan() */
-	r = clamscan (file, cfg, strres, strres_len);
+	r = clamscan (ctx, priv, cfg, strres, strres_len);
 
 	/* reset virusname for non-viruses */
 	if (*strres && (!strcmp (strres, "Suspected.Zip") || !strcmp (strres, "Oversized.Zip"))) {

@@ -28,7 +28,9 @@
 #define LIBCLAMC_H 1
 
 struct config_file;
+struct mlfi_priv;
 
-int clamscan(const char *file, struct config_file *cfg, char *strres, size_t strres_len);
+int clamscan (void *ctx, struct mlfi_priv *priv, struct config_file *cfg,
+		char *strres, size_t strres_len);
 
 #endif

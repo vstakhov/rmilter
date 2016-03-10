@@ -74,7 +74,8 @@ pthread_mutex_t mx_clamav_write = PTHREAD_MUTEX_INITIALIZER;
  */
 
 static int clamscan_socket(const char *file, const struct clamav_server *srv,
-		char *strres, size_t strres_len, struct config_file *cfg)
+		char *strres, size_t strres_len, struct config_file *cfg,
+		struct mlfi_priv *priv)
 {
 	char *c;
 	sds readbuf;
@@ -104,14 +105,15 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	}
 	if (srv->name[0] == '/' || srv->name[0] == '.') {
 		if (!realpath(file, path)) {
-			msg_warn("clamav: realpath: %s", strerror (errno));
+			msg_warn("clamav: <%s>: realpath: %s", priv->mlfi_id,
+					strerror (errno));
 			return -1;
 		}
 		/* unix socket, use 'SCAN <filename>' command on clamd */
 		r = snprintf(buf, sizeof(buf), "SCAN %s\n", path);
 
 		if (write(s, buf, r) != r) {
-			msg_warn("clamav: write %s: %s", srv->name,
+			msg_warn("clamav: <%s>: write %s: %s", priv->mlfi_id, srv->name,
 					strerror (errno));
 			close(s);
 			return -1;
@@ -122,13 +124,15 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		r = snprintf(buf, sizeof(buf), "STREAM\n");
 
 		if (write (s, buf, r) != r) {
-			msg_warn("clamav: write %s: %s", srv->name, strerror (errno));
+			msg_warn("clamav: <%s>: write %s: %s", priv->mlfi_id,
+					srv->name, strerror (errno));
 			close (s);
 			return -1;
 		}
 
 		if (rmilter_poll_fd (s, cfg->clamav_port_timeout, POLLIN) < 1) {
-			msg_warn("clamav: timeout waiting port %s", srv->name);
+			msg_warn("clamav: <%s>: timeout waiting port %s", priv->mlfi_id,
+					srv->name);
 			close (s);
 			return -1;
 		}
@@ -144,7 +148,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		}
 
 		if (port < 1024) {
-			msg_warn("clamav: can't get port number for data stream, got: %s",
+			msg_warn("clamav: <%s>: can't get port number for data stream,"
+					" got: %s", priv->mlfi_id,
 					buf);
 			close (s);
 			return -1;
@@ -155,7 +160,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		 */
 		sw = rmilter_connect_addr (srv->name, port, cfg->clamav_connect_timeout);
 		if (sw < 0) {
-			msg_warn("clamav: socket (%s): %s", srv->name, strerror (errno));
+			msg_warn("clamav: <%s>: socket (%s): %s", priv->mlfi_id,
+					srv->name, strerror (errno));
 			close (s);
 			return -1;
 		}
@@ -165,7 +171,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		fd = open (file, O_RDONLY);
 
 		if (fstat (fd, &sb) == -1) {
-			msg_warn("clamav: stat failed: %s", strerror (errno));
+			msg_warn("clamav: <%s>: stat failed: %s", priv->mlfi_id,
+					strerror (errno));
 			close (sw);
 			close (s);
 			return -1;
@@ -178,7 +185,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
-			msg_warn("clamav: sendfile (%s): %s", srv->name, strerror (errno));
+			msg_warn("clamav: <%s>: sendfile (%s): %s", priv->mlfi_id,
+					srv->name, strerror (errno));
 			close(sw);
 			close(fd);
 			close(s);
@@ -187,7 +195,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 #elif defined(LINUX)
 		off_t off = 0;
 		if (sendfile(sw, fd, &off, sb.st_size) == -1) {
-			msg_warn("clamav: sendfile (%s): %s", srv->name, strerror (errno));
+			msg_warn("clamav: <%s>: sendfile (%s): %s", priv->mlfi_id,
+					srv->name, strerror (errno));
 			close(sw);
 			close(fd);
 			close(s);
@@ -195,7 +204,14 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		}
 #else
 		while ((r = read (fd, buf, sizeof(buf))) > 0) {
-			write (sw, buf, r);
+			if (write (sw, buf, r) <= 0) {
+				msg_warn("clamav: <%s>: write (%s): %s", priv->mlfi_id,
+						srv->name, strerror (errno));
+				close(sw);
+				close(fd);
+				close(s);
+				return -1;
+			}
 		}
 #endif
 #endif
@@ -205,7 +221,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 
 	/* wait for reply */
 	if (rmilter_poll_fd (s, cfg->clamav_results_timeout, POLLIN) < 1) {
-		msg_warn("clamav: timeout waiting results %s", srv->name);
+		msg_warn("clamav: <%s>: timeout waiting results %s", priv->mlfi_id,
+				srv->name);
 		close (s);
 		return -1;
 	}
@@ -217,7 +234,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 
 	for (;;) {
 		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
-			msg_warn("clamav: timeout waiting results %s", srv->name);
+			msg_warn("clamav: <%s>: timeout waiting results %s", priv->mlfi_id,
+					srv->name);
 			close (s);
 			return -1;
 		}
@@ -229,7 +247,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 				continue;
 			}
 			else {
-				msg_warn("clamav: read, %s, %s", srv->name, strerror (errno));
+				msg_warn("clamav: <%s>: read, %s, %s", priv->mlfi_id,
+						srv->name, strerror (errno));
 				close (s);
 				return -1;
 			}
@@ -262,7 +281,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 
 		path_len = strlen (path);
 		if (strncmp (readbuf, path, path_len) != 0) {
-			msg_warn("clamav: paths differ: '%s' instead of '%s'", readbuf, path);
+			msg_warn("clamav: <%s>: paths differ: '%s' instead of '%s'",
+					priv->mlfi_id, readbuf, path);
 			sdsfree (readbuf);
 			return -1;
 		}
@@ -276,14 +296,14 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		 */
 
 		/* msg_warn("clamav: found %s", c); */
-		snprintf(strres, strres_len, "%s", c);
+		snprintf (strres, strres_len, "%s", c);
 		sdsfree (readbuf);
 		return 0;
 
 	}
 	else if ((c = strstr (readbuf, "ERROR\n")) != NULL) {
 		*(--c) = 0;
-		msg_warn("clamav: error (%s) %s", srv->name, readbuf);
+		msg_warn("clamav: <%s>: error (%s) %s", priv->mlfi_id, srv->name, readbuf);
 		sdsfree (readbuf);
 		return -1;
 	}
@@ -293,8 +313,10 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	 * save file for further investigation and fail.
 	 */
 	sdsfree (readbuf);
-	msg_warn("clamav: unexpected result on file (%s) %s, %s", srv->name, file,
+	msg_warn("clamav: <%s>: unexpected result on file (%s) %s, %s",
+			priv->mlfi_id, srv->name, file,
 			buf);
+
 	return -2;
 }
 
@@ -307,8 +329,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
  * server (suppose scanned message killed clamd...)
  */
 
-int clamscan(const char *file, struct config_file *cfg, char *strres,
-		size_t strres_len)
+int clamscan (void *ctx, struct mlfi_priv *priv, struct config_file *cfg,
+		char *strres, size_t strres_len)
 {
 	int retry = 5, r = -2;
 	/* struct stat sb; */
@@ -316,6 +338,7 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 	double ts, tf;
 	struct clamav_server *selected = NULL;
 	struct timespec sleep_ts;
+	const char *file = priv->file;
 
 	*strres = '\0';
 	/*
@@ -349,27 +372,36 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 					cfg->clamav_maxerrors);
 		}
 		if (selected == NULL) {
-			msg_err("clamscan: upstream get error, %s", file);
+			msg_err("clamscan: <%s>: upstream get error, %s", priv->mlfi_id,
+					file);
 			return -1;
 		}
 
-		r = clamscan_socket (file, selected, strres, strres_len, cfg);
+		msg_info ("<%s> clamscan: start scanning message on %s", priv->mlfi_id,
+						selected->name);
+		r = clamscan_socket (file, selected, strres, strres_len, cfg, priv);
+		msg_info ("<%s> clamscan: finish scanning message on %s", priv->mlfi_id,
+						selected->name);
+
 		if (r == 0) {
 			upstream_ok (&selected->up, t.tv_sec);
 			break;
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-			msg_warn("clamscan: unexpected problem, %s, %s", selected->name,
+			msg_warn("clamscan: <%s>: unexpected problem, %s, %s", priv->mlfi_id,
+					selected->name,
 					file);
 			break;
 		}
 		if (--retry < 1) {
-			msg_warn("clamscan: retry limit exceeded, %s, %s", selected->name,
+			msg_warn("clamscan: <%s>: retry limit exceeded, %s, %s",
+					priv->mlfi_id, selected->name,
 					file);
 			break;
 		}
-		msg_warn("clamscan: failed to scan, retry, %s, %s", selected->name,
+		msg_warn("clamscan: <%s>: failed to scan, retry, %s, %s", priv->mlfi_id,
+				selected->name,
 				file);
 		nanosleep (&sleep_ts, NULL);
 	}
@@ -381,11 +413,13 @@ int clamscan(const char *file, struct config_file *cfg, char *strres,
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
 
 	if (*strres) {
-		msg_info("clamscan: scan %f, %s, found %s, %s", tf - ts, selected->name,
+		msg_info("clamscan: <%s>: scan %f, %s, found %s, %s", priv->mlfi_id,
+				tf - ts, selected->name,
 				strres, file);
 	}
 	else {
-		msg_info("clamscan: scan %f, %s, %s", tf - ts, selected->name, file);
+		msg_info("clamscan: <%s>: scan %f, %s, %s", priv->mlfi_id,
+				tf - ts, selected->name, file);
 	}
 
 	return r;
