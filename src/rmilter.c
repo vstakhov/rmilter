@@ -153,8 +153,8 @@ normalize_email_addr (const char *src, char *dest, size_t destlen)
 		}
 	}
 
-	if (d != dest + 1 && *(d - 1) == '>') {
-		*(d - 1) = '\0';
+	if (d > dest + 2 && *(d - 2) == '>') {
+		*(d - 2) = '\0';
 	}
 
 	if (destlen == 0) {
