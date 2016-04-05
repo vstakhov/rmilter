@@ -73,7 +73,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		const u_char *blake_hash, bool *exists,
 		char *hdr_buf, size_t hdr_size, const char *type)
 {
-	char key[MAXKEYLEN], timebuf[64];
+	char key[MAXKEYLEN], timebuf[64], timebuf_expire[64];
 	int r, keylen;
 	time_t elapsed;
 	struct timeval *tm1 = NULL, tm;
@@ -123,7 +123,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 	}
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
-			(unsigned char **)&tm1, &dlen) || (tm1 && tm1->tv_sec > tm.tv_sec)) {
+			(unsigned char **)&tm1, &dlen)) {
 		/* Greylisting record does not exist or is insane, writing new one */
 
 		if (rmilter_set_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
@@ -136,19 +136,22 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			elapsed = time (NULL) + cfg->greylisting_timeout;
 			localtime_r (&elapsed, &tm_parsed);
 			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+			elapsed = time (NULL) + cfg->greylisting_expire;
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf_expire, sizeof (timebuf_expire), "%F %T", &tm_parsed);
 			snprintf (hdr_buf, hdr_size, "0 seconds passed (new record), "
-					"greylisted till %s, type: %s",
-					timebuf, type);
-			msg_info ("greylisting_check_hash: greylisted <%s>: %s",
-					priv->mlfi_id, hdr_buf);
+					"greylisted till %s, expire at %s, type: %s",
+					timebuf, timebuf_expire, type);
+			msg_info ("greylisting_check_hash: greylisted <%s>, key: '%s': %s",
+					priv->mlfi_id, key, hdr_buf);
 			if (tm1) {
 				free (tm1);
 			}
 		}
 		else {
-			msg_err ("greylisting_check_hash: cannot store greylisting data "
-					"for <%s>: %s",
-					priv->mlfi_id, type);
+			msg_err ("greylisting_check_hash: cannot store greylisting data: "
+					"for <%s>: %s, key: '%s'",
+					priv->mlfi_id, type, key);
 			if (tm1) {
 				free (tm1);
 			}
@@ -159,6 +162,20 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		return GREY_GREYLISTED;
 	}
 	else {
+		if (tm1 && tm1->tv_sec > tm.tv_sec) {
+			elapsed = tm1->tv_sec;
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+			elapsed = time (NULL);
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf_expire, sizeof (timebuf_expire), "%F %T", &tm_parsed);
+			msg_info ("greylisting_check_hash: <%s>, key: '%s': is created in "
+					"future: %s, while now it is only %s, ignore record",
+					priv->mlfi_id, key, timebuf, timebuf_expire);
+			free (tm1);
+
+			return GREY_WHITELISTED;
+		}
 		/* Greylisting record exists, checking time */
 		if (exists) {
 			*exists = true;
@@ -170,12 +187,15 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			elapsed = tm1->tv_sec + cfg->greylisting_timeout;
 			localtime_r (&elapsed, &tm_parsed);
 			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+			elapsed = time (NULL) + cfg->greylisting_expire;
+			localtime_r (&elapsed, &tm_parsed);
+			strftime (timebuf_expire, sizeof (timebuf_expire), "%F %T", &tm_parsed);
 			snprintf (hdr_buf, hdr_size, "%d seconds passed, "
-					"greylisted till %s, type: %s",
+					"greylisted till %s, expire at %s, type: %s",
 					(int)(tm.tv_sec - tm1->tv_sec),
-					timebuf, type);
-			msg_info ("greylisting_check_hash: greylisted <%s>: %s",
-					priv->mlfi_id, hdr_buf);
+					timebuf, timebuf_expire, type);
+			msg_info ("greylisting_check_hash: greylisted <%s>, key: '%s': %s",
+					priv->mlfi_id, key, hdr_buf);
 
 			if (tm1) {
 				free (tm1);
@@ -187,6 +207,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			elapsed = tm1->tv_sec + cfg->whitelisting_expire;
 			localtime_r (&elapsed, &tm_parsed);
 			strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
+
 			snprintf (hdr_buf, hdr_size, "Greylisted for %d seconds, "
 					"whitelisted till %s, type: %s",
 					(int)(tm.tv_sec - tm1->tv_sec),
@@ -207,9 +228,14 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 					cfg->white_prefix,
 					blake_hash);
 
-			rmilter_set_cache (cfg, RMILTER_QUERY_WHITELIST, key, keylen,
+			if (!rmilter_set_cache (cfg, RMILTER_QUERY_WHITELIST, key, keylen,
 							(unsigned char *)&tm, sizeof (tm),
-							cfg->whitelisting_expire);
+							cfg->whitelisting_expire)) {
+				msg_err ("greylisting_check_hash: cannot store whitelisting data: "
+						"for <%s>: %s, key: '%s'",
+						priv->mlfi_id, type, key);
+
+			}
 		}
 	}
 
