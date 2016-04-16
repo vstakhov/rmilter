@@ -446,7 +446,8 @@ static void add_hashed_header(const char *name, struct dkim_hash_entry **hash)
 
 	new = malloc (sizeof(struct dkim_hash_entry));
 	new->name = strdup (name);
-	HASH_ADD_KEYPTR(hh, *hash, new->name, strlen (new->name), new);
+	rmilter_str_lc (new->name, strlen (new->name));
+	HASH_ADD_KEYPTR (hh, *hash, new->name, strlen (new->name), new);
 }
 #endif
 

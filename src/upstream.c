@@ -26,7 +26,7 @@
 
 #include "config.h"
 #include "upstream.h"
-#include "fasthash.h"
+#include "xxhash.h"
 
 #ifdef WITH_DEBUG
 #define msg_debug(args...) syslog(LOG_DEBUG, ##args)
@@ -79,7 +79,7 @@ static void check_upstream(struct upstream *up, time_t now,
 	}
 }
 
-/* 
+/*
  * Call this function after failed upstream request
  */
 void upstream_fail(struct upstream *up, time_t now)
@@ -94,7 +94,7 @@ void upstream_fail(struct upstream *up, time_t now)
 		U_UNLOCK ();
 	}
 }
-/* 
+/*
  * Call this function after successful upstream request
  */
 void upstream_ok(struct upstream *up, time_t now)
@@ -108,7 +108,7 @@ void upstream_ok(struct upstream *up, time_t now)
 
 	up->weight--;
 }
-/* 
+/*
  * Mark all upstreams as active. This function is used when all upstreams are marked as inactive
  */
 void revive_all_upstreams(void *ups, unsigned int members, unsigned int msize)
@@ -131,9 +131,9 @@ void revive_all_upstreams(void *ups, unsigned int members, unsigned int msize)
 	U_UNLOCK ();
 }
 
-/* 
+/*
  * Scan all upstreams for errors and mark upstreams dead or alive depends on conditions,
- * return number of alive upstreams 
+ * return number of alive upstreams
  */
 static int rescan_upstreams(void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout, time_t revive_timeout,
@@ -205,12 +205,10 @@ get_upstream_by_number(void *ups, unsigned int members, unsigned int msize,
 
 }
 
-/*
- * Get hash key for specified key (perl hash)
- */
-static uint64_t get_hash_for_key(const unsigned char *key, unsigned int keylen)
+static uint64_t
+get_hash_for_key(const unsigned char *key, unsigned int keylen)
 {
-	return fasthash64 (key, keylen, 0xdeadbabe);
+	return XXH64 (key, keylen, 0xdeadbabe);
 }
 
 /*

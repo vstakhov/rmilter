@@ -380,7 +380,6 @@ ADD_SUBDIRECTORY(contrib/xxhash)
 
 SET(RMILTERSRC
                 compat/blake2b-ref.c
-                src/fasthash.c
                 src/upstream.c
                 src/util.c
                 src/radix.c
