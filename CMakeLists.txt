@@ -241,7 +241,8 @@ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include"
 					"${CMAKE_SOURCE_DIR}/compat"
 					"${CMAKE_SOURCE_DIR}/uthash"
 					"${CMAKE_SOURCE_DIR}/contrib/libucl"
-					"${CMAKE_SOURCE_DIR}/contrib/http-parser")
+					"${CMAKE_SOURCE_DIR}/contrib/http-parser"
+					"${CMAKE_SOURCE_DIR}/contrib/xxhash")
 
 BISON_TARGET(CfgParser src/cfg_file.y ${CMAKE_CURRENT_BINARY_DIR}/cfg_yacc.c)
 FLEX_TARGET(CfgScanner src/cfg_file.l  ${CMAKE_CURRENT_BINARY_DIR}/cfg_lex.c)
@@ -375,6 +376,7 @@ ADD_SUBDIRECTORY(hiredis)
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/hiredis")
 ADD_SUBDIRECTORY(contrib/libucl)
 ADD_SUBDIRECTORY(contrib/http-parser)
+ADD_SUBDIRECTORY(contrib/xxhash)
 
 SET(RMILTERSRC
                 compat/blake2b-ref.c
@@ -406,6 +408,7 @@ SET_TARGET_PROPERTIES(rmilter PROPERTIES LINKER_LANGUAGE C)
 TARGET_LINK_LIBRARIES(rmilter ${RMILTER_REQUIRED_LIBRARIES})
 TARGET_LINK_LIBRARIES(rmilter rmilter-hiredis)
 TARGET_LINK_LIBRARIES(rmilter ucl)
+TARGET_LINK_LIBRARIES(rmilter xxhash)
 TARGET_LINK_LIBRARIES(rmilter rmilter-http-parser)
 
 ##################### INSTALLATION ##########################################

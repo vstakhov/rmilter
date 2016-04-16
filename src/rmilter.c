@@ -729,7 +729,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 	domain_pos = strchr (priv->priv_from, '@');
 	if (domain_pos) {
-		HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain, strncasecmp);
+		HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain);
 
 		if (!cfg->dkim_auth_only || priv->authenticated ||
 				radix_find_rmilter_addr (cfg->dkim_ip_tree, &priv->priv_addr)
@@ -966,7 +966,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	int tmplen, r;
 
 	if (priv->dkim) {
-		HASH_FIND_STR (cfg->headers, headerf, e, strncasecmp);
+		HASH_FIND_STR (cfg->headers, headerf, e);
 		if (e) {
 			tmplen = strlen (headerf) + strlen (headerv) + sizeof (": ");
 			tmp = malloc (tmplen);

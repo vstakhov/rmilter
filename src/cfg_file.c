@@ -760,6 +760,8 @@ int is_whitelisted_rcpt(struct config_file *cfg, const char *str, int is_global)
 
 	len = strcspn (str, ">");
 	rmilter_strlcpy (rcptbuf, str, MIN(len + 1, sizeof(rcptbuf)));
+	rmilter_str_lc (rcptbuf, strlen (rcptbuf));
+
 	if (len > 0) {
 		if (is_global) {
 			list = cfg->wlist_rcpt_global;
@@ -768,26 +770,29 @@ int is_whitelisted_rcpt(struct config_file *cfg, const char *str, int is_global)
 			list = cfg->wlist_rcpt_limit;
 		}
 		/* Initially search for userdomain */
-		HASH_FIND_STR(list, rcptbuf, entry, strncasecmp);
+		HASH_FIND_STR(list, rcptbuf, entry);
 		if (entry != NULL && entry->type == WLIST_RCPT_USERDOMAIN) {
 			return 1;
 		}
+
 		domain = strchr (rcptbuf, '@');
 		if (domain == NULL && entry != NULL && entry->type == WLIST_RCPT_USER) {
 			return 1;
 		}
+
 		/* Search for user */
 		if (domain != NULL) {
 			*domain = '\0';
 		}
-		HASH_FIND_STR(list, rcptbuf, entry, strncasecmp);
+
+		HASH_FIND_STR(list, rcptbuf, entry);
 		if (entry != NULL && entry->type == WLIST_RCPT_USER) {
 			return 1;
 		}
 		if (domain != NULL) {
 			/* Search for domain */
 			domain++;
-			HASH_FIND_STR(list, domain, entry, strncasecmp);
+			HASH_FIND_STR(list, domain, entry);
 			if (entry != NULL && entry->type == WLIST_RCPT_DOMAIN) {
 				return 1;
 			}
