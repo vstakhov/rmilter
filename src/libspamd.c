@@ -167,6 +167,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	struct rspamd_symbol *cur_symbol;
 	struct http_parser parser;
 	struct http_parser_settings ps;
+	struct iovec iov[2];
 
 	/* somebody doesn't need reply... */
 	if (!srv)
@@ -282,8 +283,9 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		}
 		r += written;
 	}
+
 	to_write = sizeof(buf) - r;
-	written = snprintf(buf + r, to_write, "Queue-ID: %s\r\n\r\n",
+	written = snprintf(buf + r, to_write, "Queue-ID: %s\r\n",
 			priv->mlfi_id);
 	if (written > to_write) {
 		msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
@@ -294,8 +296,14 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	}
 	r += written;
 
-	if (write (s, buf, r) == -1) {
-		msg_warn("<%s> rspamd: write (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+	iov[0].iov_base = buf;
+	iov[0].iov_len = r;
+	iov[1].iov_base = "\r\n";
+	iov[1].iov_len = 2;
+
+	if (writev (s, iov, sizeof (iov) / sizeof (iov[0])) == -1) {
+		msg_warn("<%s> rspamd: writev (%s), %s", priv->mlfi_id, srv->name,
+				strerror (errno));
 		close (fd);
 		close (s);
 		return -1;
@@ -396,7 +404,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
  */
 
 int
-spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
+spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		char **subject, int extra)
 {
 	int retry, r = -2, hr = 0, to_trace = 0, i, j, ret;
