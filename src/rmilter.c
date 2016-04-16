@@ -913,7 +913,7 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	struct mlfi_priv *priv;
 	struct rule *act;
 	int len;
-	char *p, *c, t;
+	char *p, *c, t, *hname_lowercase;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -921,13 +921,24 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		return SMFIS_TEMPFAIL;
 	}
 
-	if (headerv && strncasecmp (headerf, "In-Reply-To", sizeof ("In-Reply-To") - 1) == 0) {
+	hname_lowercase = strdup (headerf);
+
+	if (hname_lowercase == NULL) {
+		msg_err ("Internal error: strdup() returns NULL");
+		mlfi_cleanup (ctx, false);
+		return SMFIS_TEMPFAIL;
+	}
+
+	rmilter_str_lc (hname_lowercase, strlen (hname_lowercase));
+
+	if (headerv && strcmp (hname_lowercase, "in-reply-to") == 0) {
 		check_message_id (priv, headerv);
 	}
-	else if (headerv && strncasecmp (headerf, "References", sizeof ("References") - 1) == 0) {
+	else if (headerv && strcmp (hname_lowercase, "references") == 0) {
 		/* Break references into individual message-id */
 		c = headerv;
 		p = c;
+
 		while (*p) {
 			if (isspace (*p)) {
 				t = *p;
@@ -942,14 +953,14 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 			p ++;
 		}
 	}
-	else if (strncasecmp (headerf, "Return-Path", sizeof ("Return-Path") - 1) == 0) {
+	else if (strcmp (hname_lowercase, "return-path") == 0) {
 		priv->has_return_path = 1;
 	}
+
 	/*
 	 * Create temporary file, if this is first call of mlfi_header(), and it
 	 * not yet created
 	 */
-
 	CFG_RLOCK();
 	if (!priv->fileh) {
 		if (create_temp_file (priv) == -1) {
@@ -966,10 +977,11 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 	int tmplen, r;
 
 	if (priv->dkim) {
-		HASH_FIND_STR (cfg->headers, headerf, e);
+		HASH_FIND_STR (cfg->headers, hname_lowercase, e);
 		if (e) {
 			tmplen = strlen (headerf) + strlen (headerv) + sizeof (": ");
 			tmp = malloc (tmplen);
+
 			if (tmp != NULL) {
 				snprintf ((char *)tmp, tmplen, "%s: %s", headerf, headerv);
 				r = dkim_header (priv->dkim, tmp, tmplen - 1);
@@ -981,25 +993,30 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		}
 	}
 #endif
+
 	/*
 	 * Write header line to temporary file.
 	 */
-
 	fprintf (priv->fileh, "%s: %s\n", headerf, headerv);
 	/* Check header with regexp */
 	priv->priv_cur_header.header_name = headerf;
 	priv->priv_cur_header.header_value = headerv;
-	if (strcasecmp (headerf, "Subject") == 0) {
+
+	if (strcmp (hname_lowercase, "subject") == 0) {
 		len = sizeof (SPAM_SUBJECT) + strlen (headerv);
 		priv->priv_subject = malloc (len);
+
 		if (priv->priv_subject) {
 			snprintf (priv->priv_subject, len, SPAM_SUBJECT " %s", headerv);
 		}
 	}
+
 	act = regexp_check (cfg, priv, STAGE_HEADER);
 	if (act != NULL) {
 		priv->matched_rules[STAGE_HEADER] = act;
 	}
+
+	free (hname_lowercase);
 
 	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
