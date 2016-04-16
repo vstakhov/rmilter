@@ -54,7 +54,10 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	struct rspamd_metric_result *res = parser->data;
 	struct ucl_parser *up;
 	ucl_object_t *obj;
-	const ucl_object_t *metric, *elt, *sym;
+	ucl_object_iter_t it = NULL;
+	struct rspamd_symbol *sym;
+	const ucl_object_t *metric, *elt, *sym_elt;
+	const char *act_str;
 
 	up = ucl_parser_new (0);
 
@@ -68,6 +71,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 
 	obj = ucl_parser_get_object (up);
 	ucl_parser_free (up);
+	res->obj = obj;
 
 	if (obj == NULL || ucl_object_type (obj) != UCL_OBJECT) {
 		msg_err ("cannot parse reply from rspamd: bad top object");
@@ -78,11 +82,62 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 
 	metric = ucl_object_lookup (obj, "default");
 
-	if (metric == NULL) {
+	if (metric == NULL || ucl_object_type (metric) != UCL_OBJECT) {
 		msg_err ("cannot parse reply from rspamd: no default metric result");
 		ucl_object_unref (obj);
 
 		return -1;
+	}
+
+	elt = ucl_object_lookup (metric, "score");
+	res->score = ucl_object_todouble (elt);
+
+	elt = ucl_object_lookup (metric, "required_score");
+	res->required_score = ucl_object_todouble (elt);
+
+	elt = ucl_object_lookup (metric, "action");
+	act_str = ucl_object_tostring (elt);
+
+	elt = ucl_object_lookup (metric, "subject");
+	res->subject = ucl_object_tostring (elt);
+
+	if (act_str) {
+		if (strcmp (act_str, "reject") == 0) {
+			res->action = METRIC_ACTION_REJECT;
+		}
+		else if (strcmp (act_str, "greylist") == 0) {
+			res->action = METRIC_ACTION_GREYLIST;
+		}
+		else if (strcmp (act_str, "add header") == 0) {
+			res->action = METRIC_ACTION_ADD_HEADER;
+		}
+		else if (strcmp (act_str, "rewrite subject") == 0) {
+			res->action = METRIC_ACTION_REWRITE_SUBJECT;
+		}
+		else {
+			msg_warn ("invalid reply from rspamd: bad action %s", act_str);
+			res->action = METRIC_ACTION_NOACTION;
+		}
+	}
+	else {
+		msg_warn ("invalid reply from rspamd: no action found, assume no action");
+		res->action = METRIC_ACTION_NOACTION;
+	}
+
+	while ((sym_elt = ucl_object_iterate (metric, &it, true)) != NULL) {
+		/* Here we assume that all objects found here are symbols */
+		if (ucl_object_type (sym_elt) == UCL_OBJECT) {
+			sym = malloc (sizeof (*sym));
+
+			if (sym != NULL) {
+				sym->symbol = ucl_object_key (sym_elt);
+				elt = ucl_object_lookup (sym_elt, "score");
+				sym->score = ucl_object_todouble (elt);
+				sym->options = ucl_object_lookup (sym_elt, "options");
+
+				TAILQ_INSERT_TAIL (&res->symbols, sym, entry);
+			}
+		}
 	}
 
 	return 0;
@@ -340,10 +395,11 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
  * server (suppose scanned message killed spamd...)
  */
 
-int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
+int
+spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		char **subject, int extra)
 {
-	int retry, r = -2, hr = 0, to_trace = 0, i, j;
+	int retry, r = -2, hr = 0, to_trace = 0, i, j, ret;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
@@ -360,6 +416,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	sleep_ts.tv_sec = cfg->spamd_retry_timeout / 1000;
 	sleep_ts.tv_nsec = (cfg->spamd_retry_timeout % 1000) * 1000000ULL;
 	memset (&res, 0, sizeof (res));
+	TAILQ_INIT (&res.symbols);
 
 	/* try to scan with available servers */
 	while (1) {
@@ -433,17 +490,14 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					res.required_score);
 
 	if (res.action == METRIC_ACTION_REWRITE_SUBJECT && res.subject != NULL) {
-		/* Copy subject as it would be freed further */
-		if (*subject != NULL) {
-			free (*subject);
-		}
 		*subject = strdup (res.subject);
 	}
+
 	/* Write symbols */
-	cur_symbol = TAILQ_FIRST(&res.symbols);
+	cur_symbol = TAILQ_FIRST (&res.symbols);
 
 	if (cur_symbol == NULL) {
-		r += snprintf(rbuf + r, sizeof(rbuf) - r, "no symbols");
+		r += snprintf (rbuf + r, sizeof(rbuf) - r, "no symbols");
 	}
 	else {
 
@@ -476,7 +530,6 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 								cur_symbol->symbol);
 					}
 				}
-				free (cur_symbol->symbol);
 			}
 			tmp_symbol = cur_symbol;
 			cur_symbol = TAILQ_NEXT(cur_symbol, entry);
@@ -485,9 +538,6 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	}
 
 	msg_info("%s", rbuf);
-	if (res.subject != NULL) {
-		free (res.subject);
-	}
 
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
@@ -565,7 +615,11 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		smfi_setpriv (ctx, priv);
 	}
 
-	return (r > 0 ? res.action : r);
+	ret =  (r > 0 ? res.action : r);
+
+	ucl_object_unref (res.obj);
+
+	return ret;
 }
 
 /*
