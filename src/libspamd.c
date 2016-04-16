@@ -170,8 +170,9 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	struct iovec iov[2];
 
 	/* somebody doesn't need reply... */
-	if (!srv)
+	if (!srv) {
 		return 0;
+	}
 
 	s = rmilter_connect_addr (srv->name, srv->port, cfg->spamd_connect_timeout);
 
@@ -431,6 +432,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	struct timespec sleep_ts;
 	SMFICTX *ctx = _ctx;
+	sds optbuf;
 
 	gettimeofday (&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -522,16 +524,42 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		r += snprintf (rbuf + r, sizeof(rbuf) - r, "no symbols");
 	}
 	else {
+		optbuf = sdsempty ();
 
 		while (cur_symbol) {
+			sdsclear (optbuf);
+
 			if (cur_symbol->symbol) {
+
+				if (cur_symbol->options) {
+					ucl_object_iter_t it = NULL;
+					const ucl_object_t *elt;
+					bool first = true;
+
+					while ((elt = ucl_object_iterate (cur_symbol->options,
+							&it, true)) != NULL) {
+						if (ucl_object_type (elt) == UCL_STRING) {
+							if (first) {
+								optbuf = sdscat (optbuf,
+										ucl_object_tostring (elt));
+								first = false;
+							}
+							else {
+								optbuf = sdscat (optbuf, ", ");
+								optbuf = sdscat (optbuf,
+										ucl_object_tostring (elt));
+							}
+						}
+					}
+				}
+
 				if (TAILQ_NEXT(cur_symbol, entry)) {
-					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s, ",
-							cur_symbol->symbol);
+					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.2f)[%s], ",
+							cur_symbol->symbol, cur_symbol->score, optbuf);
 				}
 				else {
-					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s",
-							cur_symbol->symbol);
+					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.2f)[%s]",
+							cur_symbol->symbol, cur_symbol->score, optbuf);
 				}
 				if (cfg->trace_symbol) {
 					c = strchr (cur_symbol->symbol, '(');
@@ -545,18 +573,24 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				if (cfg->extended_spam_headers && !priv->authenticated) {
 					if (TAILQ_NEXT(cur_symbol, entry)) {
 						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-								" %s\n", cur_symbol->symbol);
+								" %s(%.2f)[%s]\n", cur_symbol->symbol,
+								cur_symbol->score, optbuf);
 					}
 					else {
-						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr, " %s",
-								cur_symbol->symbol);
+						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr, " "
+								"%s(%.2f)[%s]",
+								cur_symbol->symbol,
+								cur_symbol->score, optbuf);
 					}
 				}
 			}
+
 			tmp_symbol = cur_symbol;
 			cur_symbol = TAILQ_NEXT(cur_symbol, entry);
 			free (tmp_symbol);
 		}
+
+		sdsfree (optbuf);
 	}
 
 	msg_info("%s", rbuf);
