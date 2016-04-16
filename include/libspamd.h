@@ -47,6 +47,7 @@ enum rspamd_metric_action {
 struct rspamd_symbol {
 	char *symbol;
 	double score;
+	char *options;
 	TAILQ_ENTRY(rspamd_symbol) entry;
 };
 

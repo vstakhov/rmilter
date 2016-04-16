@@ -31,6 +31,8 @@
 #include "rmilter.h"
 #include "libspamd.h"
 #include "mfapi.h"
+#include "ucl.h"
+#include "http_parser.h"
 #include "sds.h"
 
 /* Maximum time in seconds during which spamd server is marked inactive after scan error */
@@ -61,15 +63,14 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 {
 	char buf[8192];
 	sds readbuf;
-	char *c, *p, *err_str;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
-	int s, r, fd, ofl, size = 0, to_write, written, state, next_state, toklen;
-	int remain;
+	int s, r, fd, ofl, size = 0, to_write, written;
 	struct stat sb;
 	struct rspamd_metric_result *cur = NULL;
 	struct rcpt *rcpt;
 	struct rspamd_symbol *cur_symbol;
+	struct http_parser p;
 
 	/* somebody doesn't need reply... */
 	if (!srv)
@@ -95,10 +96,11 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
 	r = 0;
-	to_write = sizeof(buf) - r;
-	written = snprintf(buf + r, to_write,
-			"SYMBOLS RSPAMC/1.2\r\nContent-length: %ld\r\n",
+	to_write = sizeof (buf) - r;
+	written = snprintf (buf + r, to_write,
+			"GET /symbols HTTP/1.0\r\nContent-Length: %ld\r\n",
 			(long int )sb.st_size);
+
 	if (written > to_write) {
 		msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
 				 priv->mlfi_id, srv->name);
@@ -266,317 +268,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	size = sdslen (readbuf);
 	close (s);
 
-#define TEST_WORD(x)																\
-do {																				\
-	if (remain < sizeof ((x)) - 1 || memcmp (p, (x), sizeof ((x)) - 1) != 0) {		\
-		msg_warn ("<%s> invalid reply from server %s at state %d, expected: %s, got %*s", priv->mlfi_id, srv->name, state, ((x)), (int)sizeof((x)), p);				\
-		return -1;																	\
-	}																				\
-	p += sizeof((x)) - 1;															\
-	remain -= sizeof((x)) - 1;														\
-} while (0)
+	/* Now we need to parse HTTP reply */
 
-	c = readbuf;
-	p = readbuf;
-	remain = size - 1;
-	state = 0;
-	next_state = 100;
-
-	while (remain > 0) {
-		switch (state) {
-		case 0:
-			/*
-			 * Expect first reply line:
-			 * RSPAMD/{VERSION} {ERROR_CODE} {DESCR} CRLF
-			 */
-			TEST_WORD("RSPAMD/");
-			if ((c = strchr (p, ' ')) == NULL) {
-				msg_warn("<%s> invalid reply from server %s on state %d",
-						priv->mlfi_id, srv->name,
-						state);
-				sdsfree (readbuf);
-				return -1;
-			}
-			/* Well now in c we have space symbol, skip all */
-			while (remain > 0 && isspace (*c)) {
-				c++;
-			}
-			/* Now check code */
-			if (*c != '0') {
-				msg_warn("<%s> invalid reply from server %s on state %d, code: %c",
-						 priv->mlfi_id, srv->name, state, *c);
-				sdsfree (readbuf);
-				return -1;
-			}
-			/* Now skip everything till \n */
-			if ((c = strchr (c, '\n')) == NULL) {
-				msg_warn("<%s> invalid reply from server %s on state %d",
-						priv->mlfi_id, srv->name,
-						state);
-				sdsfree (readbuf);
-				return -1;
-			}
-			c++;
-			remain -= c - p;
-			p = c;
-			next_state = 2;
-			state = 99;
-			break;
-		case 2:
-			/*
-			 * In this state we compare begin of line with Metric:
-			 */
-			TEST_WORD("Metric:");
-			cur = malloc (sizeof(struct rspamd_metric_result));
-			if (cur == NULL) {
-				msg_err("<%s> malloc failed: %s", priv->mlfi_id, strerror (errno));
-				sdsfree (readbuf);
-				return -1;
-			}
-			cur->subject = NULL;
-			TAILQ_INIT(&cur->symbols);
-			next_state = 3;
-			state = 99;
-			break;
-		case 3:
-			/*
-			 * In this state we parse metric line
-			 * Typical line looks as name; result; score1 / score2[ / score3] and we are interested in:
-			 * name, result, score1 and score2
-			 */
-			if ((c = strchr (p, ';')) == NULL) {
-				msg_warn(
-						"<%s> invalid reply from server %s on state %d, at position: %s",
-						 priv->mlfi_id, srv->name, state, p);
-				sdsfree (readbuf);
-				return -1;
-			}
-			/* Now in c we have end of name and in p - begin of name, so copy this data to temp buffer */
-			cur->metric_name = malloc (c - p + 1);
-			if (cur->metric_name == NULL) {
-				msg_err("<%s> malloc failed: %s",  priv->mlfi_id, strerror (errno));
-				sdsfree (readbuf);
-				return -1;
-			}
-			rmilter_strlcpy (cur->metric_name, p, c - p + 1);
-			remain -= c - p + 1;
-			p = c + 1;
-			/* Now skip result from rspamd, just extract 2 numbers */
-			if ((c = strchr (p, ';')) == NULL) {
-				msg_warn(
-						"<%s> invalid reply from server %s on state %d, at position: %s",
-						 priv->mlfi_id, srv->name, state, p);
-				sdsfree (readbuf);
-				return -1;
-			}
-			remain -= c - p + 1;
-			p = c + 1;
-			/* Now skip spaces */
-			while (isspace (*p) && remain > 0) {
-				p++;
-				remain--;
-			}
-			/* Try to read first mark */
-			cur->score = strtod (p, &err_str);
-			if (err_str != NULL && (*err_str != ' ' && *err_str != '/')) {
-				msg_warn(
-						"<%s> invalid reply from server %s on state %d, error converting score number: %s",
-						 priv->mlfi_id, srv->name, state, err_str);
-				sdsfree (readbuf);
-				return -1;
-			}
-			remain -= err_str - p;
-			p = err_str;
-			while (remain > 0 && (*p == ' ' || *p == '/')) {
-				remain--;
-				p++;
-			}
-			/* Try to read second mark */
-			cur->required_score = strtod (p, &err_str);
-			if (err_str != NULL
-					&& (*err_str != ' ' && *err_str != '/' && *err_str != '\r')) {
-				msg_warn(
-						"<%s> invalid reply from server %s on state %d, error converting required score number: %s",
-						 priv->mlfi_id, srv->name, state, err_str);
-				sdsfree (readbuf);
-				return -1;
-			}
-			remain -= err_str - p;
-			p = err_str;
-			while (remain > 0 && *p != '\n') {
-				remain--;
-				p++;
-			}
-			state = 99;
-			next_state = 4;
-			break;
-		case 4:
-			/* Symbol/Action */
-			if (remain >= sizeof("Symbol:")
-					&& memcmp (p, "Symbol:", sizeof("Symbol:") - 1) == 0) {
-				state = 99;
-				next_state = 5;
-				p += sizeof("Symbol:") - 1;
-				remain -= sizeof("Symbol:") - 1;
-			}
-			else if (remain >= sizeof("Action:")
-					&& memcmp (p, "Action:", sizeof("Action:") - 1) == 0) {
-				state = 99;
-				next_state = 6;
-				p += sizeof("Action:") - 1;
-				remain -= sizeof("Action:") - 1;
-			}
-			else if (remain >= sizeof("Metric:")
-					&& memcmp (p, "Metric:", sizeof("Metric:") - 1) == 0) {
-				state = 99;
-				next_state = 3;
-				p += sizeof("Metric:") - 1;
-				remain -= sizeof("Metric:") - 1;
-				TAILQ_INSERT_HEAD(res, cur, entry);
-				cur = malloc (sizeof(struct rspamd_metric_result));
-				if (cur == NULL) {
-					msg_err("<%s> malloc failed: %s", priv->mlfi_id, strerror (errno));
-					sdsfree (readbuf);
-					return -1;
-				}
-				TAILQ_INIT(&cur->symbols);
-			}
-			else if (remain >= sizeof("Message-ID:")
-					&& memcmp (p, "Message-ID:", sizeof("Message-ID:") - 1)
-							== 0) {
-				state = 99;
-				next_state = 7;
-				p += sizeof("Message-ID:") - 1;
-				remain -= sizeof("Message-ID:") - 1;
-			}
-			else if (remain >= sizeof("Subject:")
-					&& memcmp (p, "Subject:", sizeof("Subject:") - 1) == 0) {
-				state = 99;
-				next_state = 8;
-				p += sizeof("Subject:") - 1;
-				remain -= sizeof("Subject:") - 1;
-			}
-			else {
-				toklen = strcspn (p, "\r\n");
-				if (toklen > remain) {
-					msg_info("bad symbol name detected");
-					sdsfree (readbuf);
-					return -1;
-				}
-				remain -= toklen;
-				p += toklen;
-				next_state = 4;
-				state = 99;
-			}
-			break;
-		case 5:
-			/* Parse symbol line */
-			toklen = strcspn (p, ";\r\n");
-			if (toklen == 0 || toklen > remain) {
-				/* Bad symbol name */
-				msg_info("<%s> bad symbol name detected", priv->mlfi_id);
-				sdsfree (readbuf);
-				return -1;
-			}
-			cur_symbol = malloc (sizeof(struct rspamd_symbol));
-			if (cur_symbol == NULL) {
-				msg_err("malloc failed: %s", strerror (errno));
-				sdsfree (readbuf);
-				return -1;
-			}
-			cur_symbol->symbol = malloc (toklen + 1);
-			if (cur_symbol->symbol == NULL) {
-				msg_err("malloc failed: %s", strerror (errno));
-				sdsfree (readbuf);
-				return -1;
-			}
-			rmilter_strlcpy (cur_symbol->symbol, p, toklen + 1);
-			TAILQ_INSERT_HEAD(&cur->symbols, cur_symbol, entry);
-			/* Skip to the end of line */
-			toklen = strcspn (p, "\r\n");
-			if (toklen > remain) {
-				msg_info("bad symbol name detected");
-				sdsfree (readbuf);
-				return -1;
-			}
-			remain -= toklen;
-			p += toklen;
-			next_state = 4;
-			state = 99;
-			break;
-		case 6:
-			/* Parse action */
-			if (memcmp (p, "reject", sizeof("reject") - 1) == 0) {
-				cur->action = METRIC_ACTION_REJECT;
-			}
-			else if (memcmp (p, "greylist", sizeof("greylist") - 1) == 0) {
-				cur->action = METRIC_ACTION_GREYLIST;
-			}
-			else if (memcmp (p, "add header", sizeof("add header") - 1) == 0) {
-				cur->action = METRIC_ACTION_ADD_HEADER;
-			}
-			else if (memcmp (p, "rewrite subject",
-					sizeof("rewrite subject") - 1) == 0) {
-				cur->action = METRIC_ACTION_REWRITE_SUBJECT;
-			}
-			else {
-				cur->action = METRIC_ACTION_NOACTION;
-			}
-			/* Skip to the end of line */
-			toklen = strcspn (p, "\r\n");
-			if (toklen > remain) {
-				msg_info("bad symbol name detected");
-				sdsfree (readbuf);
-				return -1;
-			}
-			remain -= toklen;
-			p += toklen;
-			next_state = 4;
-			state = 99;
-			break;
-		case 7:
-			/* Parse message id */
-			toklen = strcspn (p, "\r\n");
-			*mid = malloc (toklen + 1);
-			rmilter_strlcpy (*mid, p, toklen + 1);
-			remain -= toklen;
-			p += toklen;
-			next_state = 4;
-			state = 99;
-			break;
-		case 8:
-			/* Parse subject line */
-			toklen = strcspn (p, "\r\n");
-			if (cur) {
-				cur->subject = malloc (toklen + 1);
-				rmilter_strlcpy (cur->subject, p, toklen + 1);
-			}
-			remain -= toklen;
-			p += toklen;
-			next_state = 4;
-			state = 99;
-			break;
-		case 99:
-			/* Skip spaces */
-			if (isspace (*p)) {
-				p++;
-				remain--;
-			}
-			else {
-				state = next_state;
-			}
-			break;
-		default:
-			msg_err("<%s> state machine breakage detected, state = %d, p = %s",
-					 priv->mlfi_id, state, p);
-			sdsfree (readbuf);
-			return -1;
-		}
-	}
-
-	if (cur != NULL) {
-		TAILQ_INSERT_HEAD(res, cur, entry);
-	}
 	sdsfree (readbuf);
 
 	return 0;
