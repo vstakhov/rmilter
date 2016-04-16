@@ -87,4 +87,6 @@ int rmilter_poll_fd (int fd, int timeout, short events);
 		((msec) - (tv)->tv_sec * 1000) * 1000; \
 } while (0)
 
+void rmilter_str_lc (char *str, unsigned int size);
+
 #endif /* UTIL_H_ */
