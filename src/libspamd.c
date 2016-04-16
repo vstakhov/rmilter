@@ -48,6 +48,46 @@
 pthread_mutex_t mx_spamd_write = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
+static int
+rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t length)
+{
+	struct rspamd_metric_result *res = parser->data;
+	struct ucl_parser *up;
+	ucl_object_t *obj;
+	const ucl_object_t *metric, *elt, *sym;
+
+	up = ucl_parser_new (0);
+
+	if (!ucl_parser_add_chunk (up, at, length)) {
+		msg_err ("cannot parse reply from rspamd: %s",
+				ucl_parser_get_error (up));
+		ucl_parser_free (up);
+
+		return -1;
+	}
+
+	obj = ucl_parser_get_object (up);
+	ucl_parser_free (up);
+
+	if (obj == NULL || ucl_object_type (obj) != UCL_OBJECT) {
+		msg_err ("cannot parse reply from rspamd: bad top object");
+		ucl_object_unref (obj);
+
+		return -1;
+	}
+
+	metric = ucl_object_lookup (obj, "default");
+
+	if (metric == NULL) {
+		msg_err ("cannot parse reply from rspamd: no default metric result");
+		ucl_object_unref (obj);
+
+		return -1;
+	}
+
+	return 0;
+}
+
 /*
  * rspamdscan_socket() - send file to specified host. See spamdscan() for
  * load-balanced wrapper.
@@ -59,7 +99,7 @@ pthread_mutex_t mx_spamd_write = PTHREAD_MUTEX_INITIALIZER;
 
 static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		const struct spamd_server *srv, struct config_file *cfg,
-		rspamd_result_t *res, char **mid)
+		struct rspamd_metric_result *res, char **mid)
 {
 	char buf[8192];
 	sds readbuf;
@@ -70,7 +110,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	struct rspamd_metric_result *cur = NULL;
 	struct rcpt *rcpt;
 	struct rspamd_symbol *cur_symbol;
-	struct http_parser p;
+	struct http_parser parser;
+	struct http_parser_settings ps;
 
 	/* somebody doesn't need reply... */
 	if (!srv)
@@ -269,6 +310,19 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	close (s);
 
 	/* Now we need to parse HTTP reply */
+	memset (&parser, 0, sizeof (parser));
+	http_parser_init (&parser, HTTP_RESPONSE);
+
+	memset (&ps, 0, sizeof (ps));
+	ps.on_body = rmilter_spamd_parser_on_body;
+	parser.data = res;
+	parser.content_length = size;
+
+	if (http_parser_execute (&parser, &ps, readbuf, size) != (size_t)size) {
+		msg_err ("HTTP parser error: %s when rspamd reply",
+				http_errno_description (parser.http_errno));
+		return -1;
+	}
 
 	sdsfree (readbuf);
 
@@ -295,10 +349,8 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	struct spamd_server *selected = NULL;
 	char rbuf[1024], hdrbuf[1024], bar_buf[128];
 	char *prefix = "s", *mid = NULL, *c;
-	rspamd_result_t res;
-	struct rspamd_metric_result *cur = NULL, *tmp;
+	struct rspamd_metric_result res;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
-	enum rspamd_metric_action res_action = METRIC_ACTION_NOACTION;
 	struct timespec sleep_ts;
 	SMFICTX *ctx = _ctx;
 
@@ -307,8 +359,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	retry = cfg->spamd_retry_count;
 	sleep_ts.tv_sec = cfg->spamd_retry_timeout / 1000;
 	sleep_ts.tv_nsec = (cfg->spamd_retry_timeout % 1000) * 1000000ULL;
-
-	TAILQ_INIT(&res);
+	memset (&res, 0, sizeof (res));
 
 	/* try to scan with available servers */
 	while (1) {
@@ -338,8 +389,8 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		prefix = "rs";
 		r = rspamdscan_socket (ctx, priv, selected, cfg, &res, &mid);
 
-		msg_info ("<%s> spamdscan: finish scanning message on %s", priv->mlfi_id,
-						selected->name);
+		msg_info("<%s> spamdscan: finish scanning message on %s", priv->mlfi_id,
+				selected->name);
 
 		if (r == 0 || r == 1) {
 			upstream_ok (&selected->up, t.tv_sec);
@@ -348,20 +399,17 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
 			msg_warn("<%s> %spamdscan: unexpected problem, %s, %s",
-					priv->mlfi_id, prefix,
-					selected->name, priv->file);
+					priv->mlfi_id, prefix, selected->name, priv->file);
 			break;
 		}
 		if (--retry < 1) {
 			msg_warn("<%s> %spamdscan: retry limit exceeded, %s, %s",
-					priv->mlfi_id, prefix,
-					selected->name, priv->file);
+					priv->mlfi_id, prefix, selected->name, priv->file);
 			break;
 		}
 
 		msg_warn("<%s> %spamdscan: failed to scan, retry, %s, %s",
-				priv->mlfi_id, prefix,
-				selected->name, priv->file);
+				priv->mlfi_id, prefix, selected->name, priv->file);
 		nanosleep (&sleep_ts, NULL);
 	}
 
@@ -372,158 +420,131 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
 
 	/* Parse res tailq */
-	cur = TAILQ_FIRST(&res);
-	while (cur) {
-		if (cur->metric_name) {
-			if (cfg->extended_spam_headers && !priv->authenticated) {
-				hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
-						cur->metric_name,
-						cur->score > cur->required_score ? "True" : "False",
-						cur->score, cur->required_score,
-						TAILQ_FIRST(&cur->symbols) != NULL ? '\n' : ' ');
-			}
-			r =
-					snprintf(rbuf, sizeof(rbuf),
-							"spamdscan: scan qid: <%s>, mid: <%s>, %f, %s, metric: %s: [%f / %f], symbols: ",
-							priv->mlfi_id, (mid != NULL) ? mid : "undef",
-							tf - ts, selected->name, cur->metric_name,
-							cur->score, cur->required_score);
-			free (cur->metric_name);
+	if (cfg->extended_spam_headers && !priv->authenticated) {
+		hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
+				"default", res.score > res.required_score ? "True" : "False",
+				res.score, res.required_score,
+				TAILQ_FIRST (&res.symbols) != NULL ? '\n' : ' ');
+	}
+	r =
+			snprintf(rbuf, sizeof(rbuf),
+					"spamdscan: scan <%s>, %f, %s, metric: default: [%f / %f], symbols: ",
+					priv->mlfi_id, tf - ts, selected->name, res.score,
+					res.required_score);
+
+	if (res.action == METRIC_ACTION_REWRITE_SUBJECT && res.subject != NULL) {
+		/* Copy subject as it would be freed further */
+		if (*subject != NULL) {
+			free (*subject);
 		}
-		else {
-			if (cfg->extended_spam_headers && !priv->authenticated) {
-				hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
-						"default",
-						cur->score > cur->required_score ? "True" : "False",
-						cur->score, cur->required_score,
-						TAILQ_FIRST(&cur->symbols) != NULL ? '\n' : ' ');
-			}
-			r =
-					snprintf(rbuf, sizeof(rbuf),
-							"spamdscan: scan <%s>, %f, %s, metric: default: [%f / %f], symbols: ",
-							priv->mlfi_id, tf - ts, selected->name, cur->score,
-							cur->required_score);
+		*subject = strdup (res.subject);
+	}
+	/* Write symbols */
+	cur_symbol = TAILQ_FIRST(&res.symbols);
 
-		}
-		if (cur->action > res_action) {
-			res_action = cur->action;
-			if (res_action
-					== METRIC_ACTION_REWRITE_SUBJECT&& cur->subject != NULL) {
-				/* Copy subject as it would be freed further */
-				if (*subject != NULL) {
-					free (*subject);
-				}
-				*subject = strdup (cur->subject);
-			}
-		}
-		/* Write symbols */
-		cur_symbol = TAILQ_FIRST(&cur->symbols);
-		if (cur_symbol == NULL) {
-			r += snprintf(rbuf + r, sizeof(rbuf) - r, "no symbols");
-		}
-		else {
-			while (cur_symbol) {
-				if (cur_symbol->symbol) {
-					if (TAILQ_NEXT(cur_symbol, entry)) {
-						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s, ",
-								cur_symbol->symbol);
-					}
-					else {
-						r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s",
-								cur_symbol->symbol);
-					}
-					if (cfg->trace_symbol) {
-						c = strchr (cur_symbol->symbol, '(');
-						if (c != NULL) {
-							*c = '\0';
-						}
-						if (!strcmp (cfg->trace_symbol, cur_symbol->symbol)) {
-							to_trace++;
-						}
-					}
-					if (cfg->extended_spam_headers && !priv->authenticated) {
-						if (TAILQ_NEXT(cur_symbol, entry)) {
-							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-									" %s\n", cur_symbol->symbol);
-						}
-						else {
-							hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
-									" %s", cur_symbol->symbol);
-						}
-					}
-					free (cur_symbol->symbol);
-				}
-				tmp_symbol = cur_symbol;
-				cur_symbol = TAILQ_NEXT(cur_symbol, entry);
-				free (tmp_symbol);
-			}
-		}
+	if (cur_symbol == NULL) {
+		r += snprintf(rbuf + r, sizeof(rbuf) - r, "no symbols");
+	}
+	else {
 
-		msg_info("%s", rbuf);
-		if (cur->subject != NULL) {
-			free (cur->subject);
-		}
-
-		if (cfg->extended_spam_headers && !priv->authenticated) {
-			if (extra) {
-				smfi_addheader (ctx, "X-Spamd-Extra-Result", hdrbuf);
-			}
-			else {
-				smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
-
-				j = (int) fabs (cur->score);
-
-				/* Fill spam bar (exim compatible) */
-				if (j != 0) {
-					char sc = cur->score > 0 ? '+' : '-';
-
-					for (i = 0; i < j; i ++) {
-						if (i > 50) {
-							break;
-						}
-
-						bar_buf[i] = sc;
-					}
-
-					bar_buf[i] = '\0';
+		while (cur_symbol) {
+			if (cur_symbol->symbol) {
+				if (TAILQ_NEXT(cur_symbol, entry)) {
+					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s, ",
+							cur_symbol->symbol);
 				}
 				else {
-					bar_buf[0] = '/';
-					bar_buf[1] = '\0';
+					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s",
+							cur_symbol->symbol);
 				}
+				if (cfg->trace_symbol) {
+					c = strchr (cur_symbol->symbol, '(');
+					if (c != NULL) {
+						*c = '\0';
+					}
+					if (!strcmp (cfg->trace_symbol, cur_symbol->symbol)) {
+						to_trace++;
+					}
+				}
+				if (cfg->extended_spam_headers && !priv->authenticated) {
+					if (TAILQ_NEXT(cur_symbol, entry)) {
+						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
+								" %s\n", cur_symbol->symbol);
+					}
+					else {
+						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr, " %s",
+								cur_symbol->symbol);
+					}
+				}
+				free (cur_symbol->symbol);
+			}
+			tmp_symbol = cur_symbol;
+			cur_symbol = TAILQ_NEXT(cur_symbol, entry);
+			free (tmp_symbol);
+		}
+	}
 
-				smfi_addheader (ctx, "X-Spamd-Bar", bar_buf);
+	msg_info("%s", rbuf);
+	if (res.subject != NULL) {
+		free (res.subject);
+	}
 
-				/*
-				 * SA compatible headers:
-				 * X-Spam-Level
-				 * X-Spam-Status
-				 */
+	if (cfg->extended_spam_headers && !priv->authenticated) {
+		if (extra) {
+			smfi_addheader (ctx, "X-Spamd-Extra-Result", hdrbuf);
+		}
+		else {
+			smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
 
-				if (cur->score > 0 && cfg->spam_bar_char) {
-					for (i = 0; i < (int)cur->score; i ++) {
-						if (i > 50) {
-							break;
-						}
+			j = (int) fabs (res.score);
 
-						bar_buf[i] = cfg->spam_bar_char[0];
+			/* Fill spam bar (exim compatible) */
+			if (j != 0) {
+				char sc = res.score > 0 ? '+' : '-';
+
+				for (i = 0; i < j; i++) {
+					if (i > 50) {
+						break;
 					}
 
-					bar_buf[i] = '\0';
-					smfi_addheader (ctx, "X-Spam-Level", bar_buf);
+					bar_buf[i] = sc;
 				}
 
-				snprintf (hdrbuf, sizeof (hdrbuf), "%s, score=%.1f",
-						cur->action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
-						cur->score);
-				smfi_addheader (ctx, "X-Spam-Status", hdrbuf);
+				bar_buf[i] = '\0';
 			}
-		}
+			else {
+				bar_buf[0] = '/';
+				bar_buf[1] = '\0';
+			}
 
-		tmp = cur;
-		cur = TAILQ_NEXT(cur, entry);
-		free (tmp);
+			smfi_addheader (ctx, "X-Spamd-Bar", bar_buf);
+
+			/*
+			 * SA compatible headers:
+			 * X-Spam-Level
+			 * X-Spam-Status
+			 */
+
+			if (res.score > 0 && cfg->spam_bar_char) {
+				for (i = 0; i < (int) res.score; i++) {
+					if (i > 50) {
+						break;
+					}
+
+					bar_buf[i] = cfg->spam_bar_char[0];
+				}
+
+				bar_buf[i] = '\0';
+				smfi_addheader (ctx, "X-Spam-Level", bar_buf);
+			}
+
+			snprintf(hdrbuf, sizeof(hdrbuf), "%s, score=%.1f",
+					res.action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
+					res.score);
+			smfi_addheader (ctx, "X-Spam-Status", hdrbuf);
+		}
 	}
+
 	/* All other statistic headers */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
@@ -544,7 +565,7 @@ int spamdscan(void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		smfi_setpriv (ctx, priv);
 	}
 
-	return (r > 0 ? res_action : r);
+	return (r > 0 ? res.action : r);
 }
 
 /*

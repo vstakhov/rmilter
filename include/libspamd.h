@@ -28,6 +28,7 @@
 #define LIBSPAMD_H
 
 #include "config.h"
+#include "ucl.h"
 
 struct config_file;
 struct mlfi_priv;
@@ -45,23 +46,21 @@ enum rspamd_metric_action {
 };
 
 struct rspamd_symbol {
-	char *symbol;
+	const char *symbol;
+	const char *options;
 	double score;
-	char *options;
 	TAILQ_ENTRY(rspamd_symbol) entry;
 };
 
 struct rspamd_metric_result {
-	char *metric_name;
+	ucl_object_t *obj;
+	const char *metric_name;
+	const char *subject;
 	double score;
 	double required_score;
 	double reject_score;
 	enum rspamd_metric_action action;
-	char *subject;
 	TAILQ_HEAD (symbolq, rspamd_symbol) symbols;
-	TAILQ_ENTRY (rspamd_metric_result) entry;
 };
-
-typedef TAILQ_HEAD(metricsq, rspamd_metric_result) rspamd_result_t;
 
 #endif
