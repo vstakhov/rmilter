@@ -70,7 +70,7 @@ uint8_t cur_flags = 0;
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
-%token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME
+%token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -486,6 +486,7 @@ spamdcmd:
 	| spamd_never_reject
 	| spam_bar_char
 	| spam_no_auth_header
+	| spamd_settings_id
 	;
 
 diff_dir :
@@ -727,6 +728,13 @@ spam_no_auth_header:
 		if ($3) {
 			cfg->spam_no_auth_header = 1;
 		}
+	}
+	;
+
+spamd_settings_id:
+	SPAMD_SETTINGS_ID EQSIGN QUOTEDSTRING {
+		free (cfg->spamd_settings_id);
+		cfg->spamd_settings_id = $3;
 	}
 	;
 

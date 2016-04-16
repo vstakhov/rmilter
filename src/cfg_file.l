@@ -194,6 +194,7 @@ rspamd_metric					return RSPAMD_METRIC;
 spamd_soft_fail					return SPAMD_SOFT_FAIL;
 spamd_never_reject				return SPAMD_NEVER_REJECT;
 spamd_greylist					return SPAMD_GREYLIST;
+spamd_settings_id				return SPAMD_SETTINGS_ID;
 spam_header						return SPAM_HEADER;
 spam_header_value				return SPAM_HEADER_VALUE;
 spam_bar_char					return SPAM_BAR_CHAR;

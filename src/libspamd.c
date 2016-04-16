@@ -296,6 +296,20 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	}
 	r += written;
 
+	if (cfg->spamd_settings_id) {
+		to_write = sizeof(buf) - r;
+		written = snprintf(buf + r, to_write, "Settings-ID: %s\r\n",
+				cfg->spamd_settings_id);
+		if (written > to_write) {
+			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+					priv->mlfi_id, srv->name);
+			close (fd);
+			close (s);
+			return -1;
+		}
+		r += written;
+	}
+
 	iov[0].iov_base = buf;
 	iov[0].iov_len = r;
 	iov[1].iov_base = "\r\n";

@@ -254,6 +254,7 @@ struct config_file {
 	char *spam_header;
 	char *spam_header_value;
 	char *spam_bar_char;
+	char *spamd_settings_id;
 	u_char spam_no_auth_header;
 	u_char extended_spam_headers;
 	unsigned int spamd_retry_timeout;
