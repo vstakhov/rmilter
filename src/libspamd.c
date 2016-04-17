@@ -34,6 +34,7 @@
 #include "ucl.h"
 #include "http_parser.h"
 #include "sds.h"
+#include <math.h>
 
 /* Maximum time in seconds during which spamd server is marked inactive after scan error */
 #define INACTIVE_INTERVAL 60.0
@@ -141,6 +142,12 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	}
 
 	return 0;
+}
+
+static int
+rmilter_spamd_symcmp (struct rspamd_symbol *s1, struct rspamd_symbol *s2)
+{
+	return fabs (s2->score) - fabs (s1->score);
 }
 
 /*
@@ -522,6 +529,9 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	}
 	else {
 		optbuf = sdsempty ();
+
+		/* Sort symbols by scores from high to low */
+		DL_SORT (res.symbols, rmilter_spamd_symcmp);
 
 		DL_FOREACH_SAFE (res.symbols, cur_symbol, tmp_symbol) {
 			sdsclear (optbuf);
