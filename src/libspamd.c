@@ -135,7 +135,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 				sym->score = ucl_object_todouble (elt);
 				sym->options = ucl_object_lookup (sym_elt, "options");
 
-				TAILQ_INSERT_TAIL (&res->symbols, sym, entry);
+				DL_APPEND (res->symbols, sym);
 			}
 		}
 	}
@@ -440,7 +440,6 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	sleep_ts.tv_sec = cfg->spamd_retry_timeout / 1000;
 	sleep_ts.tv_nsec = (cfg->spamd_retry_timeout % 1000) * 1000000ULL;
 	memset (&res, 0, sizeof (res));
-	TAILQ_INIT (&res.symbols);
 
 	/* try to scan with available servers */
 	while (1) {
@@ -505,7 +504,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
 				"default", res.score > res.required_score ? "True" : "False",
 				res.score, res.required_score,
-				TAILQ_FIRST (&res.symbols) != NULL ? '\n' : ' ');
+				res.symbols != NULL ? '\n' : ' ');
 	}
 	r =
 			snprintf(rbuf, sizeof(rbuf),
@@ -518,15 +517,13 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	}
 
 	/* Write symbols */
-	cur_symbol = TAILQ_FIRST (&res.symbols);
-
-	if (cur_symbol == NULL) {
+	if (res.symbols == NULL) {
 		r += snprintf (rbuf + r, sizeof(rbuf) - r, "no symbols");
 	}
 	else {
 		optbuf = sdsempty ();
 
-		while (cur_symbol) {
+		DL_FOREACH_SAFE (res.symbols, cur_symbol, tmp_symbol) {
 			sdsclear (optbuf);
 
 			if (cur_symbol->symbol) {
@@ -553,7 +550,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					}
 				}
 
-				if (TAILQ_NEXT(cur_symbol, entry)) {
+				if (cur_symbol->next) {
 					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.2f)[%s], ",
 							cur_symbol->symbol, cur_symbol->score, optbuf);
 				}
@@ -571,7 +568,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					}
 				}
 				if (cfg->extended_spam_headers && !priv->authenticated) {
-					if (TAILQ_NEXT(cur_symbol, entry)) {
+					if (cur_symbol->next) {
 						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
 								" %s(%.2f)[%s]\n", cur_symbol->symbol,
 								cur_symbol->score, optbuf);
@@ -585,9 +582,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				}
 			}
 
-			tmp_symbol = cur_symbol;
-			cur_symbol = TAILQ_NEXT(cur_symbol, entry);
-			free (tmp_symbol);
+			free (cur_symbol);
 		}
 
 		sdsfree (optbuf);

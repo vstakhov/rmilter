@@ -49,7 +49,7 @@ struct rspamd_symbol {
 	const char *symbol;
 	const ucl_object_t *options;
 	double score;
-	TAILQ_ENTRY(rspamd_symbol) entry;
+	struct rspamd_symbol *prev, *next;
 };
 
 struct rspamd_metric_result {
@@ -60,7 +60,7 @@ struct rspamd_metric_result {
 	double required_score;
 	double reject_score;
 	enum rspamd_metric_action action;
-	TAILQ_HEAD (symbolq, rspamd_symbol) symbols;
+	struct rspamd_symbol *symbols;
 };
 
 #endif
