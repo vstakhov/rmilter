@@ -1058,7 +1058,7 @@ memcached_white_prefix:
 		cfg->white_prefix = $3;
 	}
 	;
-	
+
 memcached_password:
 	PASSWORD EQSIGN QUOTEDSTRING {
 		free (cfg->memcached_password);
@@ -1408,7 +1408,8 @@ dkimcmd:
 
 dkim_domain:
 	DKIM_DOMAIN OBRACE dkim_domain_body EBRACE {
-		if (cur_domain == NULL || cur_domain->domain == NULL || cur_domain->selector == NULL) {
+		if (cur_domain == NULL || cur_domain->domain == NULL ||
+			cur_domain->selector == NULL) {
 			yyerror ("yyparse: incomplete dkim definition");
 			YYERROR;
 		}
@@ -1416,7 +1417,11 @@ dkim_domain:
 			/* Assume it as wildcard domain */
 			cur_domain->is_wildcard = 1;
 		}
-		HASH_ADD_KEYPTR (hh, cfg->dkim_domains, cur_domain->domain, strlen (cur_domain->domain), cur_domain);
+
+
+		rmilter_str_lc (cur_domain->domain, strlen (cur_domain->domain));
+		HASH_ADD_KEYPTR (hh, cfg->dkim_domains, cur_domain->domain,
+			strlen (cur_domain->domain), cur_domain);
 		cur_domain = NULL;
 	}
 	;

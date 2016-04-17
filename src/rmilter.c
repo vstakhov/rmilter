@@ -597,7 +597,7 @@ static DKIM*
 try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 {
 	DKIM_STAT statp;
-	struct dkim_domain_entry *dkim_domain;
+	struct dkim_domain_entry *dkim_domain, *tmp;
 	DKIM *d;
 	int fd;
 	struct stat st;
@@ -610,10 +610,11 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
 
-	for(dkim_domain = cfg->dkim_domains; dkim_domain != NULL; dkim_domain = dkim_domain->hh.next) {
+	HASH_ITER (hh, cfg->dkim_domains, dkim_domain, tmp) {
 		if (dkim_domain->is_wildcard) {
 			/* Check for domain */
-			if (strcmp (dkim_domain->domain, "*") != 0 && strcasestr (domain, dkim_domain->domain) == NULL) {
+			if (strcmp (dkim_domain->domain, "*") != 0 &&
+					strstr (domain, dkim_domain->domain) == NULL) {
 				/* Not our domain */
 				continue;
 			}
@@ -621,24 +622,41 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 			if (dkim_domain->keyfile) {
 				if (stat (dkim_domain->keyfile, &st) != -1 && S_ISDIR (st.st_mode)) {
 					/* Print keyfilename in format <dkim_domain>/<domain>.<selector>.key */
-					snprintf (fname, sizeof (fname), "%s/%s.%s.key", dkim_domain->keyfile, domain, dkim_domain->selector);
+					snprintf (fname, sizeof (fname), "%s/%s.%s.key",
+							dkim_domain->keyfile,
+							domain,
+							dkim_domain->selector);
+
 					if (stat (fname, &st) != -1 && S_ISREG (st.st_mode)) {
 						fd = open (fname, O_RDONLY);
+
 						if (fd != -1) {
 							/* Mmap key */
 							keymap = mmap (NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
 							close (fd);
+
 							if (keymap != MAP_FAILED) {
-								d = dkim_sign (cfg->dkim_lib,  (u_char *)"rmilter", NULL,
-										(u_char *)keymap,  (u_char *)dkim_domain->selector,
+								d = dkim_sign (cfg->dkim_lib,
+										(u_char *)"rmilter",
+										NULL,
+										(u_char *)keymap,
+										(u_char *)dkim_domain->selector,
 										(u_char *)domain,
-										cfg->dkim_relaxed_header ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-										cfg->dkim_relaxed_body ? DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
-										cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
+										cfg->dkim_relaxed_header ?
+												DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+										cfg->dkim_relaxed_body ?
+												DKIM_CANON_RELAXED : DKIM_CANON_SIMPLE,
+										cfg->dkim_sign_sha256 ?
+												DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1,
+										-1, &statp);
+
 								/* It is safe to unmap memory here */
 								munmap (keymap, st.st_size);
+
 								if (statp != DKIM_STAT_OK) {
-									msg_info ("dkim sign failed: %s", dkim_geterror (d));
+									msg_info ("<%s>: dkim sign failed: %s",
+											priv->mlfi_id, dkim_geterror (d));
+
 									if (d) {
 										dkim_free (d);
 									}
@@ -646,10 +664,25 @@ try_wildcard_dkim (const char *domain, struct mlfi_priv *priv)
 								}
 								else {
 									priv->dkim_domain = dkim_domain;
+
 									return d;
 								}
 							}
+							else {
+								msg_err ("<%s>: cannot mmmap key for domain %s at %s: %s",
+										priv->mlfi_id, domain, fname,
+										strerror (errno));
+							}
 						}
+						else {
+							msg_err ("<%s>: cannot open key for domain %s at %s: %s",
+									priv->mlfi_id, domain, fname,
+									strerror (errno));
+						}
+					}
+					else {
+						msg_info ("<%s>: cannot find key for domain %s at %s",
+								priv->mlfi_id, domain, fname);
 					}
 				}
 			}
@@ -728,6 +761,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	char *domain_pos;
 
 	domain_pos = strchr (priv->priv_from, '@');
+
 	if (domain_pos) {
 		HASH_FIND_STR (cfg->dkim_domains, domain_pos + 1, dkim_domain);
 
@@ -743,7 +777,9 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 						cfg->dkim_sign_sha256 ? DKIM_SIGN_RSASHA256 : DKIM_SIGN_RSASHA1, -1, &statp);
 
 				if (statp != DKIM_STAT_OK) {
-					msg_info ("dkim sign failed: %s", dkim_geterror (priv->dkim));
+					msg_info ("<%s>: dkim sign failed: %s",
+							priv->mlfi_id, dkim_geterror (priv->dkim));
+
 					if (priv->dkim) {
 						dkim_free (priv->dkim);
 					}
