@@ -63,6 +63,13 @@ usage (void)
 }
 
 static void
+version (void)
+{
+	printf ("Rapid Milter Version " MVERSION "\n");
+	exit (0);
+}
+
+static void
 sig_usr1_handler (int signo)
 {
 	pthread_cond_signal(&cfg_cond);
@@ -189,6 +196,9 @@ main(int argc, char *argv[])
 			break;
 		case 'd':
 			yydebug = 1;
+			break;
+		case 'v':
+			version ();
 			break;
 		case 'h':
 		default:
