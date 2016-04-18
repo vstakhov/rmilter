@@ -1,11 +1,13 @@
 [Unit]
-Description=another sendmail filter
+Description=Another sendmail milter for different mail checks
 
 [Service]
 User=_rmilter
 ExecStart=/usr/sbin/rmilter -n -c /etc/rmilter/rmilter.conf
 ExecReload=/bin/kill -USR1 $MAINPID
 Restart=always
+RuntimeDirectory=rmilter
+RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target
