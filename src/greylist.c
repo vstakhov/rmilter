@@ -265,6 +265,8 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 		snprintf (greylist_buf, sizeof (greylist_buf),
 				"Sender IP %s is whitelisted by configuration",
 				ip_str);
+		msg_info ("greylisting: sender IP %s is whitelisted by configuration",
+				ip_str);
 		ret = GREY_WHITELISTED;
 		goto end;
 	}
