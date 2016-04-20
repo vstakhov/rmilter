@@ -1404,8 +1404,8 @@ mlfi_eom(SMFICTX * ctx)
 						msg_info (
 								"mlfi_eom: %s: add spam header to message according to spamd action",
 								priv->mlfi_id);
-						snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
-														action_to_string (r));
+						snprintf (tmpbuf, sizeof (tmpbuf), "action: %s",
+								action_to_string (r));
 						spam_check_result = tmpbuf;
 						smfi_chgheader (ctx,
 								cfg->spam_header,
@@ -1443,7 +1443,7 @@ mlfi_eom(SMFICTX * ctx)
 							free (subject);
 						}
 
-						snprintf (tmpbuf, sizeof (tmpbuf), "rewrite subject, action: %s",
+						snprintf (tmpbuf, sizeof (tmpbuf), "action: %s",
 								action_to_string (r));
 						spam_check_result = tmpbuf;
 					}

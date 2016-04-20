@@ -162,6 +162,11 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 		return GREY_GREYLISTED;
 	}
 	else {
+		/* Greylisting record exists, checking time */
+		if (exists) {
+			*exists = true;
+		}
+
 		if (tm1 && tm1->tv_sec > tm.tv_sec) {
 			elapsed = tm1->tv_sec;
 			localtime_r (&elapsed, &tm_parsed);
@@ -175,10 +180,6 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			free (tm1);
 
 			return GREY_WHITELISTED;
-		}
-		/* Greylisting record exists, checking time */
-		if (exists) {
-			*exists = true;
 		}
 
 		if ((unsigned int) tm.tv_sec - tm1->tv_sec < cfg->greylisting_timeout) {
@@ -217,11 +218,6 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 				free (tm1);
 			}
 
-			/* Write to autowhitelist */
-			if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
-				awl_add (*(uint32_t *) addr, cfg->awl_hash,
-						priv->conn_tm.tv_sec);
-			}
 			/* Write to whitelist memcached server */
 			keylen = make_greylisting_key (key,
 					sizeof (key),
@@ -234,7 +230,6 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 				msg_err ("greylisting_check_hash: cannot store whitelisting data: "
 						"for <%s>: %s, key: '%s'",
 						priv->mlfi_id, type, key);
-
 			}
 		}
 	}
@@ -258,6 +253,21 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 	bool exists = false;
 	int ret = GREY_ERROR, fd, ahits;
 	SMFICTX *ctx = _ctx;
+
+	addr = priv->priv_addr.family == AF_INET6
+			  ? (void *) &priv->priv_addr.addr.sa6.sin6_addr :
+			  (void *) &priv->priv_addr.addr.sa4.sin_addr;
+
+	if (radix_find_rmilter_addr (cfg->grey_whitelist_tree,
+			&priv->priv_addr) != RADIX_NO_VALUE) {
+		memset (ip_str, 0, sizeof (ip_str));
+		inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
+		snprintf (greylist_buf, sizeof (greylist_buf),
+				"Sender IP %s is whitelisted by configuration",
+				ip_str);
+		ret = GREY_WHITELISTED;
+		goto end;
+	}
 
 	greylist_buf[0] = 0;
 	/* First of all, check if we have some body */
@@ -318,38 +328,6 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 		from = priv->priv_from;
 	}
 
-	addr = priv->priv_addr.family == AF_INET6
-		  ? (void *) &priv->priv_addr.addr.sa6.sin6_addr :
-		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
-
-	if (radix_find_rmilter_addr (cfg->grey_whitelist_tree,
-			&priv->priv_addr) != RADIX_NO_VALUE) {
-		memset (ip_str, 0, sizeof (ip_str));
-		inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
-		snprintf (greylist_buf, sizeof (greylist_buf),
-				"Sender IP %s is whitelisted by configuration",
-				ip_str);
-		ret = GREY_WHITELISTED;
-		goto end;
-	}
-
-	/* Check whitelist */
-	if (cfg->awl_enable && priv->priv_addr.family == AF_INET) {
-
-		ahits = awl_check (*(uint32_t *)addr, cfg->awl_hash, priv->conn_tm.tv_sec);
-
-		if (ahits > 0) {
-			/* Auto whitelisted */
-			ret = GREY_WHITELISTED;
-			memset (ip_str, 0, sizeof (ip_str));
-			inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
-			snprintf (greylist_buf, sizeof (greylist_buf),
-					"Sender IP %s is auto-whitelisted after %d hits",
-					ip_str, ahits);
-			goto end;
-		}
-	}
-
 	memset (ip_ptr, 0, sizeof (ip_ptr));
 
 	if (priv->priv_addr.family == AF_INET) {
@@ -363,7 +341,6 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 		/* Use only network part of 64 bits */
 		memcpy (ip_ptr, (char *)addr, 8);
 	}
-
 
 	blake2b_init (&mdctx, BLAKE2B_OUTBYTES);
 	/* Make hash from components: envfrom, ip address, envrcpt */
