@@ -88,7 +88,8 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 #endif
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in, server_w;
-	int s, sw, r, fd, port = 0, path_len, ofl;
+	int s, r, fd, port = 0, path_len, ofl;
+	uint32_t sz;
 	size_t size;
 	struct stat sb;
 
@@ -120,8 +121,20 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		}
 
 	} else {
-		snprintf(path, sizeof(path), "stream");
-		r = snprintf(buf, sizeof(buf), "STREAM\n");
+		fd = open (file, O_RDONLY);
+
+		if (fstat (fd, &sb) == -1) {
+			msg_warn("clamav: <%s>: stat failed for %s: %s", priv->mlfi_id,
+					file, strerror (errno));
+			close (s);
+			return -1;
+		}
+
+		sz = sb.st_size;
+		sz = htonl (sz);
+		r = rmilter_strlcpy (buf, "nINSTREAM\n", sizeof (buf) - sizeof (sz));
+		memcpy (&buf[r], &sz, sizeof (sz));
+		r += sizeof (sz);
 
 		if (write (s, buf, r) != r) {
 			msg_warn("clamav: <%s>: write %s: %s", priv->mlfi_id,
@@ -130,84 +143,36 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 			return -1;
 		}
 
-		if (rmilter_poll_fd (s, cfg->clamav_port_timeout, POLLIN) < 1) {
-			msg_warn("clamav: <%s>: timeout waiting port %s", priv->mlfi_id,
-					srv->name);
-			close (s);
-			return -1;
-		}
-
-		/* clamav must reply with PORT to connect */
-		buf[0] = 0;
-
-		if ((r = read (s, buf, sizeof(buf))) > 0)
-			buf[r] = 0;
-
-		if (strncmp (buf, "PORT ", sizeof("PORT ") - 1) == 0) {
-			port = strtol (buf + 5, NULL, 10);
-		}
-
-		if (port < 1024) {
-			msg_warn("clamav: <%s>: can't get port number for data stream,"
-					" got: %s", priv->mlfi_id,
-					buf);
-			close (s);
-			return -1;
-		}
-
-		/*
-		 * connect to clamd data socket
-		 */
-		sw = rmilter_connect_addr (srv->name, port, cfg->clamav_connect_timeout);
-		if (sw < 0) {
-			msg_warn("clamav: <%s>: socket (%s): %s", priv->mlfi_id,
-					srv->name, strerror (errno));
-			close (s);
-			return -1;
-		}
 		/*
 		 * send data stream
 		 */
-		fd = open (file, O_RDONLY);
-
-		if (fstat (fd, &sb) == -1) {
-			msg_warn("clamav: <%s>: stat failed: %s", priv->mlfi_id,
-					strerror (errno));
-			close (sw);
-			close (s);
-			return -1;
-		}
-
 		/* Set blocking again */
-		ofl = fcntl (sw, F_GETFL, 0);
-		fcntl (sw, F_SETFL, ofl & (~O_NONBLOCK));
+		ofl = fcntl (s, F_GETFL, 0);
+		fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
-		if (sendfile(fd, sw, 0, 0, 0, 0, 0) != 0) {
-			msg_warn("clamav: <%s>: sendfile (%s): %s", priv->mlfi_id,
-					srv->name, strerror (errno));
-			close(sw);
+		if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
+			msg_warn("clamav: <%s>: sendfile %s (%s): %s", priv->mlfi_id,
+					file, srv->name, strerror (errno));
 			close(fd);
 			close(s);
 			return -1;
 		}
 #elif defined(LINUX)
 		off_t off = 0;
-		if (sendfile(sw, fd, &off, sb.st_size) == -1) {
-			msg_warn("clamav: <%s>: sendfile (%s): %s", priv->mlfi_id,
-					srv->name, strerror (errno));
-			close(sw);
+		if (sendfile(s, fd, &off, sb.st_size) == -1) {
+			msg_warn("clamav: <%s>: sendfile %s (%s): %s", priv->mlfi_id,
+					file, srv->name, strerror (errno));
 			close(fd);
 			close(s);
 			return -1;
 		}
 #else
 		while ((r = read (fd, buf, sizeof(buf))) > 0) {
-			if (write (sw, buf, r) <= 0) {
+			if (write (s, buf, r) <= 0) {
 				msg_warn("clamav: <%s>: write (%s): %s", priv->mlfi_id,
 						srv->name, strerror (errno));
-				close(sw);
 				close(fd);
 				close(s);
 				return -1;
@@ -216,8 +181,19 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 #endif
 #endif
 		close (fd);
-		close (sw);
 	}
+
+	/* Send zero chunk */
+	sz = 0;
+	if (write (s, &sz, sizeof (sz)) <= 0) {
+		msg_warn("clamav: <%s>: write (%s): %s", priv->mlfi_id,
+				srv->name, strerror (errno));
+		close(fd);
+		close(s);
+		return -1;
+	}
+
+	fcntl (s, F_SETFL, ofl | O_NONBLOCK);
 
 	/* wait for reply */
 	if (rmilter_poll_fd (s, cfg->clamav_results_timeout, POLLIN) < 1) {
