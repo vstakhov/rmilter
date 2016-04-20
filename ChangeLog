@@ -1,3 +1,22 @@
+1.8.0:
+	* Use actual HTTP protocol to communicate with rspamd
+	* Support `INSTREAM` command for clamav (saves resources)
+	* Allow quoted strings for dkim key definition
+	* Add better logging for DKIM
+	* Add restart to systemd service (#91)
+	* Improve clamav logging
+	* Bugfix for issue with stripping the last '>' character (by Bernd Kubu)
+	* Improve logging for greylisting
+	* Use xxhash hashing function
+	* Use writev to explicitly add trailing CRLF
+	* Implement passing 'Settings-ID' to rspamd
+	* Print symbols scores and options in logs
+	* Sort symbols received from rspamd
+	* Improve logging for dkim errors
+	* Support '-v' option for short version number
+	* Disable greylisting autowhitelist as it is broken
+	* Fix IP whitelisting for greylist
+
 1.7.5:
 	* Improve logging for rspamd checks
 	* Fix timeouts in clamav checks
