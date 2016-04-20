@@ -104,84 +104,67 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	if (s == -1) {
 		return -1;
 	}
-	if (srv->name[0] == '/' || srv->name[0] == '.') {
-		if (!realpath(file, path)) {
-			msg_warn("clamav: <%s>: realpath: %s", priv->mlfi_id,
-					strerror (errno));
-			return -1;
-		}
-		/* unix socket, use 'SCAN <filename>' command on clamd */
-		r = snprintf(buf, sizeof(buf), "SCAN %s\n", path);
 
-		if (write(s, buf, r) != r) {
-			msg_warn("clamav: <%s>: write %s: %s", priv->mlfi_id, srv->name,
-					strerror (errno));
-			close(s);
-			return -1;
-		}
+	fd = open (file, O_RDONLY);
 
-	} else {
-		fd = open (file, O_RDONLY);
+	if (fstat (fd, &sb) == -1) {
+		msg_warn("clamav: <%s>: stat failed for %s: %s", priv->mlfi_id,
+				file, strerror (errno));
+		close (s);
+		return -1;
+	}
 
-		if (fstat (fd, &sb) == -1) {
-			msg_warn("clamav: <%s>: stat failed for %s: %s", priv->mlfi_id,
-					file, strerror (errno));
-			close (s);
-			return -1;
-		}
+	sz = sb.st_size;
+	sz = htonl (sz);
+	r = rmilter_strlcpy (buf, "nINSTREAM\n", sizeof (buf) - sizeof (sz));
+	memcpy (&buf[r], &sz, sizeof (sz));
+	r += sizeof (sz);
 
-		sz = sb.st_size;
-		sz = htonl (sz);
-		r = rmilter_strlcpy (buf, "nINSTREAM\n", sizeof (buf) - sizeof (sz));
-		memcpy (&buf[r], &sz, sizeof (sz));
-		r += sizeof (sz);
+	if (write (s, buf, r) != r) {
+		msg_warn("clamav: <%s>: write %s: %s", priv->mlfi_id,
+				srv->name, strerror (errno));
+		close (s);
+		return -1;
+	}
 
-		if (write (s, buf, r) != r) {
-			msg_warn("clamav: <%s>: write %s: %s", priv->mlfi_id,
-					srv->name, strerror (errno));
-			close (s);
-			return -1;
-		}
-
-		/*
-		 * send data stream
-		 */
-		/* Set blocking again */
-		ofl = fcntl (s, F_GETFL, 0);
-		fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
+	/*
+	 * send data stream
+	 */
+	/* Set blocking again */
+	ofl = fcntl (s, F_GETFL, 0);
+	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
-		if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-			msg_warn("clamav: <%s>: sendfile %s (%s): %s", priv->mlfi_id,
-					file, srv->name, strerror (errno));
-			close(fd);
-			close(s);
-			return -1;
-		}
-#elif defined(LINUX)
-		off_t off = 0;
-		if (sendfile(s, fd, &off, sb.st_size) == -1) {
-			msg_warn("clamav: <%s>: sendfile %s (%s): %s", priv->mlfi_id,
-					file, srv->name, strerror (errno));
-			close(fd);
-			close(s);
-			return -1;
-		}
-#else
-		while ((r = read (fd, buf, sizeof(buf))) > 0) {
-			if (write (s, buf, r) <= 0) {
-				msg_warn("clamav: <%s>: write (%s): %s", priv->mlfi_id,
-						srv->name, strerror (errno));
-				close(fd);
-				close(s);
-				return -1;
-			}
-		}
-#endif
-#endif
-		close (fd);
+	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
+		msg_warn("clamav: <%s>: sendfile %s (%s): %s", priv->mlfi_id,
+				file, srv->name, strerror (errno));
+		close(fd);
+		close(s);
+		return -1;
 	}
+#elif defined(LINUX)
+	off_t off = 0;
+	if (sendfile(s, fd, &off, sb.st_size) == -1) {
+		msg_warn("clamav: <%s>: sendfile %s (%s): %s", priv->mlfi_id,
+				file, srv->name, strerror (errno));
+		close(fd);
+		close(s);
+		return -1;
+	}
+#else
+	while ((r = read (fd, buf, sizeof(buf))) > 0) {
+		if (write (s, buf, r) <= 0) {
+			msg_warn("clamav: <%s>: write (%s): %s", priv->mlfi_id,
+					srv->name, strerror (errno));
+			close(fd);
+			close(s);
+			return -1;
+		}
+	}
+#endif
+#endif
+	close (fd);
 
 	/* Send zero chunk */
 	sz = 0;
