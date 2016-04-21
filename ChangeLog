@@ -1,3 +1,10 @@
+1.8.1:
+	* Fix memcached backend
+	* Use libmemcached instead of own client
+	* Print more sane log output for `from` equal to `<>`
+	* Fix actions parsing
+	* Use INSTREAM for unix sockets in clamav scan
+
 1.8.0:
 	* Use actual HTTP protocol to communicate with rspamd
 	* Support `INSTREAM` command for clamav (saves resources)
