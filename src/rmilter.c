@@ -724,7 +724,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 	normalize_email_addr (tmpfrom, priv->priv_from, sizeof (priv->priv_from));
 
-	msg_debug ("mlfi_envfrom: got from value: %s", priv->priv_from);
+	msg_debug ("mlfi_envfrom: got from value: <%s>", priv->priv_from);
 
 	if (priv->priv_hostname[0] == '\0') {
 		tmpfrom = smfi_getsymval(ctx, "{client_name}");
@@ -1613,11 +1613,11 @@ end:
 		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
 	memset (ip_str, 0, sizeof (ip_str));
 	inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
-	msg_info ("msg done: %s: ip: %s; from: %s; rcpt: %s (%d total); user: %s; "
+	msg_info ("msg done: %s: ip: %s; from: <%s>; rcpt: %s (%d total); user: %s; "
 			"spam scan: %s; virus scan: %s; dkim: %s",
 			priv->mlfi_id,
 			ip_str,
-			priv->priv_from[0] == '\0' ? "<>" : priv->priv_from,
+			priv->priv_from,
 			priv->rcpts->r_addr,
 			priv->priv_rcptcount,
 			priv->priv_user[0] ? priv->priv_user : "unauthorized",
