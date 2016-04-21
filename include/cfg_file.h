@@ -32,7 +32,6 @@
 #include "util.h"
 #include "pcre.h"
 #include "upstream.h"
-#include "memcached.h"
 #include "beanstalk.h"
 #include "radix.h"
 #include "awl.h"

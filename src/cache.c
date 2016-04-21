@@ -23,7 +23,7 @@
  */
 
 #include "config.h"
-#include "memcached.h"
+#include "libmemcached/memcached.h"
 #include "cfg_file.h"
 #include "cache.h"
 #include "hiredis.h"
@@ -82,6 +82,29 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 	return serv;
 }
 
+static void
+rmilter_format_libmemcached_config (struct config_file *cfg,
+		struct cache_server *serv,
+		char *buf, size_t buflen)
+{
+	int r = 0;
+
+	if (serv->addr[0] == '/' || serv->addr[0] == '.') {
+		/* Assume unix socket */
+		r = snprintf (buf, buflen, "--SOCKET=\"%s\"", serv->addr);
+	}
+	else {
+		r = snprintf (buf, buflen, "--SERVER=%s:%d", serv->addr, (int)serv->port);
+	}
+
+	if (r >= buflen) {
+		return;
+	}
+
+	snprintf (buf + r, buflen - r, " --CONNECT-TIMEOUT=%d --POLL-TIMEOUT=%d",
+			cfg->memcached_connect_timeout, cfg->memcached_connect_timeout);
+}
+
 bool
 rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 		const unsigned char *key, size_t keylen,
@@ -93,8 +116,6 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 	struct timeval tv;
 	bool ret = false;
 	size_t nelems = 1;
-	memcached_ctx_t mctx;
-	memcached_param_t memc_param;
 	int rep;
 
 	serv = rmilter_get_server (cfg, type, key, keylen);
@@ -162,17 +183,17 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			}
 		}
 		else {
-			memset (&mctx, 0, sizeof (mctx));
-			mctx.addr = serv->addr;
-			mctx.port = serv->port;
-			mctx.timeout = cfg->memcached_connect_timeout;
+			char memcached_config[1024], *kval;
+			size_t value_len = 0;
+			uint32_t mflags;
+			memcached_return_t mret;
+			memcached_st *mctx;
 
-			assert (datalen != NULL && *datalen != 0);
-			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
-			memc_param.buf = malloc (*datalen);
-			memc_param.bufsize = *datalen;
+			rmilter_format_libmemcached_config (cfg, serv, memcached_config,
+					sizeof (memcached_config));
+			mctx = memcached (memcached_config, strlen (memcached_config));
 
-			if (memc_init_ctx (&mctx) != 0) {
+			if (mctx == NULL) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, strerror (errno));
 				upstream_fail (&serv->up, time (NULL));
@@ -180,18 +201,31 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 				return false;
 			}
 
-			rep = memc_get (&mctx, &memc_param, &nelems);
+			kval = memcached_get (mctx, key, keylen,
+					&value_len, &mflags, &mret);
 
-			if (rep != MEMC_OK) {
-				free (memc_param.buf);
+			if (!memcached_success (mret)) {
+				if (kval) {
+					free (kval);
+				}
 				*datalen = 0;
+
+				if (memcached_fatal (mret)) {
+					msg_err ("cannot get key on %s:%d: %s", serv->addr,
+							(int)serv->port, memcached_strerror (mctx, mret));
+					upstream_fail (&serv->up, time (NULL));
+				}
+				else {
+					upstream_ok (&serv->up, time (NULL));
+				}
 			}
 			else {
-				*data = memc_param.buf;
+				*data = kval;
+				*datalen = value_len;
+				upstream_ok (&serv->up, time (NULL));
 			}
 
-			memc_close_ctx (&mctx);
-			upstream_ok (&serv->up, time (NULL));
+			memcached_free (mctx);
 		}
 	}
 
@@ -208,8 +242,6 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 	redisContext *redis;
 	redisReply *r;
 	struct timeval tv;
-	memcached_ctx_t mctx;
-	memcached_param_t memc_param;
 	size_t nelems = 1;
 	int rep;
 
@@ -276,15 +308,17 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 		}
 		else {
-			memset (&mctx, 0, sizeof (mctx));
-			mctx.addr = serv->addr;
-			mctx.port = serv->port;
-			mctx.timeout = cfg->memcached_connect_timeout;
-			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
-			memc_param.buf = (void *)data;
-			memc_param.bufsize = datalen;
+			char memcached_config[1024], *kval;
+			size_t value_len = 0;
+			uint32_t mflags;
+			memcached_return_t mret;
+			memcached_st *mctx;
 
-			if (memc_init_ctx (&mctx) != 0) {
+			rmilter_format_libmemcached_config (cfg, serv, memcached_config,
+					sizeof (memcached_config));
+			mctx = memcached (memcached_config, strlen (memcached_config));
+
+			if (mctx == NULL) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, strerror (errno));
 				upstream_fail (&serv->up, time (NULL));
@@ -292,15 +326,22 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				return false;
 			}
 
-			rep = memc_set (&mctx, &memc_param, &nelems, expire);
+			mret = memcached_set (mctx, key, keylen, data, datalen,
+					expire, 0);
 
-			if (rep != MEMC_OK) {
+			if (!memcached_success (mret)) {
 				msg_err ("cannot set key on %s:%d: %s", serv->addr,
-						(int)serv->port, memc_strerror (rep));
+						(int)serv->port, memcached_strerror (mctx, mret));
+				upstream_fail (&serv->up, time (NULL));
+				memcached_free (mctx);
+
+				return false;
+			}
+			else {
+				upstream_ok (&serv->up, time (NULL));
 			}
 
-			memc_close_ctx (&mctx);
-			upstream_ok (&serv->up, time (NULL));
+			memcached_free (mctx);
 		}
 	}
 
@@ -315,8 +356,6 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 	redisContext *redis;
 	redisReply *r;
 	struct timeval tv;
-	memcached_ctx_t mctx;
-	memcached_param_t memc_param;
 	size_t nelems = 1;
 	int rep;
 
@@ -374,15 +413,17 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 		}
 		else {
-			memset (&mctx, 0, sizeof (mctx));
-			mctx.addr = serv->addr;
-			mctx.port = serv->port;
-			mctx.timeout = cfg->memcached_connect_timeout;
-			rmilter_strlcpy (memc_param.key, key, sizeof (memc_param.key));
-			memc_param.buf = NULL;
-			memc_param.bufsize = 0;
+			char memcached_config[1024], *kval;
+			size_t value_len = 0;
+			uint32_t mflags;
+			memcached_return_t mret;
+			memcached_st *mctx;
 
-			if (memc_init_ctx (&mctx) != 0) {
+			rmilter_format_libmemcached_config (cfg, serv, memcached_config,
+					sizeof (memcached_config));
+			mctx = memcached (memcached_config, strlen (memcached_config));
+
+			if (mctx == NULL) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, strerror (errno));
 				upstream_fail (&serv->up, time (NULL));
@@ -390,10 +431,21 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				return false;
 			}
 
-			rep = memc_delete (&mctx, &memc_param, &nelems);
+			mret = memcached_delete (mctx, key, keylen, 0);
 
-			memc_close_ctx (&mctx);
+			if (!memcached_success (mret)) {
+				if (memcached_fatal (mret)) {
+					msg_err ("cannot delete key on %s:%d: %s", serv->addr,
+							(int)serv->port, memcached_strerror (mctx, mret));
+					upstream_fail (&serv->up, time (NULL));
+					memcached_free (mctx);
+
+					return false;
+				}
+			}
+
 			upstream_ok (&serv->up, time (NULL));
+			memcached_free (mctx);
 		}
 	}
 
