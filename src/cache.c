@@ -33,7 +33,7 @@
 
 #define DEFAULT_REDIS_PORT 6379
 
-static inline bool compat_memcached_success(memcached_return_t rc)
+static inline bool compat_memcached_success(int rc)
 {
 	return (rc == MEMCACHED_BUFFERED ||
 			rc == MEMCACHED_DELETED ||
@@ -45,7 +45,7 @@ static inline bool compat_memcached_success(memcached_return_t rc)
 			rc == MEMCACHED_VALUE);
 }
 
-static inline bool compat_memcached_fatal(memcached_return_t rc)
+static inline bool compat_memcached_fatal(int rc)
 {
 	return (
 			rc != MEMCACHED_BUFFERED &&
@@ -211,7 +211,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
-			memcached_return_t mret;
+			int mret;
 			memcached_st *mctx;
 
 			mctx = memcached_create (NULL);
@@ -335,7 +335,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
-			memcached_return_t mret;
+			int mret;
 			memcached_st *mctx;
 
 			mctx = memcached_create (NULL);
@@ -439,7 +439,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
-			memcached_return_t mret;
+			int mret;
 			memcached_st *mctx;
 
 			mctx = memcached_create (NULL);
