@@ -246,6 +246,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 				*data = kval;
 				*datalen = value_len;
 				upstream_ok (&serv->up, time (NULL));
+				ret = true;
 			}
 
 			memcached_free (mctx);
