@@ -51,7 +51,6 @@ static inline bool compat_memcached_fatal(int rc)
 			rc != MEMCACHED_BUFFERED &&
 			rc != MEMCACHED_DATA_EXISTS &&
 			rc != MEMCACHED_DELETED &&
-			rc != MEMCACHED_E2BIG &&
 			rc != MEMCACHED_END &&
 			rc != MEMCACHED_ITEM &&
 			rc != MEMCACHED_NOTFOUND &&
