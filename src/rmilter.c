@@ -1617,7 +1617,7 @@ end:
 			"spam scan: %s; virus scan: %s; dkim: %s",
 			priv->mlfi_id,
 			ip_str,
-			priv->priv_from,
+			priv->priv_from[0] == '\0' ? "<>" : priv->priv_from,
 			priv->rcpts->r_addr,
 			priv->priv_rcptcount,
 			priv->priv_user[0] ? priv->priv_user : "unauthorized",
