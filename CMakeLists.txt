@@ -248,21 +248,6 @@ BISON_TARGET(CfgParser src/cfg_file.y ${CMAKE_CURRENT_BINARY_DIR}/cfg_yacc.c)
 FLEX_TARGET(CfgScanner src/cfg_file.l  ${CMAKE_CURRENT_BINARY_DIR}/cfg_lex.c)
 ADD_FLEX_BISON_DEPENDENCY(CfgScanner CfgParser)
 
-ProcessPackage(OPENSSL LIBRARY crypto INCLUDE err.h INCLUDE_SUFFIXES include/openssl
-	ROOT ${OPENSSL_ROOT_DIR} MODULES openssl)
-ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
-	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
-ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
-	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
-
-IF(ENABLE_DKIM MATCHES "ON")
-    SET(WITH_DKIM 1)
-    ProcessPackage(OPENDKIM LIBRARY opendkim INCLUDE dkim.h
-    	INCLUDE_SUFFIXES include/opendkim
-    	LIB_SUFFIXES lib/opendkim lib64/opendkim
-		ROOT ${OPENDKIM_ROOT_DIR} MODULES opendkim)
-ENDIF()
-
 
 # Process with warn flags
 SET(CMAKE_C_WARN_FLAGS "")
@@ -371,6 +356,23 @@ CHECK_SYMBOL_EXISTS(MAP_SHARED sys/mman.h HAVE_MMAP_SHARED)
 CHECK_SYMBOL_EXISTS(MAP_ANON sys/mman.h HAVE_MMAP_ANON)
 CHECK_SYMBOL_EXISTS(MAP_NOCORE sys/mman.h HAVE_MMAP_NOCORE)
 
+ProcessPackage(OPENSSL LIBRARY crypto INCLUDE err.h INCLUDE_SUFFIXES include/openssl
+	ROOT ${OPENSSL_ROOT_DIR} MODULES openssl)
+ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
+	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
+ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
+	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
+ProcessPackage(LIBMEMCACHED LIBRARY memcached INCLUDE memcached.h INCLUDE_SUFFIXES include/libmemcached
+	LIB_SUFFIXES lib/libmemcached ROOT ${LIBMEMCACHED_ROOT_DIR} MODULES libmemcached)
+
+IF(ENABLE_DKIM MATCHES "ON")
+	SET(WITH_DKIM 1)
+	ProcessPackage(OPENDKIM LIBRARY opendkim INCLUDE dkim.h
+		INCLUDE_SUFFIXES include/opendkim
+		LIB_SUFFIXES lib/opendkim lib64/opendkim
+		ROOT ${OPENDKIM_ROOT_DIR} MODULES opendkim)
+ENDIF()
+
 ################################ SOURCES SECTION ###########################
 ADD_SUBDIRECTORY(hiredis)
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/hiredis")
@@ -385,7 +387,6 @@ SET(RMILTERSRC
                 src/radix.c
                 src/regexp.c
                 src/cache.c
-                src/memcached.c
                 src/beanstalk.c
                 ${CMAKE_BINARY_DIR}/cfg_lex.c
                 ${CMAKE_BINARY_DIR}/cfg_yacc.c
