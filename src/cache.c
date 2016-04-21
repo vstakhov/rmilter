@@ -33,6 +33,36 @@
 
 #define DEFAULT_REDIS_PORT 6379
 
+static inline bool compat_memcached_success(memcached_return_t rc)
+{
+	return (rc == MEMCACHED_BUFFERED ||
+			rc == MEMCACHED_DELETED ||
+			rc == MEMCACHED_END ||
+			rc == MEMCACHED_ITEM ||
+			rc == MEMCACHED_STAT ||
+			rc == MEMCACHED_STORED ||
+			rc == MEMCACHED_SUCCESS ||
+			rc == MEMCACHED_VALUE);
+}
+
+static inline bool compat_memcached_fatal(memcached_return_t rc)
+{
+	return (
+			rc != MEMCACHED_BUFFERED &&
+			rc != MEMCACHED_DATA_EXISTS &&
+			rc != MEMCACHED_DELETED &&
+			rc != MEMCACHED_E2BIG &&
+			rc != MEMCACHED_END &&
+			rc != MEMCACHED_ITEM &&
+			rc != MEMCACHED_ERROR &&
+			rc != MEMCACHED_NOTFOUND &&
+			rc != MEMCACHED_NOTSTORED &&
+			rc != MEMCACHED_STAT &&
+			rc != MEMCACHED_STORED &&
+			rc != MEMCACHED_SUCCESS &&
+			rc != MEMCACHED_VALUE);
+}
+
 static struct cache_server *
 rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 		const unsigned char *key, size_t keylen)
@@ -85,24 +115,20 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 static void
 rmilter_format_libmemcached_config (struct config_file *cfg,
 		struct cache_server *serv,
-		char *buf, size_t buflen)
+		memcached_st *ctx)
 {
-	int r = 0;
-
 	if (serv->addr[0] == '/' || serv->addr[0] == '.') {
 		/* Assume unix socket */
-		r = snprintf (buf, buflen, "--SOCKET=\"%s\"", serv->addr);
+		memcached_server_add_unix_socket (ctx, serv->addr);
 	}
 	else {
-		r = snprintf (buf, buflen, "--SERVER=%s:%d", serv->addr, (int)serv->port);
+		memcached_server_add (ctx, serv->addr, serv->port);
 	}
 
-	if (r >= buflen) {
-		return;
-	}
-
-	snprintf (buf + r, buflen - r, " --CONNECT-TIMEOUT=%d --POLL-TIMEOUT=%d",
-			cfg->memcached_connect_timeout, cfg->memcached_connect_timeout);
+	memcached_behavior_set (ctx, MEMCACHED_BEHAVIOR_CONNECT_TIMEOUT,
+			cfg->memcached_connect_timeout);
+	memcached_behavior_set (ctx, MEMCACHED_BEHAVIOR_POLL_TIMEOUT,
+				cfg->memcached_connect_timeout);
 }
 
 bool
@@ -183,15 +209,14 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			}
 		}
 		else {
-			char memcached_config[1024], *kval;
+			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
 			memcached_return_t mret;
 			memcached_st *mctx;
 
-			rmilter_format_libmemcached_config (cfg, serv, memcached_config,
-					sizeof (memcached_config));
-			mctx = memcached (memcached_config, strlen (memcached_config));
+			mctx = memcached_create (NULL);
+			rmilter_format_libmemcached_config (cfg, serv, mctx);
 
 			if (mctx == NULL) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
@@ -204,13 +229,13 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			kval = memcached_get (mctx, key, keylen,
 					&value_len, &mflags, &mret);
 
-			if (!memcached_success (mret)) {
+			if (!compat_memcached_success (mret)) {
 				if (kval) {
 					free (kval);
 				}
 				*datalen = 0;
 
-				if (memcached_fatal (mret)) {
+				if (compat_memcached_fatal (mret)) {
 					msg_err ("cannot get key on %s:%d: %s", serv->addr,
 							(int)serv->port, memcached_strerror (mctx, mret));
 					upstream_fail (&serv->up, time (NULL));
@@ -308,15 +333,14 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 		}
 		else {
-			char memcached_config[1024], *kval;
+			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
 			memcached_return_t mret;
 			memcached_st *mctx;
 
-			rmilter_format_libmemcached_config (cfg, serv, memcached_config,
-					sizeof (memcached_config));
-			mctx = memcached (memcached_config, strlen (memcached_config));
+			mctx = memcached_create (NULL);
+			rmilter_format_libmemcached_config (cfg, serv, mctx);
 
 			if (mctx == NULL) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
@@ -329,7 +353,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			mret = memcached_set (mctx, key, keylen, data, datalen,
 					expire, 0);
 
-			if (!memcached_success (mret)) {
+			if (!compat_memcached_success (mret)) {
 				msg_err ("cannot set key on %s:%d: %s", serv->addr,
 						(int)serv->port, memcached_strerror (mctx, mret));
 				upstream_fail (&serv->up, time (NULL));
@@ -413,15 +437,14 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 		}
 		else {
-			char memcached_config[1024], *kval;
+			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
 			memcached_return_t mret;
 			memcached_st *mctx;
 
-			rmilter_format_libmemcached_config (cfg, serv, memcached_config,
-					sizeof (memcached_config));
-			mctx = memcached (memcached_config, strlen (memcached_config));
+			mctx = memcached_create (NULL);
+			rmilter_format_libmemcached_config (cfg, serv, mctx);
 
 			if (mctx == NULL) {
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
@@ -433,8 +456,8 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 			mret = memcached_delete (mctx, key, keylen, 0);
 
-			if (!memcached_success (mret)) {
-				if (memcached_fatal (mret)) {
+			if (!compat_memcached_success (mret)) {
+				if (compat_memcached_fatal (mret)) {
 					msg_err ("cannot delete key on %s:%d: %s", serv->addr,
 							(int)serv->port, memcached_strerror (mctx, mret));
 					upstream_fail (&serv->up, time (NULL));
