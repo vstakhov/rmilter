@@ -54,7 +54,6 @@ static inline bool compat_memcached_fatal(memcached_return_t rc)
 			rc != MEMCACHED_E2BIG &&
 			rc != MEMCACHED_END &&
 			rc != MEMCACHED_ITEM &&
-			rc != MEMCACHED_ERROR &&
 			rc != MEMCACHED_NOTFOUND &&
 			rc != MEMCACHED_NOTSTORED &&
 			rc != MEMCACHED_STAT &&
