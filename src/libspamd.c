@@ -116,7 +116,6 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 			res->action = METRIC_ACTION_REWRITE_SUBJECT;
 		}
 		else {
-			msg_warn ("invalid reply from rspamd: bad action %s", act_str);
 			res->action = METRIC_ACTION_NOACTION;
 		}
 	}

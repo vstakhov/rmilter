@@ -1105,20 +1105,26 @@ mlfi_eoh(SMFICTX * ctx)
 static const char *
 action_to_string (int act)
 {
-	if (act == METRIC_ACTION_REJECT) {
-		return "reject";
-	}
-	else if (act == METRIC_ACTION_ADD_HEADER) {
-		return "add header";
-	}
-	else if (act == METRIC_ACTION_REWRITE_SUBJECT) {
-		return "rewrite subject";
-	}
-	else if (act == METRIC_ACTION_GREYLIST) {
-		return "greylist";
+	const char *ret = "no action";
+
+	switch (act) {
+	case METRIC_ACTION_REJECT:
+		ret = "reject";
+		break;
+	case METRIC_ACTION_ADD_HEADER:
+		ret = "add header";
+		break;
+	case METRIC_ACTION_REWRITE_SUBJECT:
+		ret = "rewrite subject";
+		break;
+	case METRIC_ACTION_GREYLIST:
+		ret = "greylist";
+		break;
+	default:
+		break;
 	}
 
-	return "no action";
+	return ret;
 }
 
 static sfsistat
