@@ -159,6 +159,10 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
 				upstream_fail (&serv->up, time (NULL));
 
+				if (redis) {
+					redisFree (redis);
+				}
+
 				return false;
 			}
 			else {
@@ -285,6 +289,10 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
 				upstream_fail (&serv->up, time (NULL));
 
+				if (redis) {
+					redisFree (redis);
+				}
+
 				return false;
 			}
 			else {
@@ -397,6 +405,10 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				msg_err ("cannot connect to %s:%d: %s", serv->addr,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
 				upstream_fail (&serv->up, time (NULL));
+
+				if (redis) {
+					redisFree (redis);
+				}
 
 				return false;
 			}
