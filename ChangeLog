@@ -1,3 +1,9 @@
+1.8.2:
+	* Plug descriptors leak (#98)
+	* Fix clamav scan (#101)
+	* Fix logging and potential buffer overflow in spamscan code (#100)
+	* Always ensure that we do not exceed syslog limit (#100)
+
 1.8.1:
 	* Fix memcached backend
 	* Use libmemcached instead of own client
