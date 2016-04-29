@@ -266,6 +266,6 @@ int rate_check(struct mlfi_priv *priv, struct config_file *cfg,
 	return 1;
 }
 
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

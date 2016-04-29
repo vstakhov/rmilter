@@ -1548,12 +1548,14 @@ dkim_sign:
 	char rcptbuf[8192];
 	int rr = 0;
 	DL_FOREACH (priv->rcpts, rcpt) {
-		rate_check (priv, cfg, rcpt->r_addr, 1);
-		if (rcpt->r_list.le_next) {
-			rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s, ", rcpt->r_addr);
-		}
-		else {
-			rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s", rcpt->r_addr);
+		if (rr < sizeof (rcptbuf)) {
+			rate_check (priv, cfg, rcpt->r_addr, 1);
+			if (rcpt->r_list.le_next) {
+				rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s, ", rcpt->r_addr);
+			}
+			else {
+				rr += snprintf (rcptbuf + rr, sizeof (rcptbuf) - rr, "%s", rcpt->r_addr);
+			}
 		}
 	}
 	smfi_addheader (ctx, "X-Rcpt-To", rcptbuf);
