@@ -1,3 +1,7 @@
+1.8.3:
+	* Emergency fix in spam scanning
+	* Improve logging output when spam is found
+
 1.8.2:
 	* Plug descriptors leak (#98)
 	* Fix clamav scan (#101)
