@@ -79,16 +79,10 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 {
 	char *c;
 	sds readbuf;
-#ifdef HAVE_PATH_MAX
-	char path[PATH_MAX], buf[PATH_MAX + 10];
-#elif defined(HAVE_MAXPATHLEN)
-	char path[MAXPATHLEN], buf[MAXPATHLEN + 10];
-#else
-#error "neither PATH_MAX nor MAXPATHEN defined"
-#endif
+	char buf[2048];
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in, server_w;
-	int s, r, fd, port = 0, path_len, ofl;
+	int s, r, fd, port = 0, ofl;
 	uint32_t sz;
 	size_t size;
 	struct stat sb;
@@ -238,25 +232,19 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	else if ((c = strstr (readbuf, "FOUND\n")) != NULL) {
 		/* <file> ": " <virusname> " FOUND\n" */
 
-		path_len = strlen (path);
-		if (strncmp (readbuf, path, path_len) != 0) {
-			msg_warn("clamav: <%s>: paths differ: '%s' instead of '%s'",
-					priv->mlfi_id, readbuf, path);
-			sdsfree (readbuf);
-			return -1;
+		if (strncmp (readbuf, "stream", sizeof ("stream") - 1) != 0) {
+			msg_warn ("clamav: <%s>: paths differ: '%s' instead of 'stream'",
+					priv->mlfi_id, readbuf);
+			snprintf (strres, strres_len, "%.*s", (int)(c - readbuf), readbuf);
 		}
-		*(--c) = 0;
-		c = readbuf + path_len + 2;
+		else {
+			*(--c) = 0;
+			c = readbuf + sizeof ("stream") + 1;
+			snprintf (strres, strres_len, "%s", c);
+		}
 
-		/*
-		 * Virus found, store in state to further checks with
-		 * smtpd_dot_restrictions = check_clamd_access pcre:/db/maps/clamd
-		 * (in postfix).
-		 */
-
-		/* msg_warn("clamav: found %s", c); */
-		snprintf (strres, strres_len, "%s", c);
 		sdsfree (readbuf);
+
 		return 0;
 
 	}

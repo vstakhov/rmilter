@@ -1506,7 +1506,6 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
 av_check:
-
 	/* Check clamav */
 	if (cfg->clamav_servers_num != 0 && !ip_whitelisted) {
 		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
