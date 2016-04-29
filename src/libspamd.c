@@ -428,17 +428,19 @@ int
 spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		char **subject, int extra)
 {
-	int retry, r = -2, hr = 0, to_trace = 0, i, j, ret;
+	static const int max_syslog_len = 1000;
+	int retry, r = -2, to_trace = 0, i, j, ret;
 	struct timeval t;
 	double ts, tf;
 	struct spamd_server *selected = NULL;
-	char rbuf[1024], hdrbuf[1024], bar_buf[128];
+	char bar_buf[128], hdrbuf[256];
 	char *prefix = "s", *mid = NULL, *c;
 	struct rspamd_metric_result res;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	struct timespec sleep_ts;
 	SMFICTX *ctx = _ctx;
-	sds optbuf;
+	sds optbuf, logbuf, headerbuf;
+	bool extended_options = true, print_symbols = true;
 
 	gettimeofday (&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -505,15 +507,21 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	gettimeofday (&t, NULL);
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
 
+	logbuf = sdsempty ();
+	headerbuf = sdsempty ();
+
+log_retry:
 	/* Parse res tailq */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
-		hr = snprintf(hdrbuf, sizeof(hdrbuf), "%s: %s [%.2f / %.2f]%c",
+		headerbuf = sdscatprintf (headerbuf, "%s: %s [%.2f / %.2f]%c",
 				"default", res.score > res.required_score ? "True" : "False",
 				res.score, res.required_score,
 				res.symbols != NULL ? '\n' : ' ');
 	}
-	r =
-			snprintf(rbuf, sizeof(rbuf),
+
+	sdsclear (logbuf);
+	sdsclear (headerbuf);
+	logbuf = sdscatprintf (logbuf,
 					"spamdscan: scan <%s>, %f, %s, metric: default: [%f / %f], symbols: ",
 					priv->mlfi_id, tf - ts, selected->name, res.score,
 					res.required_score);
@@ -524,7 +532,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 
 	/* Write symbols */
 	if (res.symbols == NULL) {
-		r += snprintf (rbuf + r, sizeof(rbuf) - r, "no symbols");
+		logbuf = sdscatprintf (logbuf, "no symbols");
 	}
 	else {
 		optbuf = sdsempty ();
@@ -537,7 +545,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 
 			if (cur_symbol->symbol) {
 
-				if (cur_symbol->options) {
+				if (cur_symbol->options && extended_options) {
 					ucl_object_iter_t it = NULL;
 					const ucl_object_t *elt;
 					bool first = true;
@@ -559,32 +567,35 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					}
 				}
 
-				if (cur_symbol->next) {
-					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.2f)[%s], ",
-							cur_symbol->symbol, cur_symbol->score, optbuf);
-				}
-				else {
-					r += snprintf(rbuf + r, sizeof(rbuf) - r, "%s(%.2f)[%s]",
-							cur_symbol->symbol, cur_symbol->score, optbuf);
-				}
-				if (cfg->trace_symbol) {
-					c = strchr (cur_symbol->symbol, '(');
-					if (c != NULL) {
-						*c = '\0';
+				if (print_symbols) {
+					if (cur_symbol->next) {
+						logbuf = sdscatprintf (logbuf, "%s(%.2f)[%s], ",
+								cur_symbol->symbol, cur_symbol->score, optbuf);
 					}
-					if (!strcmp (cfg->trace_symbol, cur_symbol->symbol)) {
-						to_trace++;
+					else {
+						logbuf = sdscatprintf (logbuf, "%s(%.2f)[%s]",
+								cur_symbol->symbol, cur_symbol->score, optbuf);
+					}
+					if (cfg->trace_symbol) {
+						c = strchr (cur_symbol->symbol, '(');
+						if (c != NULL) {
+							*c = '\0';
+						}
+						if (!strcmp (cfg->trace_symbol, cur_symbol->symbol)) {
+							to_trace++;
+						}
 					}
 				}
+
 				if (cfg->extended_spam_headers && !priv->authenticated) {
 					if (cur_symbol->next) {
-						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr,
+						headerbuf = sdscatprintf (headerbuf,
 								" %s(%.2f)[%s]\n", cur_symbol->symbol,
 								cur_symbol->score, optbuf);
 					}
 					else {
-						hr += snprintf(hdrbuf + hr, sizeof(hdrbuf) - hr, " "
-								"%s(%.2f)[%s]",
+						headerbuf = sdscatprintf (headerbuf,
+								" %s(%.2f)[%s]",
 								cur_symbol->symbol,
 								cur_symbol->score, optbuf);
 					}
@@ -597,14 +608,31 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		sdsfree (optbuf);
 	}
 
-	msg_info("%s", rbuf);
+	if (sdslen (logbuf) > max_syslog_len) {
+		if (extended_options) {
+			/* Try to retry without options */
+			extended_options = false;
+			msg_info ("spamdscan: <%s> too large reply: %d, skip options",
+					priv->mlfi_id, (int)sdslen (logbuf));
+			goto log_retry;
+		}
+		else if (print_symbols) {
+			msg_info ("spamdscan: <%s> too large reply: %d, skip symbols",
+					priv->mlfi_id, (int)sdslen (logbuf));
+			print_symbols = false;
+			goto log_retry;
+		}
+	}
+
+	msg_info ("%s", logbuf);
+	sdsfree (logbuf);
 
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
-			smfi_addheader (ctx, "X-Spamd-Extra-Result", hdrbuf);
+			smfi_addheader (ctx, "X-Spamd-Extra-Result", headerbuf);
 		}
 		else {
-			smfi_addheader (ctx, "X-Spamd-Result", hdrbuf);
+			smfi_addheader (ctx, "X-Spamd-Result", headerbuf);
 
 			j = (int) fabs (res.score);
 
@@ -648,23 +676,25 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 				smfi_addheader (ctx, "X-Spam-Level", bar_buf);
 			}
 
-			snprintf(hdrbuf, sizeof(hdrbuf), "%s, score=%.1f",
+			snprintf (hdrbuf, sizeof(hdrbuf), "%s, score=%.1f",
 					res.action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
 					res.score);
 			smfi_addheader (ctx, "X-Spam-Status", hdrbuf);
 		}
 	}
 
+	sdsfree (headerbuf);
+
 	/* All other statistic headers */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
 			smfi_addheader (ctx, "X-Spamd-Extra-Server", selected->name);
-			snprintf(hdrbuf, sizeof(hdrbuf), "%.2f", tf - ts);
+			snprintf (hdrbuf, sizeof(hdrbuf), "%.2f", tf - ts);
 			smfi_addheader (ctx, "X-Spamd-Extra-Scan-Time", hdrbuf);
 		}
 		else {
 			smfi_addheader (ctx, "X-Spamd-Server", selected->name);
-			snprintf(hdrbuf, sizeof(hdrbuf), "%.2f", tf - ts);
+			snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
 			smfi_addheader (ctx, "X-Spamd-Scan-Time", hdrbuf);
 			smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->mlfi_id);
 		}
