@@ -1311,8 +1311,8 @@ mlfi_eom(SMFICTX * ctx)
 					snprintf (tmpbuf, sizeof (tmpbuf), "rejected, action: %s",
 										action_to_string (r));
 					spam_check_result = tmpbuf;
-					av_check_result = "skipped, spamd result";
-					dkim_result = "skipped, spamd result";
+					av_check_result = "skipped, spam detected";
+					dkim_result = "skipped, spam detected";
 					ret = SMFIS_REJECT;
 					goto end;
 				}
