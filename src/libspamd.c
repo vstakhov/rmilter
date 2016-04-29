@@ -511,6 +511,9 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	headerbuf = sdsempty ();
 
 log_retry:
+	sdsclear (logbuf);
+	sdsclear (headerbuf);
+
 	/* Parse res tailq */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		headerbuf = sdscatprintf (headerbuf, "%s: %s [%.2f / %.2f]%c",
@@ -519,10 +522,8 @@ log_retry:
 				res.symbols != NULL ? '\n' : ' ');
 	}
 
-	sdsclear (logbuf);
-	sdsclear (headerbuf);
 	logbuf = sdscatprintf (logbuf,
-					"spamdscan: scan <%s>, %f, %s, metric: default: [%f / %f], symbols: ",
+					"spamdscan: scan <%s>, %.3f, %s, metric: default: [%.3f / %.3f], symbols: ",
 					priv->mlfi_id, tf - ts, selected->name, res.score,
 					res.required_score);
 
@@ -711,7 +712,7 @@ log_retry:
 		smfi_setpriv (ctx, priv);
 	}
 
-	ret =  (r > 0 ? res.action : r);
+	ret =  (r >= 0 ? res.action : r);
 
 	ucl_object_unref (res.obj);
 
