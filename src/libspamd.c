@@ -622,6 +622,12 @@ log_retry:
 			print_symbols = false;
 			goto log_retry;
 		}
+		else {
+			/* Truncate reply */
+			msg_err ("spamdscan: <%s> too large reply: %d, truncate reply",
+					priv->mlfi_id, (int)sdslen (logbuf));
+			sdsrange (logbuf, 0, max_syslog_len);
+		}
 	}
 
 	msg_info ("%s", logbuf);
