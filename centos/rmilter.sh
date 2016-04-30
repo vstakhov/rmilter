@@ -60,13 +60,11 @@ stop() {
 }
 
 restart() {
-    configtest || return $?
     stop
     start
 }
 
 reload() {
-    configtest || return $?
     echo -n $"Reloading $prog: "
     killproc $rmilter -HUP
     RETVAL=$?
@@ -75,10 +73,6 @@ reload() {
 
 force_reload() {
     restart
-}
-
-configtest() {
-  $rmilter -t -c $RMILTER_CONF_FILE
 }
 
 rh_status() {
@@ -98,7 +92,7 @@ case "$1" in
         rh_status_q || exit 0
         $1
         ;;
-    restart|configtest)
+    restart)
         $1
         ;;
     reload)
@@ -115,7 +109,7 @@ case "$1" in
         rh_status_q || exit 0
 	    ;;
     *)
-        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload|configtest}"
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
         exit 2
 esac
 
