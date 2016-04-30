@@ -1,3 +1,7 @@
+1.8.4:
+	* Another emergency fix in spam scanning (#103)
+	* Remove configtest from rpm packages (#102)
+
 1.8.3:
 	* Emergency fix in spam scanning
 	* Improve logging output when spam is found
