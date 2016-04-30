@@ -510,6 +510,15 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	logbuf = sdsempty ();
 	headerbuf = sdsempty ();
 
+	if (res.symbols) {
+		/* Sort symbols by scores from high to low */
+		DL_SORT (res.symbols, rmilter_spamd_symcmp);
+	}
+
+	if (res.action == METRIC_ACTION_REWRITE_SUBJECT && res.subject != NULL) {
+		*subject = strdup (res.subject);
+	}
+
 log_retry:
 	sdsclear (logbuf);
 	sdsclear (headerbuf);
@@ -523,13 +532,10 @@ log_retry:
 	}
 
 	logbuf = sdscatprintf (logbuf,
-					"spamdscan: scan <%s>, %.3f, %s, metric: default: [%.3f / %.3f], symbols: ",
+					"spamdscan: scan <%s>, %.3f, %s, metric: "
+					"default: [%.3f / %.3f], symbols: ",
 					priv->mlfi_id, tf - ts, selected->name, res.score,
 					res.required_score);
-
-	if (res.action == METRIC_ACTION_REWRITE_SUBJECT && res.subject != NULL) {
-		*subject = strdup (res.subject);
-	}
 
 	/* Write symbols */
 	if (res.symbols == NULL) {
@@ -537,9 +543,6 @@ log_retry:
 	}
 	else {
 		optbuf = sdsempty ();
-
-		/* Sort symbols by scores from high to low */
-		DL_SORT (res.symbols, rmilter_spamd_symcmp);
 
 		DL_FOREACH_SAFE (res.symbols, cur_symbol, tmp_symbol) {
 			sdsclear (optbuf);
@@ -602,8 +605,6 @@ log_retry:
 					}
 				}
 			}
-
-			free (cur_symbol);
 		}
 
 		sdsfree (optbuf);
@@ -629,6 +630,10 @@ log_retry:
 					priv->mlfi_id, (int)sdslen (logbuf));
 			sdsrange (logbuf, 0, max_syslog_len);
 		}
+	}
+
+	DL_FOREACH_SAFE (res.symbols, cur_symbol, tmp_symbol) {
+		free (cur_symbol);
 	}
 
 	msg_info ("%s", logbuf);
