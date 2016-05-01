@@ -58,7 +58,8 @@ usage (void)
 			"-n - do not daemonize on startup\n"
 			"-d - debug parsing\n"
 			"-h - this help message\n"
-			"-c - path to config file\n");
+			"-c - path to config file\n"
+			"-v - show version information");
 	exit (0);
 }
 
@@ -169,7 +170,7 @@ main(int argc, char *argv[])
 	int c, r;
 	extern int yynerrs;
 	extern FILE *yyin;
-	const char *args = "c:hnd";
+	const char *args = "c:hndv";
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
