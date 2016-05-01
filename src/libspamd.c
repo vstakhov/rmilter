@@ -185,13 +185,13 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	/* Get file size */
 	fd = open (priv->file, O_RDONLY);
 	if (fstat (fd, &sb) == -1) {
-		msg_warn("<%s> rspamd: stat failed: %s",  priv->mlfi_id, strerror (errno));
+		msg_warn("<%s>; rspamd: stat failed: %s",  priv->mlfi_id, strerror (errno));
 		close (s);
 		return -1;
 	}
 
 	if (rmilter_poll_fd (s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
-		msg_warn("<%s> rspamd: timeout waiting writing, %s",  priv->mlfi_id, srv->name);
+		msg_warn("<%s>; rspamd: timeout waiting writing, %s",  priv->mlfi_id, srv->name);
 		close (s);
 		return -1;
 	}
@@ -206,7 +206,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			(long int )sb.st_size);
 
 	if (written > to_write) {
-		msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+		msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 				 priv->mlfi_id, srv->name);
 		close (fd);
 		close (s);
@@ -219,7 +219,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "Rcpt: %s\r\n", rcpt->r_addr);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -232,7 +232,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "From: %s\r\n", priv->priv_from);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -244,7 +244,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "Helo: %s\r\n", priv->priv_helo);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -258,7 +258,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		written = snprintf(buf + r, to_write, "Hostname: %s\r\n",
 				priv->priv_hostname);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -270,7 +270,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "IP: %s\r\n", priv->priv_ip);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -282,7 +282,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		to_write = sizeof(buf) - r;
 		written = snprintf(buf + r, to_write, "User: %s\r\n", priv->priv_user);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					 priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -295,7 +295,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	written = snprintf(buf + r, to_write, "Queue-ID: %s\r\n",
 			priv->mlfi_id);
 	if (written > to_write) {
-		msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+		msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 				 priv->mlfi_id, srv->name);
 		close (fd);
 		close (s);
@@ -308,7 +308,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		written = snprintf(buf + r, to_write, "Settings-ID: %s\r\n",
 				cfg->spamd_settings_id);
 		if (written > to_write) {
-			msg_warn("<%s> rspamd: buffer overflow while filling buffer (%s)",
+			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 					priv->mlfi_id, srv->name);
 			close (fd);
 			close (s);
@@ -323,7 +323,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	iov[1].iov_len = 2;
 
 	if (writev (s, iov, sizeof (iov) / sizeof (iov[0])) == -1) {
-		msg_warn("<%s> rspamd: writev (%s), %s", priv->mlfi_id, srv->name,
+		msg_warn("<%s>; rspamd: writev (%s), %s", priv->mlfi_id, srv->name,
 				strerror (errno));
 		close (fd);
 		close (s);
@@ -333,7 +333,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 #ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-		msg_warn("<%s> rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -341,7 +341,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 #elif defined(LINUX)
 	off_t off = 0;
 	if (sendfile(s, fd, &off, sb.st_size) == -1) {
-		msg_warn("<%s> rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
@@ -363,7 +363,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	for (;;) {
 		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
-			msg_warn("<%s> rspamd: timeout waiting results %s", priv->mlfi_id,
+			msg_warn("<%s>; rspamd: timeout waiting results %s", priv->mlfi_id,
 					srv->name);
 			close (s);
 			return -1;
@@ -376,7 +376,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 				continue;
 			}
 			else {
-				msg_warn("<%s> rspamd: read, %s, %s", priv->mlfi_id,  srv->name,
+				msg_warn("<%s>; rspamd: read, %s, %s", priv->mlfi_id,  srv->name,
 						strerror (errno));
 				close (s);
 				return -1;
@@ -403,8 +403,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	parser.content_length = size;
 
 	if (http_parser_execute (&parser, &ps, readbuf, size) != (size_t)size) {
-		msg_err ("HTTP parser error: %s when rspamd reply",
-				http_errno_description (parser.http_errno));
+		msg_err ("<%s>; HTTP parser error: %s when rspamd reply",
+				priv->mlfi_id, http_errno_description (parser.http_errno));
 		return -1;
 	}
 
@@ -466,18 +466,18 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					cfg->spamd_maxerrors);
 		}
 		if (selected == NULL) {
-			msg_err("<%s> spamdscan: upstream get error, %s", priv->mlfi_id,
+			msg_err("<%s>; spamdscan: upstream get error, %s", priv->mlfi_id,
 					priv->file);
 			return -1;
 		}
 
-		msg_info ("<%s> spamdscan: start scanning message on %s", priv->mlfi_id,
+		msg_info ("<%s>; spamdscan: start scanning message on %s", priv->mlfi_id,
 				selected->name);
 
 		prefix = "rs";
 		r = rspamdscan_socket (ctx, priv, selected, cfg, &res, &mid);
 
-		msg_info("<%s> spamdscan: finish scanning message on %s", priv->mlfi_id,
+		msg_info("<%s>; spamdscan: finish scanning message on %s", priv->mlfi_id,
 				selected->name);
 
 		if (r == 0 || r == 1) {
@@ -486,17 +486,17 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		}
 		upstream_fail (&selected->up, t.tv_sec);
 		if (r == -2) {
-			msg_warn("<%s> %spamdscan: unexpected problem, %s, %s",
+			msg_warn("<%s>; %spamdscan: unexpected problem, %s, %s",
 					priv->mlfi_id, prefix, selected->name, priv->file);
 			break;
 		}
 		if (--retry < 1) {
-			msg_warn("<%s> %spamdscan: retry limit exceeded, %s, %s",
+			msg_warn("<%s>; %spamdscan: retry limit exceeded, %s, %s",
 					priv->mlfi_id, prefix, selected->name, priv->file);
 			break;
 		}
 
-		msg_warn("<%s> %spamdscan: failed to scan, retry, %s, %s",
+		msg_warn("<%s>; %spamdscan: failed to scan, retry, %s, %s",
 				priv->mlfi_id, prefix, selected->name, priv->file);
 		nanosleep (&sleep_ts, NULL);
 	}
@@ -532,7 +532,7 @@ log_retry:
 	}
 
 	logbuf = sdscatprintf (logbuf,
-					"spamdscan: scan <%s>, %.3f, %s, metric: "
+					"<%s>; spamdscan: scan, time: %.3f, server: %s, metric: "
 					"default: [%.3f / %.3f], symbols: ",
 					priv->mlfi_id, tf - ts, selected->name, res.score,
 					res.required_score);
@@ -614,19 +614,19 @@ log_retry:
 		if (extended_options) {
 			/* Try to retry without options */
 			extended_options = false;
-			msg_info ("spamdscan: <%s> too large reply: %d, skip options",
+			msg_info ("<%s>; spamdscan: too large reply: %d, skip options",
 					priv->mlfi_id, (int)sdslen (logbuf));
 			goto log_retry;
 		}
 		else if (print_symbols) {
-			msg_info ("spamdscan: <%s> too large reply: %d, skip symbols",
+			msg_info ("<%s>; spamdscan: too large reply: %d, skip symbols",
 					priv->mlfi_id, (int)sdslen (logbuf));
 			print_symbols = false;
 			goto log_retry;
 		}
 		else {
 			/* Truncate reply */
-			msg_err ("spamdscan: <%s> too large reply: %d, truncate reply",
+			msg_err ("<%s>; spamdscan: too large reply: %d, truncate reply",
 					priv->mlfi_id, (int)sdslen (logbuf));
 			sdsrange (logbuf, 0, max_syslog_len);
 		}

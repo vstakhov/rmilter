@@ -116,7 +116,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 	dlen = sizeof (*tm1);
 
 	if (gettimeofday (&tm, NULL) == -1) {
-		msg_err ("<%s>: gettimeofday failed: %s", priv->mlfi_id,
+		msg_err ("<%s>;: gettimeofday failed: %s", priv->mlfi_id,
 				strerror (errno));
 
 		return GREY_WHITELISTED;
@@ -142,15 +142,15 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			snprintf (hdr_buf, hdr_size, "0 seconds passed (new record), "
 					"greylisted till %s, expire at %s, type: %s",
 					timebuf, timebuf_expire, type);
-			msg_info ("greylisting_check_hash: greylisted <%s>, key: '%s': %s",
+			msg_info ("<%s>; greylisting_check_hash: greylisted key: '%s': %s",
 					priv->mlfi_id, key, hdr_buf);
 			if (tm1) {
 				free (tm1);
 			}
 		}
 		else {
-			msg_err ("greylisting_check_hash: cannot store greylisting data: "
-					"for <%s>: %s, key: '%s'",
+			msg_err ("<%s>; greylisting_check_hash: cannot store greylisting data: "
+					"type: %s, key: '%s'",
 					priv->mlfi_id, type, key);
 			if (tm1) {
 				free (tm1);
@@ -174,7 +174,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			elapsed = time (NULL);
 			localtime_r (&elapsed, &tm_parsed);
 			strftime (timebuf_expire, sizeof (timebuf_expire), "%F %T", &tm_parsed);
-			msg_info ("greylisting_check_hash: <%s>, key: '%s': is created in "
+			msg_info ("<%s>; greylisting_check_hash: key: '%s': is created in "
 					"future: %s, while now it is only %s, ignore record",
 					priv->mlfi_id, key, timebuf, timebuf_expire);
 			free (tm1);
@@ -195,7 +195,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 					"greylisted till %s, expire at %s, type: %s",
 					(int)(tm.tv_sec - tm1->tv_sec),
 					timebuf, timebuf_expire, type);
-			msg_info ("greylisting_check_hash: greylisted <%s>, key: '%s': %s",
+			msg_info ("<%s>; greylisting_check_hash: greylisted key: '%s': %s",
 					priv->mlfi_id, key, hdr_buf);
 
 			if (tm1) {
@@ -227,8 +227,8 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 			if (!rmilter_set_cache (cfg, RMILTER_QUERY_WHITELIST, key, keylen,
 							(unsigned char *)&tm, sizeof (tm),
 							cfg->whitelisting_expire)) {
-				msg_err ("greylisting_check_hash: cannot store whitelisting data: "
-						"for <%s>: %s, key: '%s'",
+				msg_err ("<%s>; greylisting_check_hash: cannot store whitelisting data: "
+						"type %s, key: '%s'",
 						priv->mlfi_id, type, key);
 			}
 		}
@@ -265,8 +265,8 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 		snprintf (greylist_buf, sizeof (greylist_buf),
 				"Sender IP %s is whitelisted by configuration",
 				ip_str);
-		msg_info ("greylisting: sender IP %s is whitelisted by configuration",
-				ip_str);
+		msg_info ("<%s>; greylisting: sender IP %s is whitelisted by configuration",
+				priv->mlfi_id, ip_str);
 		ret = GREY_WHITELISTED;
 		goto end;
 	}
@@ -277,7 +277,7 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 		fd = open (priv->file, O_RDONLY);
 
 		if (fd == -1) {
-			msg_warn ("check_greylisting: %s: data file open(): %s",
+			msg_warn ("<%s>; check_greylisting: data file open(): %s",
 					priv->mlfi_id, strerror (errno));
 		}
 		else {
@@ -294,7 +294,7 @@ check_greylisting (void *_ctx, struct config_file *cfg, struct mlfi_priv *priv)
 					MAP_SHARED,
 					fd,
 					0)) == MAP_FAILED) {
-				msg_err ("check_greylisting: %s: cannot mmap file %s: %s",
+				msg_err ("<%s>; check_greylisting: cannot mmap file %s: %s",
 						priv->mlfi_id,
 						priv->file,
 						strerror (errno));
