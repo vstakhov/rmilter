@@ -590,19 +590,25 @@ set_random_id (struct mlfi_priv *priv)
 {
 	struct rmilter_rng_state *st;
 	uint64_t val;
-	static const char base36[36] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	static const char hexdigests[16] = "0123456789abcdef";
+	const unsigned int nbytes = 5;
 	char *buf;
-	unsigned r = 0;
+	const char *p;
+	unsigned r = 0, i;
 
 	st = get_prng_state ();
 	val = prng_next (st);
 
 	buf = priv->mlfi_id;
 
-	/* Encode as base36 string */
-	do {
-		buf[r++] = base36[val % 36];
-	} while (val /= 36 && r < sizeof (priv->mlfi_id));
+	/* Encode as hex string */
+	p = (const char *)&val;
+
+	for (i = 0; i < nbytes; i ++) {
+		buf[r++] = hexdigests[(*p >> 4) & 0xF];
+		buf[r++] = hexdigests[*p & 0xF];
+		p ++;
+	}
 
 	buf[r] = '\0';
 }
