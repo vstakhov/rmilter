@@ -60,7 +60,7 @@ usage (void)
 			"-d - debug parsing\n"
 			"-h - this help message\n"
 			"-c - path to config file\n"
-			"-v - show version information");
+			"-v - show version information\n");
 	exit (0);
 }
 
