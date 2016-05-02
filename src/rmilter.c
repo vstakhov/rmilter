@@ -1265,14 +1265,19 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
 	/* set queue id */
-	id = smfi_getsymval(ctx, "i");
+	if (priv->queue_id[0] == '\0') {
+		id = smfi_getsymval(ctx, "i");
 
-	if (id) {
-		rmilter_strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
-	}
-	else {
-		rmilter_strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
-		msg_err ("<%s>; mlfi_eom: cannot get queue id, set to 'NOQUEUE'", priv->mlfi_id);
+		if (id) {
+			rmilter_strlcpy (priv->queue_id, id, sizeof (priv->queue_id));
+			msg_info ("<%s>; mlfi_data: queue id: %s", priv->mlfi_id,
+					priv->queue_id);
+		}
+		else {
+			rmilter_strlcpy (priv->queue_id, "NOQUEUE", sizeof (priv->queue_id));
+			msg_err ("<%s>; mlfi_data: cannot get queue id, set to 'NOQUEUE'",
+					priv->mlfi_id);
+		}
 	}
 
 
