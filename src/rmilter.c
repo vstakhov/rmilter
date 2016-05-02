@@ -1020,7 +1020,7 @@ mlfi_data(SMFICTX *ctx)
 	CFG_RLOCK();
 	if (id) {
 		rmilter_strlcpy (priv->queue_id, id, sizeof (priv->queue_id));
-		msg_info ("<%s>; mlfi_data: queue id: %s", priv->mlfi_id,
+		msg_info ("<%s>; mlfi_data: queue id: <%s>", priv->mlfi_id,
 				priv->queue_id);
 	}
 	else {
@@ -1755,7 +1755,7 @@ mlfi_close(SMFICTX * ctx)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
-	msg_debug ("mlfi_close: cleanup");
+	msg_debug ("<%s>; mlfi_close: cleanup", priv->mlfi_id);
 
 	mlfi_cleanup (ctx, true);
 
@@ -1782,7 +1782,7 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
-	msg_debug ("mlfi_cleanup: cleanup");
+	msg_debug ("<%s>; mlfi_cleanup: cleanup", priv->mlfi_id);
 
 	if (priv->fileh) {
 		if (fclose (priv->fileh) != 0) {
