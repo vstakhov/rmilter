@@ -56,6 +56,7 @@ struct rspamd_metric_result {
 	ucl_object_t *obj;
 	const char *metric_name;
 	const char *subject;
+	const char *message_id;
 	double score;
 	double required_score;
 	double reject_score;

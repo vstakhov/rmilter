@@ -102,6 +102,9 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	elt = ucl_object_lookup (metric, "subject");
 	res->subject = ucl_object_tostring (elt);
 
+	elt = ucl_object_lookup (metric, "message-id");
+	res->message_id = ucl_object_tostring (elt);
+
 	if (act_str) {
 		if (strcmp (act_str, "reject") == 0) {
 			res->action = METRIC_ACTION_REJECT;
@@ -517,6 +520,11 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 
 	if (res.action == METRIC_ACTION_REWRITE_SUBJECT && res.subject != NULL) {
 		*subject = strdup (res.subject);
+	}
+
+	if (res.message_id) {
+		rmilter_strlcpy (priv->message_id, res.message_id,
+				sizeof (priv->message_id));
 	}
 
 log_retry:
