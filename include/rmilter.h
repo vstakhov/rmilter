@@ -65,6 +65,7 @@ struct mlfi_priv {
 	char priv_helo[ADDRLEN + 1];
 	char priv_from[ADDRLEN + 1];
 	char priv_user[ADDRLEN + 1];
+	char message_id[ADDRLEN + 1];
 	struct rcpt *rcpts;
 	char *priv_subject;
 	int priv_rcptcount;
@@ -76,9 +77,11 @@ struct mlfi_priv {
 		char *value;
 		size_t len;
 	} priv_cur_body;
-    char mlfi_id[32];
+	char mlfi_id[14];
+	char queue_id[32];
 	char reply_id[ADDRLEN + 33];
-	#ifdef HAVE_PATH_MAX
+
+#ifdef HAVE_PATH_MAX
 	char file[PATH_MAX];
 #elif defined(HAVE_MAXPATHLEN)
 	char file[MAXPATHLEN];

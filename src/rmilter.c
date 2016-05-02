@@ -585,6 +585,28 @@ format_spamd_reply (char *result, size_t len, char *format, char *symbols)
 	*pos = '\0';
 }
 
+static void
+set_random_id (struct mlfi_priv *priv)
+{
+	struct rmilter_rng_state *st;
+	uint64_t val;
+	static const char base36[36] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	char *buf;
+	unsigned r = 0;
+
+	st = get_prng_state ();
+	val = prng_next (st);
+
+	buf = priv->mlfi_id;
+
+	/* Encode as base36 string */
+	do {
+		buf[r++] = base36[val % 36];
+	} while (val /= 36 && r < sizeof (priv->mlfi_id));
+
+	buf[r] = '\0';
+}
+
 /* Milter callbacks */
 
 static sfsistat
@@ -615,6 +637,8 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		msg_err ("Internal error: gettimeofday failed %s", strerror (errno));
 		return SMFIS_TEMPFAIL;
 	}
+
+	set_random_id (priv);
 
 	if (addr != NULL) {
 		addr_storage = (union sockaddr_un *)addr;
@@ -989,11 +1013,14 @@ mlfi_data(SMFICTX *ctx)
 
 	CFG_RLOCK();
 	if (id) {
-		rmilter_strlcpy (priv->mlfi_id, id, sizeof(priv->mlfi_id));
+		rmilter_strlcpy (priv->queue_id, id, sizeof (priv->queue_id));
+		msg_info ("<%s>; mlfi_data: queue id: %s", priv->mlfi_id,
+				priv->queue_id);
 	}
 	else {
-		rmilter_strlcpy (priv->mlfi_id, "NOQUEUE", sizeof (priv->mlfi_id));
-		msg_err ("<%s>; mlfi_data: cannot get queue id, set to 'NOQUEUE'", priv->mlfi_id);
+		rmilter_strlcpy (priv->queue_id, "NOQUEUE", sizeof (priv->queue_id));
+		msg_err ("<%s>; mlfi_data: cannot get queue id, set to 'NOQUEUE'",
+				priv->mlfi_id);
 	}
 	CFG_UNLOCK();
 
@@ -1688,9 +1715,13 @@ end:
 		  (void *) &priv->priv_addr.addr.sa4.sin_addr;
 	memset (ip_str, 0, sizeof (ip_str));
 	inet_ntop (priv->priv_addr.family, addr, ip_str, sizeof (ip_str) - 1);
-	msg_info ("<%s>; msg done: ip: %s; from: <%s>; rcpt: %s (%d total); user: %s; "
+	msg_info ("<%s>; msg done: queue_id: <%s>; "
+			"message id: <%s>; ip: %s; "
+			"from: <%s>; rcpt: %s (%d total); user: %s; "
 			"spam scan: %s; virus scan: %s; dkim: %s",
 			priv->mlfi_id,
+			priv->queue_id,
+			priv->message_id,
 			ip_str,
 			priv->priv_from,
 			priv->rcpts->r_addr,
@@ -1757,6 +1788,8 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	priv->strict = 1;
 	priv->mlfi_id[0] = '\0';
 	priv->reply_id[0] = '\0';
+	priv->queue_id[0] = '\0';
+	priv->message_id[0] = '\0';
 #ifdef WITH_DKIM
 	if (priv->dkim) {
 		dkim_free (priv->dkim);
