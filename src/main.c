@@ -43,6 +43,7 @@ pthread_cond_t cfg_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t cfg_reload_mtx = PTHREAD_MUTEX_INITIALIZER;
 /* R/W lock for reconfiguring milter */
 pthread_rwlock_t cfg_mtx = PTHREAD_RWLOCK_INITIALIZER;
+pthread_key_t rnd_state;
 
 int
 my_strcmp (const void *s1, const void *s2)
@@ -296,6 +297,11 @@ main(int argc, char *argv[])
 
 	if (daemonize && daemon (0, 0) == -1) {
 		msg_err("Unable to daemonize");
+		exit(EX_UNAVAILABLE);
+	}
+
+	if (pthread_key_create (&rnd_state, free) != 0) {
+		msg_err ("cannot create pthread key");
 		exit(EX_UNAVAILABLE);
 	}
 

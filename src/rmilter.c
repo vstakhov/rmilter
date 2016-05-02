@@ -90,6 +90,12 @@ struct smfiDesc smfilter =
 };
 
 extern struct config_file *cfg;
+extern pthread_key_t rnd_state;
+
+struct rmilter_rng_state {
+	uint64_t s[16];
+	int p;
+};
 
 /* Milter mutexes */
 pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -160,6 +166,65 @@ normalize_email_addr (const char *src, char *dest, size_t destlen)
 	if (destlen == 0) {
 		*d = '\0';
 	}
+}
+
+static struct rmilter_rng_state*
+get_prng_state (void)
+{
+	static const char *rng_dev = "/dev/urandom";
+	struct rmilter_rng_state *st;
+	int fd;
+	struct timeval tv;
+
+	st = pthread_getspecific (rnd_state);
+
+	if (st == NULL) {
+		st = malloc (sizeof (*st));
+
+		if (st == NULL) {
+			abort ();
+		}
+
+		fd = open (rng_dev, O_RDONLY);
+
+		if (fd == -1) {
+			msg_warn ("cannot open %s to seed prng, use current time",
+					rng_dev);
+			gettimeofday (&tv, NULL);
+			memcpy (st->s, &tv, sizeof (tv));
+		}
+		else {
+			if (read (fd, st->s, sizeof (st->s)) == -1) {
+				msg_warn ("cannot read %d bytes from %s to seed prng, use current time",
+						(int)sizeof (*st), rng_dev);
+				gettimeofday (&tv, NULL);
+				memcpy (st->s, &tv, sizeof (tv));
+			}
+
+			close (fd);
+		}
+
+		st->p = 0;
+
+		pthread_setspecific (rnd_state, st);
+	}
+
+	return st;
+}
+
+/*
+ * xorshift1024*
+ * from http://xoroshiro.di.unimi.it/
+ */
+static uint64_t
+prng_next (struct rmilter_rng_state *st)
+{
+	const uint64_t s0 = st->s[st->p];
+	uint64_t s1 = st->s[st->p = (st->p + 1) & 15];
+
+	s1 ^= s1 << 31;
+	st->s[st->p] = s1 ^ s0 ^ (s1 >> 11) ^ (s0 >> 30);
+	return st->s[st->p] * UINT64_C(1181783497276652981);
 }
 
 static inline int
@@ -537,6 +602,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	if (priv == NULL) {
 		return SMFIS_TEMPFAIL;
 	}
+
 	memset(priv, '\0', sizeof (struct mlfi_priv));
 	priv->rcpts = NULL;
 	priv->strict = 1;
