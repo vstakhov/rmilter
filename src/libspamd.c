@@ -102,7 +102,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	elt = ucl_object_lookup (metric, "subject");
 	res->subject = ucl_object_tostring (elt);
 
-	elt = ucl_object_lookup (metric, "message-id");
+	elt = ucl_object_lookup (obj, "message-id");
 	res->message_id = ucl_object_tostring (elt);
 
 	if (act_str) {
