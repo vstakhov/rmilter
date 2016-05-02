@@ -1797,7 +1797,8 @@ mlfi_cleanup(SMFICTX * ctx, bool ok)
 	}
 	/* clean message specific data */
 	priv->strict = 1;
-	priv->mlfi_id[0] = '\0';
+	/* Create new ID */
+	set_random_id (priv);
 	priv->reply_id[0] = '\0';
 	priv->queue_id[0] = '\0';
 	priv->message_id[0] = '\0';
