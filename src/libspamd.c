@@ -60,7 +60,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	const ucl_object_t *metric, *elt, *sym_elt;
 	const char *act_str;
 
-	up = ucl_parser_new (UCL_PARSER_KEY_LOWERCASE);
+	up = ucl_parser_new (0);
 
 	if (!ucl_parser_add_chunk (up, at, length)) {
 		msg_err ("cannot parse reply from rspamd: %s",
