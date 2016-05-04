@@ -296,7 +296,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	to_write = sizeof(buf) - r;
 	written = snprintf(buf + r, to_write, "Queue-ID: %s\r\n",
-			priv->mlfi_id);
+			priv->queue_id);
 	if (written > to_write) {
 		msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
 				 priv->mlfi_id, srv->name);
@@ -716,7 +716,7 @@ log_retry:
 			smfi_addheader (ctx, "X-Spamd-Server", selected->name);
 			snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
 			smfi_addheader (ctx, "X-Spamd-Scan-Time", hdrbuf);
-			smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->mlfi_id);
+			smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->queue_id);
 		}
 	}
 	/* Trace spam messages to specific addr */
