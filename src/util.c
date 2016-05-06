@@ -23,6 +23,7 @@
 
 #include "config.h"
 #include "util.h"
+#include "rmilter.h"
 #include <assert.h>
 #include <stdbool.h>
 
@@ -516,7 +517,7 @@ rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 }
 
 int
-rmilter_connect_addr (const char *addr, int port, int msec)
+rmilter_connect_addr (const char *addr, int port, int msec, struct mlfi_priv *priv)
 {
 	struct sockaddr_un su;
 	int ofl, r;
@@ -566,8 +567,8 @@ rmilter_connect_addr (const char *addr, int port, int msec)
 		error = getaddrinfo (addr, portbuf, &hints, &res0);
 
 		if (error) {
-			msg_err ("rmilter_connect_addr: getaddrinfo failed for %s:%d: %s",
-					addr, port, gai_strerror (error));
+			msg_err ("<%s>; rmilter_connect_addr: getaddrinfo failed for %s:%d: %s",
+					priv->mlfi_id, addr, port, gai_strerror (error));
 			return -1;
 		}
 
@@ -602,8 +603,8 @@ rmilter_connect_addr (const char *addr, int port, int msec)
 	}
 
 	if (s < 0) {
-		msg_err ("rmilter_connect_addr: connect failed: %s: %s",
-				cause, strerror (error));
+		msg_err ("<%s>; rmilter_connect_addr: connect failed: %s: %s",
+				priv->mlfi_id, cause, strerror (error));
 		return -1;
 	}
 
@@ -612,7 +613,7 @@ rmilter_connect_addr (const char *addr, int port, int msec)
 		return s;
 	}
 	else {
-		msg_err ("rmilter_connect_addr: connect failed: timeout");
+		msg_err ("<%s>; rmilter_connect_addr: connect failed: timeout", priv->mlfi_id);
 		close (s);
 	}
 

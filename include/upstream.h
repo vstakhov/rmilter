@@ -37,25 +37,27 @@ struct upstream {
 	int16_t weight;
 };
 
+struct mlfi_priv;
+
 void upstream_fail (struct upstream *up, time_t now);
 void upstream_ok (struct upstream *up, time_t now);
-void revive_all_upstreams (void *ups, unsigned int members, unsigned int msize);
+void revive_all_upstreams (void *ups, unsigned int members, unsigned int msize, struct mlfi_priv *priv);
 
 struct upstream* get_random_upstream   (void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout,
-		time_t revive_timeout, unsigned int max_errors);
+		time_t revive_timeout, unsigned int max_errors, struct mlfi_priv *priv);
 
 struct upstream* get_upstream_by_hash  (void *ups, unsigned int members, unsigned int msize,
 		time_t now,  time_t error_timeout,
 		time_t revive_timeout, unsigned int max_errors,
-		const unsigned char *key, unsigned int keylen);
+		const unsigned char *key, unsigned int keylen, struct mlfi_priv *priv);
 
 struct upstream* get_upstream_round_robin (void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout,
-		time_t revive_timeout, unsigned int max_errors);
+		time_t revive_timeout, unsigned int max_errors, struct mlfi_priv *priv);
 
 struct upstream* get_upstream_master_slave (void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout,
-		time_t revive_timeout, unsigned int max_errors);
+		time_t revive_timeout, unsigned int max_errors, struct mlfi_priv *priv);
 
 #endif /* UPSTREAM_H */

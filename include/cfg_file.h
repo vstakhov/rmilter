@@ -367,6 +367,8 @@ void yyrestart (FILE *);
 void parse_err (const char *fmt, ...);
 void parse_warn (const char *fmt, ...);
 
+struct mlfi_priv;
+
 #endif /* ifdef CFG_FILE_H */
 /*
  * vi:ts=4

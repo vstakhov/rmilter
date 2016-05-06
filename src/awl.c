@@ -105,7 +105,7 @@ awl_init (size_t poolsize, int hits, int ttl)
 }
 
 int
-awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
+awl_check (uint32_t ip, awl_hash_t *hash, time_t tm, struct mlfi_priv *priv)
 {
 	uint32_t nest;
 	awl_item_t *cur;
@@ -120,11 +120,12 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 		/* Found record */
 		if (cur->ip == ip) {
 			cur->last = tm;
-			msg_debug ("awl_check: ip %s in awl, hits %d", inet_ntoa (in), cur->hits);
+			msg_debug ("<%s>; awl_check: ip %s in awl, hits %d", priv->mlfi_id, inet_ntoa (in), cur->hits);
 			A_UNLOCK (nest, hash);
 			if (cur->hits >= hash->white_hits) {
 				/* Address whitelisted */
-				msg_info ("awl_check: ip %s is whitelisted, hits %d", inet_ntoa (in), cur->hits);
+				msg_info ("<%s>; awl_check: ip %s is whitelisted, hits %d", 
+					priv->mlfi_id, inet_ntoa (in), cur->hits);
 				return cur->hits;
 			}
 			else {
@@ -141,7 +142,7 @@ awl_check (uint32_t ip, awl_hash_t *hash, time_t tm)
 }
 
 void
-awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
+awl_add (uint32_t ip, awl_hash_t *hash, time_t tm, struct mlfi_priv *priv)
 {
 	uint32_t nest;
 	awl_item_t *cur, *expired = NULL, *eldest = NULL, *new;
@@ -152,7 +153,8 @@ awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
 	/* Find free nest */
 	if (hash->nests[nest] == NULL) {
 		cur = awl_pool_alloc (nest, 0, hash);
-		msg_info ("awl_add: insert ip %s in cache, insert first item", inet_ntoa (in));
+		msg_info ("<%s>; awl_add: insert ip %s in cache, insert first item", 
+			priv->mlfi_id, inet_ntoa (in));
 		cur->ip = ip;
 		cur->hits = 1;
 		cur->last = tm;
@@ -189,14 +191,16 @@ awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
 	/* Record not found */
 	if (expired != NULL) {
 		/* Insert in place of expired item */
-		msg_info ("awl_add: insert ip %s in cache, replace expired item", inet_ntoa (in));
+		msg_info ("<%s>; awl_add: insert ip %s in cache, replace expired item", 
+			priv->mlfi_id, inet_ntoa (in));
 		expired->ip = ip;
 		expired->hits = 1;
 		expired->last = tm;
 	}
 	if (hash->free[nest] >= sizeof (awl_item_t)) {
 		/* We have enough free space in pool */
-		msg_info ("awl_add: insert ip %s in cache, normal insert", inet_ntoa (in));
+		msg_info ("<%s>; awl_add: insert ip %s in cache, normal insert", 
+			priv->mlfi_id, inet_ntoa (in));
 		new = awl_pool_alloc (nest, cur - hash->nests[nest] + sizeof (awl_item_t), hash);
 		if (new == NULL) {
 			A_UNLOCK (nest, hash);
@@ -211,7 +215,8 @@ awl_add (uint32_t ip, awl_hash_t *hash, time_t tm)
 	}
 	else {
 		/* Not enough space in pool, replace latest used item */
-		msg_info ("awl_add: insert ip %s in cache, replace eldest item", inet_ntoa (in));
+		msg_info ("<%s>; awl_add: insert ip %s in cache, replace eldest item", 
+			priv->mlfi_id, inet_ntoa (in));
 		eldest->ip = ip;
 		eldest->hits = 1;
 		eldest->last = tm;

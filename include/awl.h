@@ -53,9 +53,11 @@ typedef struct awl_hash_s {
 #endif
 } awl_hash_t;
 
+struct mlfi_priv;
+
 awl_hash_t * awl_init (size_t poolsize, int hits, int ttl);
-int awl_check (uint32_t ip, awl_hash_t *hash, time_t tm);
-void awl_add (uint32_t ip, awl_hash_t *hash, time_t tm);
+int awl_check (uint32_t ip, awl_hash_t *hash, time_t tm, struct mlfi_priv *priv);
+void awl_add (uint32_t ip, awl_hash_t *hash, time_t tm, struct mlfi_priv *priv);
 
 #endif
 /*

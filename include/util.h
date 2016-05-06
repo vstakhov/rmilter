@@ -75,12 +75,12 @@ int rmilter_pidfile_remove (rmilter_pidfh_t *pfh);
 #define msg_debug(args...) do {} while(0)
 #endif
 
-
+struct mlfi_priv;
 
 char* rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 		size_t *outlen);
 
-int rmilter_connect_addr (const char *addr, int port, int msec);
+int rmilter_connect_addr (const char *addr, int port, int msec, struct mlfi_priv *priv);
 int rmilter_poll_fd (int fd, int timeout, short events);
 
 #define msec_to_tv(msec, tv) do { (tv)->tv_sec = (msec) / 1000; (tv)->tv_usec = \

@@ -39,6 +39,8 @@ enum milter_stage {
 	STAGE_BODY,
 };
 
+struct mlfi_priv;
+
 struct rule  * regexp_check (const struct config_file *,	/* Config file */
 				  const struct mlfi_priv *,					/* Current priv data */
 				  enum milter_stage);						/* Current Stage */

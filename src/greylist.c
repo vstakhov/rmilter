@@ -93,7 +93,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 	dlen = sizeof (*tm1);
 
 	if (rmilter_query_cache (cfg, RMILTER_QUERY_WHITELIST, key, keylen,
-			(unsigned char **)&tm1, &dlen)) {
+			(unsigned char **)&tm1, &dlen, priv)) {
 		elapsed = tm1->tv_sec + cfg->whitelisting_expire;
 		localtime_r (&elapsed, &tm_parsed);
 		strftime (timebuf, sizeof (timebuf), "%F %T", &tm_parsed);
@@ -116,18 +116,18 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 	dlen = sizeof (*tm1);
 
 	if (gettimeofday (&tm, NULL) == -1) {
-		msg_err ("<%s>;: gettimeofday failed: %s", priv->mlfi_id,
+		msg_err ("<%s>; gettimeofday failed: %s", priv->mlfi_id,
 				strerror (errno));
 
 		return GREY_WHITELISTED;
 	}
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
-			(unsigned char **)&tm1, &dlen)) {
+			(unsigned char **)&tm1, &dlen, priv)) {
 		/* Greylisting record does not exist or is insane, writing new one */
 
 		if (rmilter_set_cache (cfg, RMILTER_QUERY_GREYLIST, key, keylen,
-				(unsigned char *)&tm, sizeof (tm), cfg->greylisting_expire)) {
+				(unsigned char *)&tm, sizeof (tm), cfg->greylisting_expire, priv)) {
 
 			if (exists) {
 				*exists = false;
@@ -226,7 +226,7 @@ greylisting_check_hash (struct config_file *cfg, struct mlfi_priv *priv,
 
 			if (!rmilter_set_cache (cfg, RMILTER_QUERY_WHITELIST, key, keylen,
 							(unsigned char *)&tm, sizeof (tm),
-							cfg->whitelisting_expire)) {
+							cfg->whitelisting_expire, priv)) {
 				msg_err ("<%s>; greylisting_check_hash: cannot store whitelisting data: "
 						"type %s, key: '%s'",
 						priv->mlfi_id, type, key);

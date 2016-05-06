@@ -27,6 +27,7 @@
 #include "cfg_file.h"
 #include "cache.h"
 #include "hiredis.h"
+#include "rmilter.h"
 #include "upstream.h"
 #include "util.h"
 #include <assert.h>
@@ -63,7 +64,7 @@ static inline bool compat_memcached_fatal(int rc)
 
 static struct cache_server *
 rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
-		const unsigned char *key, size_t keylen)
+		const unsigned char *key, size_t keylen, struct mlfi_priv *priv)
 {
 	struct cache_server *serv = NULL;
 	void *ptr = NULL;
@@ -104,7 +105,7 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 		serv = (struct cache_server *)get_upstream_by_hash (ptr, mlen,
 				sizeof (*serv), time (NULL),
 				cfg->memcached_error_time, cfg->memcached_dead_time,
-				cfg->memcached_maxerrors, key, keylen);
+				cfg->memcached_maxerrors, key, keylen, priv);
 	}
 
 	return serv;
@@ -132,7 +133,7 @@ rmilter_format_libmemcached_config (struct config_file *cfg,
 bool
 rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 		const unsigned char *key, size_t keylen,
-		unsigned char **data, size_t *datalen)
+		unsigned char **data, size_t *datalen, struct mlfi_priv *priv)
 {
 	struct cache_server *serv;
 	redisContext *redis;
@@ -142,7 +143,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 	size_t nelems = 1;
 	int rep;
 
-	serv = rmilter_get_server (cfg, type, key, keylen);
+	serv = rmilter_get_server (cfg, type, key, keylen, priv);
 
 	if (serv) {
 		if (cfg->use_redis) {
@@ -155,8 +156,8 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
 			if (redis == NULL || redis->err != 0) {
-				msg_err ("cannot connect to %s:%d: %s", serv->addr,
-						(int)serv->port, redis ? redis->errstr : "unknown error");
+				msg_err ("<%s>; cannot connect to %s:%d: %s", priv->mlfi_id, serv->addr,
+					(int)serv->port, redis ? redis->errstr : "unknown error");
 				upstream_fail (&serv->up, time (NULL));
 
 				if (redis) {
@@ -221,8 +222,8 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			rmilter_format_libmemcached_config (cfg, serv, mctx);
 
 			if (mctx == NULL) {
-				msg_err ("cannot connect to %s:%d: %s", serv->addr,
-						(int)serv->port, strerror (errno));
+				msg_err ("<%s>; cannot connect to %s:%d: %s", priv->mlfi_id, serv->addr,
+					(int)serv->port, strerror (errno));
 				upstream_fail (&serv->up, time (NULL));
 
 				return false;
@@ -238,8 +239,8 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 				*datalen = 0;
 
 				if (compat_memcached_fatal (mret)) {
-					msg_err ("cannot get key on %s:%d: %s", serv->addr,
-							(int)serv->port, memcached_strerror (mctx, mret));
+					msg_err ("<%s>; cannot get key on %s:%d: %s", priv->mlfi_id, serv->addr,
+						(int)serv->port, memcached_strerror (mctx, mret));
 					upstream_fail (&serv->up, time (NULL));
 				}
 				else {
@@ -264,7 +265,7 @@ bool
 rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 		const unsigned char *key, size_t keylen,
 		const unsigned char *data, size_t datalen,
-		unsigned expire)
+		unsigned expire, struct mlfi_priv *priv)
 {
 	struct cache_server *serv;
 	redisContext *redis;
@@ -273,7 +274,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 	size_t nelems = 1;
 	int rep;
 
-	serv = rmilter_get_server (cfg, type, key, keylen);
+	serv = rmilter_get_server (cfg, type, key, keylen, priv);
 
 	if (serv) {
 		if (cfg->use_redis) {
@@ -285,8 +286,8 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
 			if (redis == NULL || redis->err != 0) {
-				msg_err ("cannot connect to %s:%d: %s", serv->addr,
-						(int)serv->port, redis ? redis->errstr : "unknown error");
+				msg_err ("<%s>; cannot connect to %s:%d: %s", priv->mlfi_id, serv->addr,
+					(int)serv->port, redis ? redis->errstr : "unknown error");
 				upstream_fail (&serv->up, time (NULL));
 
 				if (redis) {
@@ -350,8 +351,8 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			rmilter_format_libmemcached_config (cfg, serv, mctx);
 
 			if (mctx == NULL) {
-				msg_err ("cannot connect to %s:%d: %s", serv->addr,
-						(int)serv->port, strerror (errno));
+				msg_err ("<%s>; cannot connect to %s:%d: %s", priv->mlfi_id, serv->addr,
+					(int)serv->port, strerror (errno));
 				upstream_fail (&serv->up, time (NULL));
 
 				return false;
@@ -361,8 +362,8 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 					expire, 0);
 
 			if (!compat_memcached_success (mret)) {
-				msg_err ("cannot set key on %s:%d: %s", serv->addr,
-						(int)serv->port, memcached_strerror (mctx, mret));
+				msg_err ("<%s>; cannot set key on %s:%d: %s", priv->mlfi_id, serv->addr,
+					    (int)serv->port, memcached_strerror (mctx, mret));
 				upstream_fail (&serv->up, time (NULL));
 				memcached_free (mctx);
 
@@ -381,7 +382,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 bool
 rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
-		const unsigned char *key, size_t keylen)
+		const unsigned char *key, size_t keylen, struct mlfi_priv *priv)
 {
 	struct cache_server *serv;
 	redisContext *redis;
@@ -390,7 +391,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 	size_t nelems = 1;
 	int rep;
 
-	serv = rmilter_get_server (cfg, type, key, keylen);
+	serv = rmilter_get_server (cfg, type, key, keylen, priv);
 
 	if (serv) {
 		if (cfg->use_redis) {
@@ -402,7 +403,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
 			if (redis == NULL || redis->err != 0) {
-				msg_err ("cannot connect to %s:%d: %s", serv->addr,
+				msg_err ("<%s>; cannot connect to %s:%d: %s", priv->mlfi_id, serv->addr,
 						(int)serv->port, redis ? redis->errstr : "unknown error");
 				upstream_fail (&serv->up, time (NULL));
 
@@ -458,7 +459,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			rmilter_format_libmemcached_config (cfg, serv, mctx);
 
 			if (mctx == NULL) {
-				msg_err ("cannot connect to %s:%d: %s", serv->addr,
+				msg_err ("<%s>; cannot connect to %s:%d: %s", priv->mlfi_id, serv->addr,
 						(int)serv->port, strerror (errno));
 				upstream_fail (&serv->up, time (NULL));
 
@@ -469,7 +470,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 			if (!compat_memcached_success (mret)) {
 				if (compat_memcached_fatal (mret)) {
-					msg_err ("cannot delete key on %s:%d: %s", serv->addr,
+					msg_err ("<%s>; cannot delete key on %s:%d: %s", priv->mlfi_id, serv->addr,
 							(int)serv->port, memcached_strerror (mctx, mret));
 					upstream_fail (&serv->up, time (NULL));
 					memcached_free (mctx);

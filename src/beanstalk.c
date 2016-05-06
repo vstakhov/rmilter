@@ -48,9 +48,9 @@
 /*
  * Make socket for tcp connection
  */
-static int bean_make_tcp_sock(beanstalk_ctx_t *ctx)
+static int bean_make_tcp_sock(beanstalk_ctx_t *ctx, struct mlfi_priv *priv)
 {
-	ctx->sock = rmilter_connect_addr (ctx->addr, ctx->port, ctx->timeout);
+	ctx->sock = rmilter_connect_addr (ctx->addr, ctx->port, ctx->timeout, priv);
 
 	if (ctx->sock == -1) {
 		return -1;
@@ -352,7 +352,7 @@ bean_error_t bean_del(beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
 /* 
  * Initialize beanstalk context for specified protocol
  */
-int bean_init_ctx(beanstalk_ctx_t *ctx)
+int bean_init_ctx(beanstalk_ctx_t *ctx, struct mlfi_priv *priv)
 {
 	if (ctx == NULL) {
 		return -1;
@@ -360,7 +360,7 @@ int bean_init_ctx(beanstalk_ctx_t *ctx)
 
 	ctx->count = 0;
 
-	return bean_make_tcp_sock (ctx);
+	return bean_make_tcp_sock (ctx, priv);
 }
 
 /*
