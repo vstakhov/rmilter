@@ -93,7 +93,7 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	if (!srv)
 		return 0;
 
-	s = rmilter_connect_addr (srv->name, srv->port, cfg->clamav_connect_timeout);
+	s = rmilter_connect_addr (srv->name, srv->port, cfg->clamav_connect_timeout, priv);
 
 	if (s == -1) {
 		return -1;
@@ -309,14 +309,14 @@ int clamscan (void *ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					(void *) cfg->clamav_servers, cfg->clamav_servers_num,
 					sizeof(struct clamav_server), t.tv_sec,
 					cfg->clamav_error_time, cfg->clamav_dead_time,
-					cfg->clamav_maxerrors);
+					cfg->clamav_maxerrors, priv);
 		}
 		else {
 			selected = (struct clamav_server *) get_random_upstream (
 					(void *) cfg->clamav_servers, cfg->clamav_servers_num,
 					sizeof(struct clamav_server), t.tv_sec,
 					cfg->clamav_error_time, cfg->clamav_dead_time,
-					cfg->clamav_maxerrors);
+					cfg->clamav_maxerrors, priv);
 		}
 		if (selected == NULL) {
 			msg_err("<%s>; clamscan: upstream get error, %s", priv->mlfi_id,

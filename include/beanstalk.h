@@ -29,6 +29,8 @@
 
 #include "config.h"
 
+struct mlfi_priv;
+
 typedef enum bean_error {
 	BEANSTALK_OK,
 	BEANSTALK_BAD_COMMAND,
@@ -83,7 +85,7 @@ typedef struct beanstalk_param_s {
  * 0 - success
  * -1 - error (error is stored in errno)
  */
-int bean_init_ctx (beanstalk_ctx_t *ctx);
+int bean_init_ctx (beanstalk_ctx_t *ctx, struct mlfi_priv *priv);
 /*
  *    put with delay               release with delay
  * ----------------> [DELAYED] <------------.

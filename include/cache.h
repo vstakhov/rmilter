@@ -34,6 +34,7 @@
 #endif
 
 struct config_file;
+struct mlfi_priv;
 
 enum rmilter_query_type {
 	RMILTER_QUERY_GREYLIST = 0,
@@ -50,17 +51,18 @@ enum rmilter_query_type {
  * @param keylen length of the key
  * @param data data returned by a server (must be freed by a caller)
  * @param datalen pointer to length of data (out)
+ * @param priv pointer to useful information from milter protocol
  * @return
  */
 bool rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 		const unsigned char *key, size_t keylen,
-		unsigned char **data, size_t *datalen);
+		unsigned char **data, size_t *datalen, struct mlfi_priv *priv);
 
 bool rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 		const unsigned char *key, size_t keylen,
-		const unsigned char *data, size_t datalen, unsigned expire);
+		const unsigned char *data, size_t datalen, unsigned expire, struct mlfi_priv *priv);
 
 bool rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
-		const unsigned char *key, size_t keylen);
+		const unsigned char *key, size_t keylen, struct mlfi_priv *priv);
 
 #endif /* INCLUDE_CACHE_H_ */

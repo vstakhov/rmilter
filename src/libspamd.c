@@ -50,7 +50,7 @@ pthread_mutex_t mx_spamd_write = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 static int
-rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t length)
+rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t length, struct mlfi_priv *priv)
 {
 	struct rspamd_metric_result *res = parser->data;
 	struct ucl_parser *up;
@@ -63,8 +63,8 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	up = ucl_parser_new (0);
 
 	if (!ucl_parser_add_chunk (up, at, length)) {
-		msg_err ("cannot parse reply from rspamd: %s",
-				ucl_parser_get_error (up));
+		msg_err ("<%s>; cannot parse reply from rspamd: %s",
+				priv->mlfi_id, ucl_parser_get_error (up));
 		ucl_parser_free (up);
 
 		return -1;
@@ -75,7 +75,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	res->obj = obj;
 
 	if (obj == NULL || ucl_object_type (obj) != UCL_OBJECT) {
-		msg_err ("cannot parse reply from rspamd: bad top object");
+		msg_err ("<%s>; cannot parse reply from rspamd: bad top object", priv->mlfi_id);
 		ucl_object_unref (obj);
 
 		return -1;
@@ -84,7 +84,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	metric = ucl_object_lookup (obj, "default");
 
 	if (metric == NULL || ucl_object_type (metric) != UCL_OBJECT) {
-		msg_err ("cannot parse reply from rspamd: no default metric result");
+		msg_err ("<%s>; cannot parse reply from rspamd: no default metric result", priv->mlfi_id);
 		ucl_object_unref (obj);
 
 		return -1;
@@ -123,7 +123,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 		}
 	}
 	else {
-		msg_warn ("invalid reply from rspamd: no action found, assume no action");
+		msg_warn ("<%s>; invalid reply from rspamd: no action found, assume no action", priv->mlfi_id);
 		res->action = METRIC_ACTION_NOACTION;
 	}
 
@@ -183,7 +183,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		return 0;
 	}
 
-	s = rmilter_connect_addr (srv->name, srv->port, cfg->spamd_connect_timeout);
+	s = rmilter_connect_addr (srv->name, srv->port, cfg->spamd_connect_timeout, priv);
 
 	/* Get file size */
 	fd = open (priv->file, O_RDONLY);
@@ -459,14 +459,14 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 					(void *) cfg->extra_spamd_servers,
 					cfg->extra_spamd_servers_num, sizeof(struct spamd_server),
 					t.tv_sec, cfg->spamd_error_time, cfg->spamd_dead_time,
-					cfg->spamd_maxerrors);
+					cfg->spamd_maxerrors, priv);
 		}
 		else {
 			selected = (struct spamd_server *) get_random_upstream (
 					(void *) cfg->spamd_servers, cfg->spamd_servers_num,
 					sizeof(struct spamd_server), t.tv_sec,
 					cfg->spamd_error_time, cfg->spamd_dead_time,
-					cfg->spamd_maxerrors);
+					cfg->spamd_maxerrors, priv);
 		}
 		if (selected == NULL) {
 			msg_err("<%s>; spamdscan: upstream get error, %s", priv->mlfi_id,

@@ -350,7 +350,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 	keylen = strlen (key);
 	dlen = 1;
 
-	r = rmilter_query_cache(cfg, RMILTER_QUERY_ID, key, keylen, &dbuf, &dlen);
+	r = rmilter_query_cache(cfg, RMILTER_QUERY_ID, key, keylen, &dbuf, &dlen, priv);
 	if (r) {
 		free (dbuf);
 		/* Turn off strict checks if message id is found */
@@ -450,7 +450,7 @@ send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
 	bctx.port = srv->port;
 	bctx.timeout = cfg->beanstalk_connect_timeout;
 
-	r = bean_init_ctx (&bctx);
+	r = bean_init_ctx (&bctx, priv);
 	if (r == -1) {
 		munmap (map, st.st_size);
 		msg_warn ("<%s>; send_beanstalk_copy: cannot connect to beanstalk upstream: %s",
@@ -497,7 +497,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 			(void *)cfg->beanstalk_servers,
 			cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
 			priv->conn_tm.tv_sec, cfg->beanstalk_error_time,
-			cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors);
+			cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors, priv);
 	if (selected == NULL) {
 		msg_err ("<%s>; send_beanstalk: upstream get error, %s", priv->mlfi_id, priv->file);
 		return;
@@ -529,7 +529,7 @@ send_beanstalk (const struct mlfi_priv *priv)
 	bctx.port = selected->port;
 	bctx.timeout = cfg->beanstalk_connect_timeout;
 
-	r = bean_init_ctx (&bctx);
+	r = bean_init_ctx (&bctx, priv);
 	if (r == -1) {
 		msg_warn ("<%s>; send_beanstalk: cannot connect to beanstalk upstream: %s",
 				priv->mlfi_id,

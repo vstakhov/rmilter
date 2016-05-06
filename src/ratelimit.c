@@ -157,25 +157,26 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 	klen = make_key (key, sizeof(key), type, priv, rcpt);
 
 	if (klen == 0) {
-		msg_err("check_specific_limit: got error bad too long key");
+		msg_err("<%s>; check_specific_limit: got error bad too long key", priv->mlfi_id);
 		return -1;
 	}
 
 	dlen = sizeof (*b);
 
 	if (!rmilter_query_cache (cfg, RMILTER_QUERY_RATELIMIT, key, klen,
-			(unsigned char **) &b, &dlen)) {
+			(unsigned char **) &b, &dlen, priv)) {
 		b = calloc (1, sizeof (*b));
 		dlen = sizeof (*b);
 
 		if (b == NULL) {
-			msg_err("check_specific_limit: calloc failed: %s", strerror (errno));
+			msg_err("<%s>; check_specific_limit: calloc failed: %s", 
+				priv->mlfi_id, strerror (errno));
 			return -1;
 		}
 	}
 
-	msg_debug("check_specific_limit: got limit for key: '%s', "
-			"count: %.1f, time: %.1f", key, b->count, b->tm);
+	msg_debug("<%s>; check_specific_limit: got limit for key: '%s', "
+			"count: %.1f, time: %.1f", priv->mlfi_id, key, b->count, b->tm);
 	/* Leak from bucket at specified rate */
 	if (b->count > 0) {
 		b->count -= (tm - b->tm) * bucket->rate;
@@ -189,19 +190,19 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 
 	if (is_update && b->count == 0) {
 		/* Delete key if bucket is empty */
-		rmilter_delete_cache (cfg, RMILTER_QUERY_RATELIMIT, key, klen);
+		rmilter_delete_cache (cfg, RMILTER_QUERY_RATELIMIT, key, klen, priv);
 	}
 	else {
 		/* Update rate limit */
 		rmilter_set_cache (cfg, RMILTER_QUERY_RATELIMIT, key, klen,
-				(unsigned char *) b, dlen, EXPIRE_TIME);
+				(unsigned char *) b, dlen, EXPIRE_TIME, priv);
 	}
 
 	if (b->count > bucket->burst && !is_update) {
 		/* Rate limit exceeded */
 		msg_info(
-				"rate_check: ratelimit exceeded for key: %s, count: %.2f, burst: %u",
-				key, b->count, bucket->burst);
+				"<%s>; rate_check: ratelimit exceeded for key: %s, count: %.2f, burst: %u",
+				priv->mlfi_id, key, b->count, bucket->burst);
 		free (b);
 
 		return 0;
@@ -222,7 +223,7 @@ int rate_check(struct mlfi_priv *priv, struct config_file *cfg,
 	if (priv->priv_addr.family == AF_INET
 			&& is_whitelisted (&priv->priv_addr, rcpt, cfg)
 					!= 0) {
-		msg_info("rate_check: address is whitelisted, skipping checks");
+		msg_info("<%s>; rate_check: address is whitelisted, skipping checks", priv->mlfi_id);
 		return 1;
 	}
 
@@ -233,8 +234,8 @@ int rate_check(struct mlfi_priv *priv, struct config_file *cfg,
 
 	if (is_bounce (priv->priv_from, cfg) != 0) {
 		msg_debug(
-				"rate_check: bounce address detected, doing special checks: %s",
-				priv->priv_from);
+				"<%s>; rate_check: bounce address detected, doing special checks: %s",
+				priv->mlfi_id, priv->priv_from);
 		r = check_specific_limit (priv, cfg, BOUNCE_TO, &cfg->limit_bounce_to,
 				t, rcpt, is_update);
 		if (r != 1) {
