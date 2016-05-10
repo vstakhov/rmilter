@@ -431,7 +431,7 @@ int
 spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		char **subject, int extra)
 {
-	static const int max_syslog_len = 1000;
+	static const int max_syslog_len = 900;
 	int retry, r = -2, to_trace = 0, i, j, ret;
 	struct timeval t;
 	double ts, tf;
