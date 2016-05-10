@@ -33,8 +33,10 @@
 struct config_file;
 struct mlfi_priv;
 
-int spamdscan (void *ctx, struct mlfi_priv *priv, struct config_file *cfg, char
-		**subject, int is_extra);
+struct rspamd_metric_result* spamdscan (void *ctx, struct mlfi_priv *priv,
+		struct config_file *cfg, int is_extra);
+void spamd_free_result (struct rspamd_metric_result *mres);
+
 
 /* Structure for rspamd results */
 enum rspamd_metric_action {
@@ -42,8 +44,12 @@ enum rspamd_metric_action {
 	METRIC_ACTION_GREYLIST,
 	METRIC_ACTION_ADD_HEADER,
 	METRIC_ACTION_REWRITE_SUBJECT,
+	METRIC_ACTION_SOFT_REJECT,
 	METRIC_ACTION_REJECT
 };
+
+#define SPAM_IS_SPAM(res) ((res)->action >= METRIC_ACTION_ADD_HEADER)
+#define SPAM_IS_GREYLIST(res) ((res)->action >= METRIC_ACTION_GREYLIST && (res)->action < METRIC_ACTION_SOFT_REJECT)
 
 struct rspamd_symbol {
 	const char *symbol;
@@ -56,6 +62,7 @@ struct rspamd_metric_result {
 	ucl_object_t *obj;
 	const char *metric_name;
 	const char *subject;
+	const char *message;
 	const char *message_id;
 	double score;
 	double required_score;

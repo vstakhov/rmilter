@@ -563,29 +563,6 @@ send_beanstalk (const struct mlfi_priv *priv)
 }
 
 static void
-format_spamd_reply (char *result, size_t len, char *format, char *symbols)
-{
-	char *pos = result, *s = format;
-
-	while (pos - result < len && *s != '\0') {
-		if (*s != '%') {
-			/* Copy next symbol */
-			*pos ++ = *s ++;
-		}
-		else if (*(s + 1) == 's') {
-			/* Paste symbols */
-			if (symbols != NULL) {
-				pos += rmilter_strlcpy (pos, symbols, len - (pos - result));
-			}
-			else {
-				pos += rmilter_strlcpy (pos, "no symbols", len - (pos - result));
-			}
-		}
-	}
-	*pos = '\0';
-}
-
-static void
 set_random_id (struct mlfi_priv *priv)
 {
 	struct rmilter_rng_state *st;
@@ -1223,6 +1200,9 @@ action_to_string (int act)
 	case METRIC_ACTION_REWRITE_SUBJECT:
 		ret = "rewrite subject";
 		break;
+	case METRIC_ACTION_SOFT_REJECT:
+		ret = "soft reject";
+		break;
 	case METRIC_ACTION_GREYLIST:
 		ret = "greylist";
 		break;
@@ -1246,7 +1226,7 @@ mlfi_eom(SMFICTX * ctx)
 #error "neither PATH_MAX nor MAXPATHEN defined"
 #endif
 	char tmpbuf[128], ip_str[INET6_ADDRSTRLEN + 1];
-	char *id, *subject = NULL;
+	char *id;
 	int prob_max;
 	double prob_cur;
 	struct stat sb;
@@ -1254,6 +1234,7 @@ mlfi_eom(SMFICTX * ctx)
 	struct rcpt *rcpt;
 	bool ip_whitelisted = false;
 	int ret = SMFIS_CONTINUE;
+	struct rspamd_metric_result *mres = NULL;
 	const char *spam_check_result = "unknown",
 			*av_check_result = "unknown",
 			*dkim_result = "unsigned";
@@ -1373,25 +1354,10 @@ mlfi_eom(SMFICTX * ctx)
 			&& !ip_whitelisted &&
 			(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("<%s>; mlfi_eom: check spamd", priv->mlfi_id);
-		r = spamdscan (ctx, priv, cfg, &subject, 0);
+		mres = spamdscan (ctx, priv, cfg, 0);
 
-		/* Check on extra servers */
-		if (cfg->extra_spamd_servers_num != 0) {
-			msg_debug ("<%s>; mlfi_eom: check spamd", priv->mlfi_id);
-			er = spamdscan (ctx, priv, cfg, &subject, 1);
-			if (er < 0) {
-				msg_warn ("<%s>; mlfi_eom: extra_spamdscan() failed, %d", priv->mlfi_id, r);
-			}
-			else if (r != er) {
-				msg_warn ("<%s>; mlfi_eom: spamd_extra_scan returned %d and normal scan returned %d",
-					priv->mlfi_id, er, r);
-				if (cfg->spam_server && cfg->send_beanstalk_extra_diff) {
-					send_beanstalk_copy (priv, cfg->spam_server);
-				}
-			}
-		}
-		if (r < 0) {
-			msg_warn ("<%s>; mlfi_eom: spamdscan() failed, %d", priv->mlfi_id, r);
+		if (mres == NULL) {
+			msg_warn ("<%s>; mlfi_eom: spamdscan() failed", priv->mlfi_id);
 
 			if (cfg->spamd_temp_fail) {
 				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
@@ -1405,23 +1371,41 @@ mlfi_eom(SMFICTX * ctx)
 				spam_check_result = "ignored, temporary fail";
 				goto av_check;
 			}
-
 		}
-		else if (r != METRIC_ACTION_NOACTION) {
-			if (cfg->spam_server && cfg->send_beanstalk_spam) {
-				send_beanstalk_copy (priv, cfg->spam_server);
+		else {
+			if (cfg->spamd_greylist && SPAM_IS_GREYLIST (mres) &&
+					!priv->authenticated) {
+				/* Perform greylisting */
+				CFG_UNLOCK();
+				/* Unlock config to avoid recursion, since check_greylisting locks cfg as well */
+				if (check_greylisting_ctx (ctx, priv) != SMFIS_CONTINUE) {
+					CFG_RLOCK();
+					msg_info (
+							"<%s>; mlfi_eom: greylisting message according to spamd action",
+							priv->mlfi_id);
+					snprintf (tmpbuf, sizeof (tmpbuf), "greylisted, action: %s",
+							action_to_string (mres->action));
+					spam_check_result = tmpbuf;
+
+					ret = SMFIS_TEMPFAIL;
+					av_check_result = "skipped, spamd greylist";
+					dkim_result = "skipped, spamd greylist";
+					goto end;
+				}
+				CFG_RLOCK();
 			}
 
-			if (! cfg->spamd_soft_fail || r == METRIC_ACTION_REJECT) {
+			switch (mres->action) {
+			case METRIC_ACTION_REJECT:
+				if (cfg->spam_server && cfg->send_beanstalk_spam) {
+					send_beanstalk_copy (priv, cfg->spam_server);
+				}
 				if (!cfg->spamd_never_reject) {
 					msg_info ("<%s>; mlfi_eom: rejecting spam", priv->mlfi_id);
-					format_spamd_reply (strres,
-							sizeof (strres),
-							cfg->spamd_reject_message,
-							NULL);
-					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT, strres);
+					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT,
+							cfg->spamd_reject_message);
 					snprintf (tmpbuf, sizeof (tmpbuf), "rejected, action: %s",
-										action_to_string (r));
+							action_to_string (mres->action));
 					spam_check_result = tmpbuf;
 					av_check_result = "skipped, spam detected";
 					dkim_result = "skipped, spam detected";
@@ -1432,30 +1416,9 @@ mlfi_eom(SMFICTX * ctx)
 					/* Add header instead */
 
 					if (!priv->authenticated) {
-
 						if (cfg->spamd_greylist) {
-							/* Perform greylisting */
-							CFG_UNLOCK();
-							/* Unlock config to avoid recursion, since check_greylisting locks cfg as well */
-							if (!priv->authenticated &&
-									check_greylisting_ctx (ctx, priv) !=
-											SMFIS_CONTINUE) {
-								CFG_RLOCK();
-								msg_info (
-										"<%s>; mlfi_eom: greylisting message according to spamd action",
-										priv->mlfi_id);
-								snprintf (tmpbuf, sizeof (tmpbuf), "greylisted, action: %s",
-										action_to_string (r));
-								spam_check_result = tmpbuf;
 
-								ret = SMFIS_TEMPFAIL;
-								av_check_result = "skipped, spamd greylist";
-								dkim_result = "skipped, spamd greylist";
-								goto end;
-							}
-							CFG_RLOCK();
 						}
-
 						msg_info (
 								"<%s>, mlfi_eom: add spam header to message instead"
 								" of rejection",
@@ -1465,9 +1428,8 @@ mlfi_eom(SMFICTX * ctx)
 								1,
 								cfg->spam_header_value);
 						snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
-								action_to_string (r));
+								action_to_string (mres->action));
 						spam_check_result = tmpbuf;
-
 					}
 					else {
 						if (!cfg->spam_no_auth_header) {
@@ -1480,7 +1442,7 @@ mlfi_eom(SMFICTX * ctx)
 									1,
 									cfg->spam_header_value);
 							snprintf (tmpbuf, sizeof (tmpbuf), "add header, action: %s",
-									action_to_string (r));
+									action_to_string (mres->action));
 							spam_check_result = tmpbuf;
 						}
 						else {
@@ -1488,95 +1450,67 @@ mlfi_eom(SMFICTX * ctx)
 						}
 					}
 				}
-			}
-			else {
-				format_spamd_reply (strres,
-						sizeof (strres),
-						cfg->spamd_reject_message,
-						NULL);
+				break; /* REJECT */
+			case METRIC_ACTION_SOFT_REJECT:
+				smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL,
+						mres->message ? mres->message : "Temporary failure");
 
-				if (r >= METRIC_ACTION_GREYLIST && cfg->spamd_greylist) {
-					/* Perform greylisting */
-					CFG_UNLOCK();
-					/* Unlock config to avoid recursion, since check_greylisting locks cfg as well */
-					if (!priv->authenticated &&
-							check_greylisting_ctx (ctx, priv) !=
-									SMFIS_CONTINUE) {
-						CFG_RLOCK();
-						msg_info (
-								"<%s>; mlfi_eom: greylisting message according to spamd action",
-								priv->mlfi_id);
-						snprintf (tmpbuf, sizeof (tmpbuf), "greylisted, action: %s",
-														action_to_string (r));
-						spam_check_result = tmpbuf;
-						av_check_result = "skipped, spamd greylist";
-						dkim_result = "skipped, spamd greylist";
-
-						ret = SMFIS_TEMPFAIL;
-						goto end;
-					}
-					CFG_RLOCK();
-				}
-				if (r == METRIC_ACTION_ADD_HEADER) {
-					if (!priv->authenticated || !cfg->spam_no_auth_header) {
-						msg_info (
-								"<%s>; mlfi_eom: add spam header to message according to spamd action",
-								priv->mlfi_id);
-						snprintf (tmpbuf, sizeof (tmpbuf), "action: %s",
-								action_to_string (r));
-						spam_check_result = tmpbuf;
-						smfi_chgheader (ctx,
-								cfg->spam_header,
-								1,
-								cfg->spam_header_value);
-					}
-					else {
-						spam_check_result = "ignored, authenticated user";
-					}
-				}
-				else if (r == METRIC_ACTION_REWRITE_SUBJECT) {
-					if (!priv->authenticated || !cfg->spam_no_auth_header) {
-						msg_info (
-								"<%s>; mlfi_eom: rewriting spam subject and adding spam header",
-								priv->mlfi_id);
-
-						smfi_chgheader (ctx,
-								cfg->spam_header,
-								1,
-								cfg->spam_header_value);
-						if (subject == NULL) {
-							/* Use own settings */
-							if (priv->priv_subject) {
-								smfi_chgheader (ctx,
-										"Subject",
-										1,
-										priv->priv_subject);
-							}
-							else {
-								smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
-							}
-						}
-						else {
-							smfi_chgheader (ctx, "Subject", 1, subject);
-							free (subject);
-						}
-
-						snprintf (tmpbuf, sizeof (tmpbuf), "action: %s",
-								action_to_string (r));
-						spam_check_result = tmpbuf;
-					}
-					else {
-						spam_check_result = "ignored, authenticated user";
-					}
+				snprintf (tmpbuf, sizeof (tmpbuf), "delayed, action: %s",
+						action_to_string (mres->action));
+				spam_check_result = tmpbuf;
+				av_check_result = "skipped, spam soft reject";
+				dkim_result = "skipped, spam soft reject";
+				ret = SMFIS_TEMPFAIL;
+				goto end;
+				break;
+			case METRIC_ACTION_ADD_HEADER:
+				if (!priv->authenticated || !cfg->spam_no_auth_header) {
+					msg_info (
+							"<%s>; mlfi_eom: add spam header to message according to spamd action",
+							priv->mlfi_id);
+					snprintf (tmpbuf, sizeof (tmpbuf), "action: %s",
+							action_to_string (mres->action));
+					spam_check_result = tmpbuf;
+					smfi_chgheader (ctx,
+							cfg->spam_header,
+							1,
+							cfg->spam_header_value);
 				}
 				else {
-					spam_check_result = "no spam";
+					spam_check_result = "ignored, authenticated user";
 				}
+				break;
+			case METRIC_ACTION_REWRITE_SUBJECT:
+				if (!priv->authenticated || !cfg->spam_no_auth_header) {
+					msg_info ("<%s>; mlfi_eom: rewriting spam subject",
+							priv->mlfi_id);
+
+					if (mres->subject == NULL) {
+						/* Use own settings */
+						if (priv->priv_subject) {
+							smfi_chgheader (ctx, "Subject", 1, priv->priv_subject);
+						}
+						else {
+							smfi_chgheader (ctx, "Subject", 1, SPAM_SUBJECT);
+						}
+					}
+					else {
+						smfi_chgheader (ctx, "Subject", 1, mres->subject);
+					}
+
+					snprintf (tmpbuf, sizeof (tmpbuf), "action: %s",
+							action_to_string (mres->action));
+					spam_check_result = tmpbuf;
+				}
+				else {
+					spam_check_result = "ignored, authenticated user";
+				}
+				break;
+			default:
+				spam_check_result = "no spam";
+				break;
 			}
-		}
-		else {
-			spam_check_result = "no spam";
-		}
+		} /* mres != NULL */
 	}
 	else {
 		if (cfg->spamd_servers_num == 0) {
@@ -1741,6 +1675,11 @@ end:
 			spam_check_result,
 			av_check_result,
 			dkim_result);
+
+	if (mres != NULL) {
+		spamd_free_result (mres);
+	}
+
 	CFG_UNLOCK();
 	mlfi_cleanup (ctx, true);
 	return ret;

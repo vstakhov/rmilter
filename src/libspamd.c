@@ -118,6 +118,9 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 		else if (strcmp (act_str, "rewrite subject") == 0) {
 			res->action = METRIC_ACTION_REWRITE_SUBJECT;
 		}
+		else if (strcmp (act_str, "soft reject") == 0) {
+			res->action = METRIC_ACTION_SOFT_REJECT;
+		}
 		else {
 			res->action = METRIC_ACTION_NOACTION;
 		}
@@ -161,9 +164,10 @@ rmilter_spamd_symcmp (struct rspamd_symbol *s1, struct rspamd_symbol *s2)
  * host not recommended)
  */
 
-static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
+static int
+rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		const struct spamd_server *srv, struct config_file *cfg,
-		struct rspamd_metric_result *res, char **mid)
+		struct rspamd_metric_result *res)
 {
 	char buf[8192];
 	sds readbuf;
@@ -180,7 +184,7 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	/* somebody doesn't need reply... */
 	if (!srv) {
-		return 0;
+		return -1;
 	}
 
 	s = rmilter_connect_addr (srv->name, srv->port, cfg->spamd_connect_timeout, priv);
@@ -427,9 +431,8 @@ static int rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
  * server (suppose scanned message killed spamd...)
  */
 
-int
-spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
-		char **subject, int extra)
+struct rspamd_metric_result*
+spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extra)
 {
 	static const int max_syslog_len = 900;
 	int retry, r = -2, to_trace = 0, i, j, ret;
@@ -437,8 +440,8 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	double ts, tf;
 	struct spamd_server *selected = NULL;
 	char bar_buf[128], hdrbuf[256];
-	char *prefix = "s", *mid = NULL, *c;
-	struct rspamd_metric_result res;
+	char *prefix = "s", *c;
+	struct rspamd_metric_result *res;
 	struct rspamd_symbol *cur_symbol, *tmp_symbol;
 	struct timespec sleep_ts;
 	SMFICTX *ctx = _ctx;
@@ -450,7 +453,16 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	retry = cfg->spamd_retry_count;
 	sleep_ts.tv_sec = cfg->spamd_retry_timeout / 1000;
 	sleep_ts.tv_nsec = (cfg->spamd_retry_timeout % 1000) * 1000000ULL;
-	memset (&res, 0, sizeof (res));
+
+	res = malloc (sizeof (*res));
+
+	if (res == NULL) {
+		msg_err("<%s>; spamdscan: malloc falied, %s", priv->mlfi_id,
+				strerror (errno));
+		return NULL;
+	}
+
+	memset (res, 0, sizeof (*res));
 
 	/* try to scan with available servers */
 	while (1) {
@@ -471,14 +483,16 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		if (selected == NULL) {
 			msg_err("<%s>; spamdscan: upstream get error, %s", priv->mlfi_id,
 					priv->file);
-			return -1;
+			free (res);
+
+			return NULL;
 		}
 
 		msg_info ("<%s>; spamdscan: start scanning message on %s", priv->mlfi_id,
 				selected->name);
 
 		prefix = "rs";
-		r = rspamdscan_socket (ctx, priv, selected, cfg, &res, &mid);
+		r = rspamdscan_socket (ctx, priv, selected, cfg, res);
 
 		msg_info("<%s>; spamdscan: finish scanning message on %s", priv->mlfi_id,
 				selected->name);
@@ -504,6 +518,11 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 		nanosleep (&sleep_ts, NULL);
 	}
 
+	if (r < 0) {
+		free (res);
+		return NULL;
+	}
+
 	/*
 	 * print scanning time, server and result
 	 */
@@ -513,17 +532,13 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg,
 	logbuf = sdsempty ();
 	headerbuf = sdsempty ();
 
-	if (res.symbols) {
+	if (res->symbols) {
 		/* Sort symbols by scores from high to low */
-		DL_SORT (res.symbols, rmilter_spamd_symcmp);
+		DL_SORT (res->symbols, rmilter_spamd_symcmp);
 	}
 
-	if (res.action == METRIC_ACTION_REWRITE_SUBJECT && res.subject != NULL) {
-		*subject = strdup (res.subject);
-	}
-
-	if (res.message_id) {
-		rmilter_strlcpy (priv->message_id, res.message_id,
+	if (res->message_id) {
+		rmilter_strlcpy (priv->message_id, res->message_id,
 				sizeof (priv->message_id));
 	}
 
@@ -534,25 +549,25 @@ log_retry:
 	/* Parse res tailq */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		headerbuf = sdscatprintf (headerbuf, "%s: %s [%.2f / %.2f]%c",
-				"default", res.score > res.required_score ? "True" : "False",
-				res.score, res.required_score,
-				res.symbols != NULL ? '\n' : ' ');
+				"default", res->score > res->required_score ? "True" : "False",
+				res->score, res->required_score,
+				res->symbols != NULL ? '\n' : ' ');
 	}
 
 	logbuf = sdscatprintf (logbuf,
 					"<%s>; spamdscan: scan, time: %.3f, server: %s, metric: "
 					"default: [%.3f / %.3f], symbols: ",
-					priv->mlfi_id, tf - ts, selected->name, res.score,
-					res.required_score);
+					priv->mlfi_id, tf - ts, selected->name, res->score,
+					res->required_score);
 
 	/* Write symbols */
-	if (res.symbols == NULL) {
+	if (res->symbols == NULL) {
 		logbuf = sdscatprintf (logbuf, "no symbols");
 	}
 	else {
 		optbuf = sdsempty ();
 
-		DL_FOREACH_SAFE (res.symbols, cur_symbol, tmp_symbol) {
+		DL_FOREACH_SAFE (res->symbols, cur_symbol, tmp_symbol) {
 			sdsclear (optbuf);
 
 			if (cur_symbol->symbol) {
@@ -640,9 +655,7 @@ log_retry:
 		}
 	}
 
-	DL_FOREACH_SAFE (res.symbols, cur_symbol, tmp_symbol) {
-		free (cur_symbol);
-	}
+
 
 	msg_info ("%s", logbuf);
 	sdsfree (logbuf);
@@ -654,11 +667,11 @@ log_retry:
 		else {
 			smfi_addheader (ctx, "X-Spamd-Result", headerbuf);
 
-			j = (int) fabs (res.score);
+			j = (int) fabs (res->score);
 
 			/* Fill spam bar (exim compatible) */
 			if (j != 0) {
-				char sc = res.score > 0 ? '+' : '-';
+				char sc = res->score > 0 ? '+' : '-';
 
 				for (i = 0; i < j; i++) {
 					if (i > 50) {
@@ -683,8 +696,8 @@ log_retry:
 			 * X-Spam-Status
 			 */
 
-			if (res.score > 0 && cfg->spam_bar_char) {
-				for (i = 0; i < (int) res.score; i++) {
+			if (res->score > 0 && cfg->spam_bar_char) {
+				for (i = 0; i < (int) res->score; i++) {
 					if (i > 50) {
 						break;
 					}
@@ -697,8 +710,8 @@ log_retry:
 			}
 
 			snprintf (hdrbuf, sizeof(hdrbuf), "%s, score=%.1f",
-					res.action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
-					res.score);
+					res->action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
+					res->score);
 			smfi_addheader (ctx, "X-Spam-Status", hdrbuf);
 		}
 	}
@@ -725,13 +738,20 @@ log_retry:
 		smfi_setpriv (ctx, priv);
 	}
 
-	ret =  (r >= 0 ? res.action : r);
-
-	ucl_object_unref (res.obj);
-
-	return ret;
+	return res;
 }
 
-/*
- * vi:ts=4
- */
+void
+spamd_free_result (struct rspamd_metric_result *mres)
+{
+	struct rspamd_symbol *cur_symbol, *tmp_symbol;
+
+	if (mres) {
+		DL_FOREACH_SAFE (mres->symbols, cur_symbol, tmp_symbol) {
+			free (cur_symbol);
+		}
+
+		ucl_object_unref (mres->obj);
+		free (mres);
+	}
+}
