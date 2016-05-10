@@ -1527,6 +1527,8 @@ mlfi_eom(SMFICTX * ctx)
 	}
 	/* Maybe write its copy */
 	if (cfg->copy_server && cfg->send_beanstalk_copy) {
+		struct rmilter_rng_state *st = get_prng_state ();
+
 		prob_cur = cfg->beanstalk_copy_prob;
 		/* Normalize */
 		prob_max = 100;
@@ -1534,7 +1536,8 @@ mlfi_eom(SMFICTX * ctx)
 			prob_max *= 10;
 			prob_cur *= 10;
 		}
-		if (rand () % prob_max <= prob_cur) {
+
+		if (prng_next (st) % prob_max <= prob_cur) {
 			send_beanstalk_copy (priv, cfg->copy_server);
 		}
 	}
