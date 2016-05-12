@@ -248,6 +248,7 @@ struct config_file {
 	char *symbols_dir;
 	u_char spamd_soft_fail;
 	u_char spamd_greylist;
+	u_char spamd_spam_add_header;
 	char *trace_symbol;
 	char *trace_addr;
 	char *spam_header;

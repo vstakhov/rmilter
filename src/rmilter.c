@@ -1482,8 +1482,18 @@ mlfi_eom(SMFICTX * ctx)
 				break;
 			case METRIC_ACTION_REWRITE_SUBJECT:
 				if (!priv->authenticated || !cfg->spam_no_auth_header) {
-					msg_info ("<%s>; mlfi_eom: rewriting spam subject",
-							priv->mlfi_id);
+					if (!cfg->spamd_spam_add_header)	{
+					    msg_info ("<%s>; mlfi_eom: rewriting spam subject",
+						priv->mlfi_id);
+					}
+					else {
+					    msg_info ("<%s>; mlfi_eom: rewriting spam subject and adding spam header",
+						priv->mlfi_id);
+					    
+					    smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
+					}
+					
+					
 
 					if (mres->subject == NULL) {
 						/* Use own settings */
