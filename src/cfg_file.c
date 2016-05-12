@@ -511,6 +511,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->white_prefix = strdup ("white");
 	cfg->grey_prefix = strdup ("grey");
 	cfg->id_prefix = strdup ("id");
+	cfg->spamd_spam_add_header = 1;
 
 	cfg->awl_enable = 0;
 	cfg->beanstalk_copy_prob = 100.0;
