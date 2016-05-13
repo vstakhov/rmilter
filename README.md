@@ -149,7 +149,7 @@ Specifies rspamd or spamassassin spam scanners.
 - `spamd_temp_fail`: return temporary failure if spam servers could not be reached (ignore otherwise) (flag)
 	+ Default: `false`
 - `spamd_spam_add_header`: additionaly add header (from combination of spam_header and spam_header_value) on rewrite (flag)
-	+ Default: `no`
+	+ Default: `yes`
 
 Back to [top](#).
 
