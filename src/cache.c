@@ -23,7 +23,9 @@
  */
 
 #include "config.h"
+#ifdef WITH_MEMCACHED
 #include "libmemcached/memcached.h"
+#endif
 #include "cfg_file.h"
 #include "cache.h"
 #include "hiredis.h"
@@ -34,6 +36,7 @@
 
 #define DEFAULT_REDIS_PORT 6379
 
+#ifdef WITH_MEMCACHED
 static inline bool compat_memcached_success(int rc)
 {
 	return (rc == MEMCACHED_BUFFERED ||
@@ -61,6 +64,7 @@ static inline bool compat_memcached_fatal(int rc)
 			rc != MEMCACHED_SUCCESS &&
 			rc != MEMCACHED_VALUE);
 }
+#endif
 
 static struct cache_server *
 rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
@@ -111,6 +115,7 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 	return serv;
 }
 
+#ifdef WITH_MEMCACHED
 static void
 rmilter_format_libmemcached_config (struct config_file *cfg,
 		struct cache_server *serv,
@@ -129,6 +134,7 @@ rmilter_format_libmemcached_config (struct config_file *cfg,
 	memcached_behavior_set (ctx, MEMCACHED_BEHAVIOR_POLL_TIMEOUT,
 				cfg->memcached_connect_timeout);
 }
+#endif
 
 bool
 rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
@@ -212,6 +218,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			}
 		}
 		else {
+#ifdef WITH_MEMCACHED
 			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
@@ -255,6 +262,10 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			}
 
 			memcached_free (mctx);
+#else
+			msg_err ("<%s>; memcached query requested when memcached support is"
+					" not compiled", priv->mlfi_id);
+#endif
 		}
 	}
 
@@ -341,6 +352,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 		}
 		else {
+#ifdef WITH_MEMCACHED
 			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
@@ -374,6 +386,10 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 
 			memcached_free (mctx);
+#else
+		msg_err ("<%s>; memcached query requested when memcached support is"
+				" not compiled", priv->mlfi_id);
+#endif
 		}
 	}
 
@@ -449,6 +465,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 		}
 		else {
+#ifdef WITH_MEMCACHED
 			char *kval;
 			size_t value_len = 0;
 			uint32_t mflags;
@@ -481,7 +498,12 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 			upstream_ok (&serv->up, time (NULL));
 			memcached_free (mctx);
+#else
+			msg_err ("<%s>; memcached query requested when memcached support is"
+					" not compiled", priv->mlfi_id);
+#endif
 		}
+
 	}
 
 	return true;

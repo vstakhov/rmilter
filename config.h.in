@@ -159,6 +159,8 @@
 
 #cmakedefine WITH_SPF            1
 
+#cmakedefine WITH_MEMCACHED           1
+
 #cmakedefine HAVE_SENDFILE       1
 #cmakedefine HAVE_SYS_SENDFILE_H 1
 

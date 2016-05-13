@@ -39,6 +39,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 OPTION(ENABLE_DEBUG        "Enable debug output [default: OFF]"              OFF)
 OPTION(ENABLE_OPTIMIZATION "Enable optimization [default: OFF]"              OFF)
 OPTION(ENABLE_DKIM         "Enable dkim signatures [default: ON]"           ON)
+OPTION(ENABLE_MEMCACHED    "Enable memcached storage [default: ON]"         ON)
 OPTION(WANT_SYSTEMD_UNITS  "Install systemd unit files on Linux [default: OFF]" OFF)
 
 ############################# INCLUDE SECTION #############################################
@@ -121,8 +122,8 @@ MACRO(ProcessPackage PKG_NAME)
 						PATH_SUFFIXES ${PKG_LIB_SUFFIXES} lib64 lib
 						PATHS ${RMILTER_DEFAULT_LIBRARY_PATHS})
 			IF(NOT _lib)
-				IF(OPTIONAL)
-					MESSAGE("Cannot find library ${PKG_LIBRARY} for package ${PKG_NAME}")
+				IF(PKG_OPTIONAL)
+					MESSAGE(STATUS "Cannot find library ${PKG_LIBRARY} for package ${PKG_NAME}")
 				ELSE()
 					MESSAGE(FATAL_ERROR "Cannot find library ${PKG_LIBRARY} for package ${PKG_NAME}")
 				ENDIF()
@@ -133,8 +134,8 @@ MACRO(ProcessPackage PKG_NAME)
 							PATH_SUFFIXES ${PKG_INCLUDE_SUFFIXES} "include"
 							PATHS ${RMILTER_DEFAULT_INCLUDE_PATHS})
 			IF(NOT _incl)
-				IF(OPTIONAL)
-					MESSAGE("Cannot find header ${PKG_INCLUDE} for package ${PKG_NAME}")
+				IF(PKG_OPTIONAL)
+					MESSAGE(STATUS "Cannot find header ${PKG_INCLUDE} for package ${PKG_NAME}")
 				ELSE()
 					MESSAGE(FATAL_ERROR "Cannot find header ${PKG_INCLUDE} for package ${PKG_NAME}")
 				ENDIF()
@@ -362,8 +363,6 @@ ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
 	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
 ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
 	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
-ProcessPackage(LIBMEMCACHED LIBRARY memcached INCLUDE memcached.h INCLUDE_SUFFIXES include/libmemcached
-	LIB_SUFFIXES lib/libmemcached ROOT ${LIBMEMCACHED_ROOT_DIR} MODULES libmemcached)
 
 IF(ENABLE_DKIM MATCHES "ON")
 	SET(WITH_DKIM 1)
@@ -371,6 +370,14 @@ IF(ENABLE_DKIM MATCHES "ON")
 		INCLUDE_SUFFIXES include/opendkim
 		LIB_SUFFIXES lib/opendkim lib64/opendkim
 		ROOT ${OPENDKIM_ROOT_DIR} MODULES opendkim)
+ENDIF()
+
+IF(ENABLE_MEMCACHED MATCHES "ON")
+	SET(WITH_MEMCACHED 1)
+	ProcessPackage(LIBMEMCACHED LIBRARY memcached
+		INCLUDE memcached.h INCLUDE_SUFFIXES include/libmemcached
+		LIB_SUFFIXES lib/libmemcached ROOT ${LIBMEMCACHED_ROOT_DIR}
+		MODULES libmemcached)
 ENDIF()
 
 ################################ SOURCES SECTION ###########################
