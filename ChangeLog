@@ -1,3 +1,33 @@
+1.8.5:
+	* Include queue id in logs when possible (by Andrej Zverev)
+	* Convert logs style to "<QID>; message" for clamav when possbile (by az)
+	* Add per-thread xorshift* PRNG
+	* Generate unique tag for a message as queue id is not reliable
+	* Parse message id from rspamd
+	* Use fixed width hex encoded id
+	* Do not touch mlfi id in mlfi_eom
+	* Randomize ID in case of multiple messages per SMTP sessio
+	* Add forgoten CRFL in rmilter usage output (by az)
+	* Put brackets for qid inside mlfi_data: queue id (by az)
+	* Make mlfi_cleanup and mlfi_close to use mlfi_id (by az)
+	* Pass real queue_id to rspamd (by az)
+	* More logging enchantments (by az)
+	* Further reduce log size limit (#100)
+	* Rework spamd scanning logic
+		+ Return better grained result from spamdscan
+		+ Remove extra_servers - it now lives in rspamd_proxy
+		+ Support soft reject action from rspamd (ratelimit, greylisting)
+		+ Store rspamd message
+		+ Do not add header on rewrite subject
+		+ Remove obsoleted spamd_soft_fail - it is always true now
+		+ Remove other deprecated functions
+	* Use own prng instead of rand()
+	* Introduce spamd_spam_add_header flag (default to: no)
+	  which will trigger on "rewrite subject" action and
+	  insert header which usually must be inserted only in
+	  "add header" action.
+	* Make memcached dependency optional (#112)
+
 1.8.4:
 	* Another emergency fix in spam scanning (#103)
 	* Remove configtest from rpm packages (#102)
