@@ -98,7 +98,6 @@ struct rmilter_rng_state {
 };
 
 /* Milter mutexes */
-pthread_mutex_t mkstemp_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 static sfsistat
@@ -241,12 +240,7 @@ create_temp_file (struct mlfi_priv *priv)
 
 	snprintf (buf, sizeof (buf), "%s/msg.XXXXXXXX", cfg->temp_dir);
 	rmilter_strlcpy (priv->file, buf, sizeof (priv->file));
-	/* mkstemp is based on arc4random (3) and is not reentrable
-	 * so acquire mutex for it
-	 */
-	pthread_mutex_lock (&mkstemp_mtx);
 	fd = mkstemp (priv->file);
-	pthread_mutex_unlock (&mkstemp_mtx);
 
 	if (fd == -1) {
 		msg_warn ("create_temp_file: %s: mkstemp failed: %s",
@@ -264,8 +258,11 @@ create_temp_file (struct mlfi_priv *priv)
 				priv->mlfi_id, strerror (errno));
 		return -1;
 	}
-	fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost (Postfix) with ESMTP id 0000000;\r\n",
-			priv->priv_helo, priv->priv_hostname, priv->priv_ip);
+
+	fprintf (priv->fileh, "Received: from %s (%s [%s]) by localhost "
+			"(Postfix) with ESMTP id %s;\r\n",
+			priv->priv_helo, priv->priv_hostname, priv->priv_ip,
+			priv->mlfi_id);
 
 	return 0;
 }
@@ -1489,11 +1486,11 @@ mlfi_eom(SMFICTX * ctx)
 					else {
 					    msg_info ("<%s>; mlfi_eom: rewriting spam subject and adding spam header",
 						priv->mlfi_id);
-					    
+
 					    smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
 					}
-					
-					
+
+
 
 					if (mres->subject == NULL) {
 						/* Use own settings */
