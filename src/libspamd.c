@@ -50,9 +50,10 @@ pthread_mutex_t mx_spamd_write = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 static int
-rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t length, struct mlfi_priv *priv)
+rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t length)
 {
 	struct rspamd_metric_result *res = parser->data;
+	struct mlfi_priv *priv;
 	struct ucl_parser *up;
 	ucl_object_t *obj;
 	ucl_object_iter_t it = NULL;
@@ -60,6 +61,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	const ucl_object_t *metric, *elt, *sym_elt;
 	const char *act_str;
 
+	priv = res->priv;
 	up = ucl_parser_new (0);
 
 	if (!ucl_parser_add_chunk (up, at, length)) {
@@ -405,6 +407,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	http_parser_init (&parser, HTTP_RESPONSE);
 
 	memset (&ps, 0, sizeof (ps));
+	res->priv = priv;
 	ps.on_body = rmilter_spamd_parser_on_body;
 	parser.data = res;
 	parser.content_length = size;

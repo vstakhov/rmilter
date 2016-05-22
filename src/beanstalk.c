@@ -48,7 +48,7 @@
 /*
  * Make socket for tcp connection
  */
-static int bean_make_tcp_sock(beanstalk_ctx_t *ctx, struct mlfi_priv *priv)
+static int bean_make_tcp_sock(beanstalk_ctx_t *ctx, const struct mlfi_priv *priv)
 {
 	ctx->sock = rmilter_connect_addr (ctx->addr, ctx->port, ctx->timeout, priv);
 
@@ -59,8 +59,8 @@ static int bean_make_tcp_sock(beanstalk_ctx_t *ctx, struct mlfi_priv *priv)
 	return 0;
 }
 
-/* 
- * Parse VALUE reply from server and set len argument to value returned by beanstalk 
+/*
+ * Parse VALUE reply from server and set len argument to value returned by beanstalk
  */
 static int bean_parse_header(char *buf, beanstalk_param_t *param, char **end,
 		const char *format)
@@ -349,10 +349,10 @@ bean_error_t bean_del(beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
 	return BEANSTALK_OK;
 }
 
-/* 
+/*
  * Initialize beanstalk context for specified protocol
  */
-int bean_init_ctx(beanstalk_ctx_t *ctx, struct mlfi_priv *priv)
+int bean_init_ctx(beanstalk_ctx_t *ctx, const struct mlfi_priv *priv)
 {
 	if (ctx == NULL) {
 		return -1;
@@ -415,6 +415,6 @@ const char * bean_strerror(bean_error_t err)
 	return p;
 }
 
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

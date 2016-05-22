@@ -53,7 +53,7 @@ pthread_rwlock_t upstream_mtx = PTHREAD_RWLOCK_INITIALIZER;
  */
 static void check_upstream(struct upstream *up, time_t now,
 		time_t error_timeout, time_t revive_timeout, unsigned int max_errors,
-		struct mlfi_priv *priv)
+		const struct mlfi_priv *priv)
 {
 	if (up->dead) {
 		if (now - up->time >= revive_timeout) {
@@ -113,7 +113,8 @@ void upstream_ok(struct upstream *up, time_t now)
 /*
  * Mark all upstreams as active. This function is used when all upstreams are marked as inactive
  */
-void revive_all_upstreams(void *ups, unsigned int members, unsigned int msize, struct mlfi_priv *priv)
+void revive_all_upstreams(void *ups, unsigned int members, unsigned int msize,
+		const struct mlfi_priv *priv)
 {
 	unsigned int i;
 	struct upstream *cur;
@@ -139,7 +140,7 @@ void revive_all_upstreams(void *ups, unsigned int members, unsigned int msize, s
  */
 static int rescan_upstreams(void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout, time_t revive_timeout,
-		unsigned int max_errors, struct mlfi_priv *priv)
+		unsigned int max_errors, const struct mlfi_priv *priv)
 {
 	unsigned int i, alive;
 	struct upstream *cur;
@@ -219,7 +220,7 @@ get_hash_for_key(const unsigned char *key, unsigned int keylen)
 struct upstream *
 get_random_upstream(void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout, time_t revive_timeout,
-		unsigned int max_errors, struct mlfi_priv *priv)
+		unsigned int max_errors, const struct mlfi_priv *priv)
 {
 	int alive, selected;
 
@@ -258,8 +259,8 @@ static uint32_t rmilter_consistent_hash(uint64_t key, uint32_t nbuckets)
 struct upstream *
 get_upstream_by_hash(void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout, time_t revive_timeout,
-		unsigned int max_errors, const unsigned char *key, 
-		unsigned int keylen, struct mlfi_priv *priv)
+		unsigned int max_errors, const unsigned char *key,
+		unsigned int keylen, const struct mlfi_priv *priv)
 {
 	int alive, i = 0, sel;
 	uint64_t h = 0;
@@ -314,7 +315,7 @@ get_upstream_by_hash(void *ups, unsigned int members, unsigned int msize,
 struct upstream *
 get_upstream_round_robin(void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout, time_t revive_timeout,
-		unsigned int max_errors, struct mlfi_priv *priv)
+		unsigned int max_errors, const struct mlfi_priv *priv)
 {
 	unsigned int max_weight, i;
 	struct upstream *cur, *selected = NULL;
@@ -368,7 +369,7 @@ get_upstream_round_robin(void *ups, unsigned int members, unsigned int msize,
 struct upstream *
 get_upstream_master_slave(void *ups, unsigned int members, unsigned int msize,
 		time_t now, time_t error_timeout, time_t revive_timeout,
-		unsigned int max_errors, struct mlfi_priv *priv)
+		unsigned int max_errors, const struct mlfi_priv *priv)
 {
 	unsigned int max_weight, i;
 	struct upstream *cur, *selected = NULL;
@@ -394,7 +395,7 @@ get_upstream_master_slave(void *ups, unsigned int members, unsigned int msize,
 	}
 	U_UNLOCK ();
 	msg_debug("<%s>; get_upstream_master_slave: selecting upstream with priority %d",
-			max_weight);
+			priv->mlfi_id, max_weight);
 
 	return selected;
 }

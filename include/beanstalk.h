@@ -78,14 +78,14 @@ typedef struct beanstalk_param_s {
 	int priority;
 } beanstalk_param_t;
 
-/* 
+/*
  * Initialize connection to beanstalk server:
  * addr, port and timeout fields in ctx must be filled with valid values
  * Return:
  * 0 - success
  * -1 - error (error is stored in errno)
  */
-int bean_init_ctx (beanstalk_ctx_t *ctx, struct mlfi_priv *priv);
+int bean_init_ctx (beanstalk_ctx_t *ctx, const struct mlfi_priv *priv);
 /*
  *    put with delay               release with delay
  * ----------------> [DELAYED] <------------.
@@ -114,9 +114,12 @@ int bean_init_ctx (beanstalk_ctx_t *ctx, struct mlfi_priv *priv);
 #define bean_kick(ctx, params, nelem) bean_del(ctx, BEANSTALK_CMD_KICK, params, nelem, 0)
 #define bean_delete(ctx, params, nelem) bean_del(ctx, BEANSTALK_CMD_DELETE, params, nelem, 0)
 
-bean_error_t bean_read (beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd, beanstalk_param_t *params, size_t *nelem, u_int wait);
-bean_error_t bean_write (beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd, beanstalk_param_t *params, size_t *nelem, u_int ttr, u_int delay);
-bean_error_t bean_del (beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd, beanstalk_param_t *params, size_t nelem, u_int delay);
+bean_error_t bean_read (beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
+		beanstalk_param_t *params, size_t *nelem, u_int wait);
+bean_error_t bean_write (beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
+		beanstalk_param_t *params, size_t *nelem, u_int ttr, u_int delay);
+bean_error_t bean_del (beanstalk_ctx_t *ctx, beanstalk_cmd_t cmd,
+		beanstalk_param_t *params, size_t nelem, u_int delay);
 
 /* Return symbolic name of beanstalk error*/
 const char * bean_strerror (bean_error_t err);
@@ -126,6 +129,6 @@ int bean_close_ctx (beanstalk_ctx_t *ctx);
 
 #endif
 
-/* 
- * vi:ts=4 
+/*
+ * vi:ts=4
  */

@@ -69,6 +69,7 @@ struct rspamd_metric_result {
 	double reject_score;
 	enum rspamd_metric_action action;
 	struct rspamd_symbol *symbols;
+	struct mlfi_priv *priv;
 };
 
 #endif

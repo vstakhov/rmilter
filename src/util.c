@@ -517,7 +517,8 @@ rmilter_encode_base64 (const u_char *in, size_t inlen, int str_len,
 }
 
 int
-rmilter_connect_addr (const char *addr, int port, int msec, struct mlfi_priv *priv)
+rmilter_connect_addr (const char *addr, int port, int msec,
+		const struct mlfi_priv *priv)
 {
 	struct sockaddr_un su;
 	int ofl, r;
