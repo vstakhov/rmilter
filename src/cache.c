@@ -320,8 +320,14 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 					rep ++;
 				}
 
-				redisAppendCommand (redis, "SET %b %b", key, keylen,
-										data, datalen);
+				if (expire > 0) {
+					redisAppendCommand (redis, "SET %b %b EX %d", key, keylen,
+							data, datalen, expire);
+				}
+				else {
+					redisAppendCommand (redis, "SET %b %b", key, keylen,
+							data, datalen);
+				}
 
 				while (rep > 0) {
 					redisGetReply (redis, (void **)&r);
@@ -336,15 +342,6 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 				if (r != NULL) {
 					freeReplyObject (r);
-				}
-
-				if (expire > 0) {
-					r = redisCommand (redis, "EXPIRE %b %d", key, keylen,
-							expire);
-
-					if (r) {
-						freeReplyObject (r);
-					}
 				}
 
 				redisFree (redis);
