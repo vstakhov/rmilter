@@ -598,6 +598,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		struct sockaddr_in6 sa6;
 		struct sockaddr sa;
 	} *addr_storage;
+	int port;
 
 	priv = malloc(sizeof (struct mlfi_priv));
 
@@ -627,23 +628,31 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		case AF_INET:
 			inet_ntop (AF_INET, &addr_storage->sa4.sin_addr, priv->priv_ip, sizeof (priv->priv_ip));
 			memcpy (&priv->priv_addr.addr.sa4, &addr_storage->sa4, sizeof (struct sockaddr_in));
+			port = ntohs (addr_storage->sa4.sin_port);
 			break;
 		case AF_INET6:
 			inet_ntop (AF_INET6, &addr_storage->sa6.sin6_addr, priv->priv_ip, sizeof (priv->priv_ip));
 			memcpy (&priv->priv_addr.addr.sa6, &addr_storage->sa6, sizeof (struct sockaddr_in6));
+			port = ntohs (addr_storage->sa6.sin6_port);
 			break;
 		default:
 			rmilter_strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
 			memcpy (&priv->priv_addr.addr.sa, &addr_storage->sa, sizeof (struct sockaddr));
+			port = 0;
 			break;
 		}
 	}
 
 	if (hostname != NULL) {
 		rmilter_strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
+
+		msg_info ("<%s>; accepted connection from %s:%d (%s)", priv->mlfi_id,
+				priv->priv_ip, port, priv->priv_hostname);
 	}
 	else {
 		priv->priv_hostname[0] = '\0';
+		msg_info ("<%s>; accepted connection from %s:%d (unknown)", priv->mlfi_id,
+				priv->priv_ip, port);
 	}
 
 	smfi_setpriv(ctx, priv);
