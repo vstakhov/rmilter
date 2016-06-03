@@ -143,7 +143,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 {
 	struct cache_server *serv;
 	redisContext *redis;
-	redisReply *r;
+	redisReply *r = NULL;
 	struct timeval tv;
 	bool ret = false;
 	size_t nelems = 1;
@@ -199,7 +199,7 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 				}
 
 				if (r != NULL) {
-					if (r->type == REDIS_REPLY_STRING) {
+					if (r->type == REDIS_REPLY_STRING && r->len > 0) {
 						*data = malloc (r->len);
 						if (*data) {
 							memcpy (*data, r->str, r->len);
@@ -280,7 +280,7 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 {
 	struct cache_server *serv;
 	redisContext *redis;
-	redisReply *r;
+	redisReply *r = NULL;
 	struct timeval tv;
 	size_t nelems = 1;
 	int rep;
@@ -402,7 +402,7 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 {
 	struct cache_server *serv;
 	redisContext *redis;
-	redisReply *r;
+	redisReply *r = NULL;
 	struct timeval tv;
 	size_t nelems = 1;
 	int rep;
