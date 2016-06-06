@@ -599,6 +599,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		struct sockaddr sa;
 	} *addr_storage;
 	int port;
+	char *mta_host;
 
 	priv = malloc(sizeof (struct mlfi_priv));
 
@@ -643,15 +644,22 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		}
 	}
 
+	mta_host = smfi_getsymval (ctx, "j");
+	if (mta_host == NULL) {
+		mta_host = "undefined";
+	}
+
 	if (hostname != NULL) {
 		rmilter_strlcpy (priv->priv_hostname, hostname, sizeof (priv->priv_hostname));
 
-		msg_info ("<%s>; accepted connection from %s:%d (%s)", priv->mlfi_id,
+		msg_info ("<%s>; accepted connection from %s; client: %s:%d (%s)",
+				priv->mlfi_id, mta_host,
 				priv->priv_ip, port, priv->priv_hostname);
 	}
 	else {
 		priv->priv_hostname[0] = '\0';
-		msg_info ("<%s>; accepted connection from %s:%d (unknown)", priv->mlfi_id,
+		msg_info ("<%s>; accepted connection from %s; client: %s:%d (unknown)",
+				priv->mlfi_id, mta_host,
 				priv->priv_ip, port);
 	}
 
