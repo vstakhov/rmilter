@@ -1565,6 +1565,10 @@ mlfi_eom(SMFICTX * ctx)
 		ip_whitelisted = true;
 		av_check_result = "skipped, ip whitelist";
 	}
+	else if (priv->has_whitelisted) {
+		av_check_result = "skipped, recipient whitelist";
+	}
+
 
 	if (cfg->clamav_servers_num == 0) {
 		av_check_result = "skipped, no av servers";
@@ -1572,7 +1576,8 @@ mlfi_eom(SMFICTX * ctx)
 
 av_check:
 	/* Check clamav */
-	if (cfg->clamav_servers_num != 0 && !ip_whitelisted) {
+	if (cfg->clamav_servers_num != 0 && !priv->has_whitelisted
+			&& !ip_whitelisted) {
 		msg_debug ("mlfi_eom: %s: check clamav", priv->mlfi_id);
 		r = check_clamscan (ctx, priv, strres, sizeof (strres));
 		if (r < 0) {
