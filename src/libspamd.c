@@ -92,6 +92,7 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 		return -1;
 	}
 
+	res->parsed = true;
 	elt = ucl_object_lookup (metric, "score");
 	res->score = ucl_object_todouble (elt);
 
@@ -375,6 +376,8 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			msg_warn("<%s>; rspamd: timeout waiting results %s", priv->mlfi_id,
 					srv->name);
 			close (s);
+			sdsfree (readbuf);
+
 			return -1;
 		}
 
@@ -388,6 +391,8 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 				msg_warn("<%s>; rspamd: read, %s, %s", priv->mlfi_id,  srv->name,
 						strerror (errno));
 				close (s);
+				sdsfree (readbuf);
+
 				return -1;
 			}
 		}
@@ -402,6 +407,14 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	size = sdslen (readbuf);
 	close (s);
 
+	if (size == 0) {
+		msg_err ("<%s>; rspamd; got empty reply from %s",
+				priv->mlfi_id, srv->name);
+		sdsfree (readbuf);
+
+		return -1;
+	}
+
 	/* Now we need to parse HTTP reply */
 	memset (&parser, 0, sizeof (parser));
 	http_parser_init (&parser, HTTP_RESPONSE);
@@ -413,12 +426,27 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	parser.content_length = size;
 
 	if (http_parser_execute (&parser, &ps, readbuf, size) != (size_t)size) {
-		msg_err ("<%s>; HTTP parser error: %s when rspamd reply",
+		msg_err ("<%s>; rspamd; HTTP parser error: %s when rspamd reply",
 				priv->mlfi_id, http_errno_description (parser.http_errno));
+		sdsfree (readbuf);
+
 		return -1;
 	}
 
 	sdsfree (readbuf);
+
+	if (!res->parsed) {
+		if (parser.status_code != 200) {
+			msg_err ("<%s>; rspamd; HTTP error: bad status code: %d",
+					priv->mlfi_id, (int)parser.status_code);
+		}
+		else {
+			msg_err ("<%s>; rspamd; HTTP error: cannot parse reply",
+					priv->mlfi_id);
+		}
+
+		return -1;
+	}
 
 	return 0;
 }

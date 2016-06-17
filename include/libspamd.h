@@ -70,6 +70,7 @@ struct rspamd_metric_result {
 	enum rspamd_metric_action action;
 	struct rspamd_symbol *symbols;
 	struct mlfi_priv *priv;
+	bool parsed;
 };
 
 #endif
