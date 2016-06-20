@@ -1,3 +1,13 @@
+1.8.6:
+	* Remove mkstemp mutex
+	* Fix issues with passing priv to routines
+	* Fix error handling for redis (#118)
+	* Use single command for setting expiration
+	* Write to log information about a connected client (#121)
+	* Skip clamav checks for whitelisted recipients
+	* Log MTA host on connect (#121)
+	* Retry rspamd scan on remote scan failure
+
 1.8.5:
 	* Include queue id in logs when possible (by Andrej Zverev)
 	* Convert logs style to "<QID>; message" for clamav when possbile (by az)
