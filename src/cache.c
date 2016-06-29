@@ -321,8 +321,8 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 				}
 
 				if (expire > 0) {
-					redisAppendCommand (redis, "SET %b %b EX %d", key, keylen,
-							data, datalen, expire);
+					redisAppendCommand (redis, "SETEX %b %d %b", key, keylen,
+							expire, data, datalen);
 				}
 				else {
 					redisAppendCommand (redis, "SET %b %b", key, keylen,
