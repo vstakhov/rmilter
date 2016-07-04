@@ -35,6 +35,7 @@
 #include "http_parser.h"
 #include "sds.h"
 #include <math.h>
+#include <sys/mman.h>
 
 /* Maximum time in seconds during which spamd server is marked inactive after scan error */
 #define INACTIVE_INTERVAL 60.0
@@ -340,7 +341,6 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		return -1;
 	}
 
-#ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
@@ -357,10 +357,28 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		return -1;
 	}
 #else
-	while ((r = read (fd, buf, sizeof (buf))) > 0) {
-		write (s, buf, r);
+	void *map;
+
+	map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+	if (map == MAP_FAILED) {
+		msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
+				strerror (errno));
+		close(fd);
+		close(s);
+		return -1;
 	}
-#endif
+
+	if (rmilter_atomic_write (s, map, sb.st_size) == -1) {
+		msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+				strerror (errno));
+		close(fd);
+		close(s);
+		munmap (map, sb.st_size);
+		return -1;
+	}
+
+	munmap (map, sb.st_size);
 #endif
 
 	fcntl (s, F_SETFL, ofl|O_NONBLOCK);

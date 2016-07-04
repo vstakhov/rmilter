@@ -704,3 +704,31 @@ rmilter_str_lc (char *str, unsigned int size)
 	}
 
 }
+
+ssize_t
+rmilter_atomic_write (int fd, const void *buf, size_t len)
+{
+	const char *s = buf;
+	size_t pos = 0;
+	ssize_t res;
+
+	while (len > pos) {
+		res = write (fd, s + pos, len - pos);
+
+		switch (res) {
+		case -1:
+			if (errno == EINTR || errno == EAGAIN) {
+				continue;
+			}
+
+			return -1;
+		case 0:
+			errno = EPIPE;
+			return -1;
+		default:
+			pos += res;
+		}
+	}
+
+	return pos;
+}

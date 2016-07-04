@@ -90,4 +90,6 @@ int rmilter_poll_fd (int fd, int timeout, short events);
 
 void rmilter_str_lc (char *str, unsigned int size);
 
+ssize_t rmilter_atomic_write (int fd, const void *buf, size_t len);
+
 #endif /* UTIL_H_ */

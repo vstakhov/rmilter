@@ -128,7 +128,6 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
-#ifdef HAVE_SENDFILE
 #if defined(FREEBSD)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("<%s>; clamav: sendfile %s (%s): %s", priv->mlfi_id,
@@ -147,17 +146,30 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		return -1;
 	}
 #else
-	while ((r = read (fd, buf, sizeof(buf))) > 0) {
-		if (write (s, buf, r) <= 0) {
-			msg_warn("<%s>; clamav: write (%s): %s", priv->mlfi_id,
-					srv->name, strerror (errno));
-			close(fd);
-			close(s);
-			return -1;
-		}
+	void *map;
+
+	map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+	if (map == MAP_FAILED) {
+		msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
+				strerror (errno));
+		close(fd);
+		close(s);
+		return -1;
 	}
+
+	if (rmilter_atomic_write (s, map, sb.st_size) == -1) {
+		msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+				strerror (errno));
+		close(fd);
+		close(s);
+		munmap (map, sb.st_size);
+		return -1;
+	}
+
+	munmap (map, sb.st_size);
 #endif
-#endif
+
 	close (fd);
 
 	/* Send zero chunk */
