@@ -128,7 +128,7 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
-#if defined(FREEBSD)
+#if defined(FREEBSD) && defined(HAVE_SENDFILE)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("<%s>; clamav: sendfile %s (%s): %s", priv->mlfi_id,
 				file, srv->name, strerror (errno));
@@ -136,7 +136,7 @@ static int clamscan_socket(const char *file, const struct clamav_server *srv,
 		close(s);
 		return -1;
 	}
-#elif defined(LINUX)
+#elif defined(LINUX) && defined(HAVE_SENDFILE)
 	off_t off = 0;
 	if (sendfile(s, fd, &off, sb.st_size) == -1) {
 		msg_warn("<%s>; clamav: sendfile %s (%s): %s", priv->mlfi_id,

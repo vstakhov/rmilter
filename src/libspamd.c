@@ -341,14 +341,14 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		return -1;
 	}
 
-#if defined(FREEBSD)
+#if defined(FREEBSD) && defined(HAVE_SENDFILE)
 	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
 		close(fd);
 		close(s);
 		return -1;
 	}
-#elif defined(LINUX)
+#elif defined(LINUX) && defined(HAVE_SENDFILE)
 	off_t off = 0;
 	if (sendfile(s, fd, &off, sb.st_size) == -1) {
 		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
