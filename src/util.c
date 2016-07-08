@@ -732,3 +732,68 @@ rmilter_atomic_write (int fd, const void *buf, size_t len)
 
 	return pos;
 }
+
+int
+rmilter_file_xopen (const char *fname, int oflags, unsigned int mode)
+{
+	struct stat sb;
+	int fd;
+
+	if (lstat (fname, &sb) == -1) {
+
+		if (errno != ENOENT) {
+			return (-1);
+		}
+	}
+	else if (!S_ISREG (sb.st_mode)) {
+		return -1;
+	}
+
+#ifdef HAVE_ONOFOLLOW
+	fd = open (fname, oflags | O_NOFOLLOW, mode);
+#else
+	fd = open (fname, oflags, mode);
+#endif
+
+	return (fd);
+}
+
+void *
+rmilter_file_xmap (const char *fname, unsigned int mode,
+		size_t *size)
+{
+	int fd;
+	struct stat sb;
+	void *map;
+
+	assert (fname != NULL);
+	assert (size != NULL);
+
+	if (mode & PROT_WRITE) {
+		fd = rmilter_file_xopen (fname, O_RDWR, 0);
+	}
+	else {
+		fd = rmilter_file_xopen (fname, O_RDONLY, 0);
+	}
+
+	if (fd == -1) {
+		return NULL;
+	}
+
+	if (fstat (fd, &sb) == -1 || !S_ISREG (sb.st_mode)) {
+		close (fd);
+
+		return NULL;
+	}
+
+	map = mmap (NULL, sb.st_size, mode, MAP_SHARED, fd, 0);
+	close (fd);
+
+	if (map == MAP_FAILED) {
+		return NULL;
+	}
+
+	*size = sb.st_size;
+
+	return map;
+}

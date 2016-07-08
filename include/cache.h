@@ -70,7 +70,7 @@ bool rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 bool rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 		const unsigned char *key, size_t keylen, struct mlfi_priv *priv);
 
-bool rmilter_publish_cache (struct config_file *cfg, enum rmilter_publish_type type,
+int rmilter_publish_cache (struct config_file *cfg, enum rmilter_publish_type type,
 		const unsigned char *channel, size_t channel_len,
 		const unsigned char *data, size_t datalen, struct mlfi_priv *priv);
 

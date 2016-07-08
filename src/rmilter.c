@@ -402,163 +402,6 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 	return SMFIS_CONTINUE;
 }
 
-/*
- * Send copy of message to beanstalk
- * XXX: too many copy&paste
- */
-static void
-send_beanstalk_copy (const struct mlfi_priv *priv, struct beanstalk_server *srv)
-{
-	beanstalk_ctx_t bctx;
-	beanstalk_param_t bp;
-	size_t s;
-	int r, fd;
-	void *map;
-	struct stat st;
-
-	/* Open and mmap file */
-	if (!*priv->file) {
-		return;
-	}
-
-	if (stat (priv->file, &st) == -1) {
-		msg_warn ("<%s>; send_beanstalk_copy: data file stat(): %s", priv->mlfi_id,
-				strerror (errno));
-		return;
-	}
-
-	fd = open (priv->file, O_RDONLY);
-
-	if (fd == -1) {
-		msg_warn ("<%s>; send_beanstalk_copy: data file open(): %s", priv->mlfi_id,
-				strerror (errno));
-		return;
-	}
-
-	if ((map = mmap (NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		msg_err ("<%s>; send_beanstalk_copy: cannot mmap file %s, %s", priv->mlfi_id, priv->file,
-				strerror (errno));
-		close (fd);
-		return;
-	}
-
-	close (fd);
-	bctx.addr = srv->name;
-	bctx.port = srv->port;
-	bctx.timeout = cfg->beanstalk_connect_timeout;
-
-	r = bean_init_ctx (&bctx, priv);
-	if (r == -1) {
-		munmap (map, st.st_size);
-		msg_warn ("<%s>; send_beanstalk_copy: cannot connect to beanstalk upstream: %s",
-				priv->mlfi_id, srv->name);
-		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
-		return;
-	}
-
-	bp.buf = (u_char *)map;
-	bp.bufsize = st.st_size;
-	bp.len = bp.bufsize;
-	bp.priority = 1025;
-	s = 1;
-
-	r = bean_put (&bctx, &bp, &s, cfg->beanstalk_lifetime, 0);
-
-	munmap (map, st.st_size);
-	if (r == BEANSTALK_OK) {
-		bean_close_ctx (&bctx);
-		upstream_ok (&srv->up, priv->conn_tm.tv_sec);
-		return;
-	}
-	else {
-		msg_err ("<%s>; send_beanstalk_copy: cannot put data to beanstalk: %s", priv->mlfi_id, bean_strerror (r));
-		upstream_fail (&srv->up, priv->conn_tm.tv_sec);
-		bean_close_ctx (&bctx);
-		return;
-	}
-	bean_close_ctx (&bctx);
-
-}
-
-static void
-send_beanstalk (const struct mlfi_priv *priv)
-{
-	struct beanstalk_server *selected;
-	beanstalk_ctx_t bctx;
-	beanstalk_param_t bp;
-	size_t s;
-	int r, fd;
-	void *map;
-
-	selected = (struct beanstalk_server *) get_random_upstream (
-			(void *)cfg->beanstalk_servers,
-			cfg->beanstalk_servers_num, sizeof (struct beanstalk_server),
-			priv->conn_tm.tv_sec, cfg->beanstalk_error_time,
-			cfg->beanstalk_dead_time, cfg->beanstalk_maxerrors, priv);
-	if (selected == NULL) {
-		msg_err ("<%s>; send_beanstalk: upstream get error, %s", priv->mlfi_id, priv->file);
-		return;
-	}
-
-	/* Open and mmap file */
-	if (!*priv->file || priv->eoh_pos == 0) {
-		return;
-	}
-
-	fd = open (priv->file, O_RDONLY);
-
-	if (fd == -1) {
-		msg_warn ("<%s>; send_beanstalk: data file open(): %s",
-				priv->mlfi_id, strerror (errno));
-		return;
-	}
-
-	if ((map = mmap (NULL, priv->eoh_pos, PROT_READ, MAP_SHARED, fd, 0)) == MAP_FAILED) {
-		msg_err ("<%s>; send_beanstalk: cannot mmap file %s: %s", priv->mlfi_id,
-				priv->file, strerror (errno));
-		close (fd);
-		return;
-	}
-
-	close (fd);
-
-	bctx.addr = selected->name;
-	bctx.port = selected->port;
-	bctx.timeout = cfg->beanstalk_connect_timeout;
-
-	r = bean_init_ctx (&bctx, priv);
-	if (r == -1) {
-		msg_warn ("<%s>; send_beanstalk: cannot connect to beanstalk upstream: %s",
-				priv->mlfi_id,
-				selected->name);
-		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
-		munmap (map, priv->eoh_pos);
-		return;
-	}
-
-	bp.buf = (u_char *)map;
-	bp.bufsize = priv->eoh_pos;
-	bp.len = bp.bufsize;
-	bp.priority = 1025;
-	s = 1;
-
-	r = bean_put (&bctx, &bp, &s, cfg->beanstalk_lifetime, 0);
-
-	munmap (map, priv->eoh_pos);
-	if (r == BEANSTALK_OK) {
-		bean_close_ctx (&bctx);
-		upstream_ok (&selected->up, priv->conn_tm.tv_sec);
-		return;
-	}
-	else {
-		msg_err ("<%s>; send_beanstalk: cannot put data to beanstalk: %s", priv->mlfi_id, bean_strerror (r));
-		upstream_fail (&selected->up, priv->conn_tm.tv_sec);
-		bean_close_ctx (&bctx);
-		return;
-	}
-	bean_close_ctx (&bctx);
-}
-
 static void
 set_random_id (struct mlfi_priv *priv)
 {
@@ -587,8 +430,51 @@ set_random_id (struct mlfi_priv *priv)
 	buf[r] = '\0';
 }
 
-/* Milter callbacks */
+static void
+publish_message (struct mlfi_priv *priv, enum rmilter_publish_type type,
+		char *extra_buf, size_t extra_len)
+{
+	const char *channel = NULL;
+	void *map;
+	size_t sz;
+	int ret;
 
+	if (type == RMILTER_PUBLISH_COPY) {
+		channel = cfg->cache_copy_channel;
+	}
+	else {
+		channel = cfg->cache_spam_channel;
+	}
+
+	if (channel == NULL) {
+		return;
+	}
+
+	map = rmilter_file_xmap (priv->file, PROT_READ, &sz);
+
+	if (map == NULL) {
+		msg_err ("<%s>; cannot read file %s: %s",
+						priv->mlfi_id, priv->file, strerror (errno));
+
+		return;
+	}
+
+	ret = rmilter_publish_cache (cfg, type, channel, strlen (channel), map, sz,
+			priv);
+
+	if (ret == -1) {
+		msg_err ("<%s>; cannot publish file %s to stream %s: %s",
+				priv->mlfi_id, priv->file, channel, strerror (errno));
+		munmap (map, sz);
+
+		return;
+	}
+
+	snprintf (extra_buf + strlen (extra_buf), extra_len - strlen (extra_buf),
+			"; published to %s (%d clients)", channel, ret);
+}
+
+/* Milter callbacks */
 static sfsistat
 mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 {
@@ -1233,7 +1119,7 @@ mlfi_eom(SMFICTX * ctx)
 	struct mlfi_priv *priv;
 	int r, er;
 #ifdef HAVE_PATH_MAX
-	char strres[PATH_MAX], buf[PATH_MAX];
+	char strres[PATH_MAX], buf[PATH_MAX], extra_buf[128];
 #elif defined(HAVE_MAXPATHLEN)
 	char strres[MAXPATHLEN], buf[MAXPATHLEN ];
 #else
@@ -1258,6 +1144,8 @@ mlfi_eom(SMFICTX * ctx)
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
 		return SMFIS_TEMPFAIL;
 	}
+
+	memset (extra_buf, 0, sizeof (extra_buf));
 
 	/* set queue id */
 	if (priv->queue_id[0] == '\0') {
@@ -1411,9 +1299,11 @@ mlfi_eom(SMFICTX * ctx)
 
 			switch (mres->action) {
 			case METRIC_ACTION_REJECT:
-				if (cfg->spam_server && cfg->send_cache_spam) {
-					send_beanstalk_copy (priv, cfg->spam_server);
+				if (cfg->cache_servers_spam_num > 0 && cfg->cache_spam_channel) {
+					publish_message (priv, RMILTER_PUBLISH_SPAM, extra_buf,
+										sizeof (extra_buf));
 				}
+
 				if (!cfg->spamd_never_reject) {
 					msg_info ("<%s>; mlfi_eom: rejecting spam", priv->mlfi_id);
 					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT,
@@ -1545,12 +1435,8 @@ mlfi_eom(SMFICTX * ctx)
 		}
 	}
 
-	/* Write message to beanstalk */
-	if (cfg->beanstalk_servers_num > 0 && cfg->send_cache_headers) {
-		send_beanstalk (priv);
-	}
-	/* Maybe write its copy */
-	if (cfg->copy_server && cfg->send_cache_copy) {
+	/* Maybe write message copy */
+	if (cfg->cache_servers_copy > 0 && cfg->cache_copy_channel) {
 		struct rmilter_rng_state *st = get_prng_state ();
 
 		prob_cur = cfg->cache_copy_prob;
@@ -1562,7 +1448,8 @@ mlfi_eom(SMFICTX * ctx)
 		}
 
 		if (prng_next (st) % prob_max <= prob_cur) {
-			send_beanstalk_copy (priv, cfg->copy_server);
+			publish_message (priv, RMILTER_PUBLISH_COPY, extra_buf,
+					sizeof (extra_buf));
 		}
 	}
 
@@ -1695,7 +1582,7 @@ end:
 	msg_info ("<%s>; msg done: queue_id: <%s>; "
 			"message id: <%s>; ip: %s; "
 			"from: <%s>; rcpt: %s (%d total); user: %s; "
-			"spam scan: %s; virus scan: %s; dkim: %s",
+			"spam scan: %s; virus scan: %s; dkim: %s%s",
 			priv->mlfi_id,
 			priv->queue_id,
 			priv->message_id,
@@ -1706,7 +1593,8 @@ end:
 			priv->priv_user[0] ? priv->priv_user : "unauthorized",
 			spam_check_result,
 			av_check_result,
-			dkim_result);
+			dkim_result,
+			extra_buf);
 
 	if (mres != NULL) {
 		spamd_free_result (mres);

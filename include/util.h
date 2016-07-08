@@ -92,4 +92,7 @@ void rmilter_str_lc (char *str, unsigned int size);
 
 ssize_t rmilter_atomic_write (int fd, const void *buf, size_t len);
 
+int rmilter_file_xopen (const char *fname, int oflags, unsigned int mode);
+void* rmilter_file_xmap (const char *fname, unsigned int mode, size_t *size);
+
 #endif /* UTIL_H_ */
