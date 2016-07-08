@@ -60,17 +60,17 @@ uint8_t cur_flags = 0;
 %token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN_STR IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
-%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL AWL_ENABLE AWL_POOL AWL_TTL AWL_HITS SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY
+%token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY SERVERS_COPY SERVERS_SPAM
 %token  LIMITS LIMIT_TO LIMIT_TO_IP LIMIT_TO_IP_FROM LIMIT_WHITELIST LIMIT_WHITELIST_RCPT LIMIT_BOUNCE_ADDRS LIMIT_BOUNCE_TO LIMIT_BOUNCE_TO_IP
 %token  SPAMD REJECT_MESSAGE SERVERS_ID ID_PREFIX GREY_PREFIX WHITE_PREFIX RSPAMD_METRIC ALSO_CHECK DIFF_DIR CHECK_SYMBOLS SYMBOLS_DIR
-%token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL
-%token  SEND_BEANSTALK_COPY SEND_BEANSTALK_HEADERS SEND_BEANSTALK_SPAM SPAM_SERVER STRICT_AUTH
+%token  BEANSTALK ID_REGEXP LIFETIME COPY_SERVER GREYLISTED_MESSAGE SPAMD_SOFT_FAIL STRICT_AUTH
 %token	TRACE_SYMBOL TRACE_ADDR WHITELIST_FROM SPAM_HEADER SPAM_HEADER_VALUE SPAMD_GREYLIST EXTENDED_SPAM_HEADERS
 %token  DKIM_SECTION DKIM_KEY DKIM_DOMAIN DKIM_SELECTOR DKIM_HEADER_CANON DKIM_BODY_CANON
 %token  DKIM_SIGN_ALG DKIM_RELAXED DKIM_SIMPLE DKIM_SHA1 DKIM_SHA256 DKIM_AUTH_ONLY COPY_PROBABILITY
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 %token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID SPAMD_SPAM_ADD_HEADER
+%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -79,7 +79,7 @@ uint8_t cur_flags = 0;
 %type   <string>  	SOCKCRED
 %type	<string>	IPADDR IPNETWORK
 %type	<string>	HOSTPORT
-%type 	<string>	ip_net memcached_hosts beanstalk_hosts clamav_addr spamd_addr
+%type 	<string>	ip_net cache_hosts clamav_addr spamd_addr
 %type   <cond>    	expr_l expr term
 %type   <action>  	action
 %type	<string>	DOMAIN_STR
@@ -115,8 +115,7 @@ command	:
 	| bindsock
 	| maxsize
 	| usedcc
-	| memcached
-	| beanstalk
+	| cache
 	| limits
 	| greylisting
 	| whitelist
@@ -659,7 +658,7 @@ spamd_never_reject:
 		}
 	}
 	;
-	
+
 spamd_spam_add_header:
 	SPAMD_SPAM_ADD_HEADER EQSIGN FLAG {
 		if ($3)	{
@@ -813,10 +812,6 @@ greylistingcmd:
 	| greylisting_expire
 	| greylisting_whitelist_expire
 	| greylisted_message
-	| awl_enable
-	| awl_hits
-	| awl_pool
-	| awl_ttl
 	;
 
 greylisting_timeout:
@@ -857,34 +852,6 @@ greylisting_ip:
 	}
 	;
 
-awl_enable:
-	AWL_ENABLE EQSIGN FLAG {
-		if ($3 == -1) {
-			yyerror ("yyparse: cannot parse flag");
-			YYERROR;
-		}
-		cfg->awl_enable = $3;
-	}
-	;
-awl_hits:
-	AWL_HITS EQSIGN NUMBER {
-		cfg->awl_max_hits = $3;
-	}
-	;
-
-awl_pool:
-	AWL_POOL EQSIGN SIZELIMIT {
-		cfg->awl_pool_size = $3;
-	}
-	;
-
-awl_ttl:
-	AWL_TTL EQSIGN SECONDS {
-		/* Time is in seconds */
-		cfg->awl_ttl = $3 / 1000;
-	}
-	;
-
 greylisted_message:
 	GREYLISTED_MESSAGE EQSIGN QUOTEDSTRING {
 		free (cfg->greylisted_message);
@@ -898,363 +865,252 @@ ip_net:
 	| QUOTEDSTRING
 	;
 
-memcached:
-	MEMCACHED OBRACE memcachedbody EBRACE {}
-	| REDIS OBRACE memcachedbody EBRACE { cfg->use_redis = 1; }
+cache:
+	cache OBRACE cachebody EBRACE {}
+	| REDIS OBRACE cachebody EBRACE { cfg->cache_use_redis = 1; }
 	;
 
-memcachedbody:
-	memcachedcmd SEMICOLON
-	| memcachedbody memcachedcmd SEMICOLON
+cachebody:
+	cachecmd SEMICOLON
+	| cachebody cachecmd SEMICOLON
 	;
 
-memcachedcmd:
-	memcached_grey_servers
-	| memcached_white_servers
-	| memcached_limits_servers
-	| memcached_id_servers
-	| memcached_connect_timeout
-	| memcached_error_time
-	| memcached_dead_time
-	| memcached_maxerrors
-	| memcached_protocol
-	| memcached_id_prefix
-	| memcached_grey_prefix
-	| memcached_white_prefix
-	| memcached_password
-	| memcached_dbname
+cachecmd:
+	cache_grey_servers
+	| cache_white_servers
+	| cache_limits_servers
+	| cache_id_servers
+	| cache_spam_servers
+	| cache_copy_servers
+	| cache_connect_timeout
+	| cache_error_time
+	| cache_dead_time
+	| cache_maxerrors
+	| cache_protocol
+	| cache_id_prefix
+	| cache_grey_prefix
+	| cache_white_prefix
+	| cache_password
+	| cache_dbname
+	| cache_spam_channel
+	| cache_copy_channel
+	| cache_copy_probability
 	;
 
-memcached_grey_servers:
-	SERVERS_GREY EQSIGN memcached_grey_server
+cache_grey_servers:
+	SERVERS_GREY EQSIGN cache_grey_server
 	;
 
-memcached_grey_server:
-	memcached_grey_params
-	| memcached_grey_server COMMA memcached_grey_params
+cache_grey_server:
+	cache_grey_params
+	| cache_grey_server COMMA cache_grey_params
 	;
 
-memcached_grey_params:
-	OBRACE memcached_hosts COMMA memcached_hosts EBRACE {
-		if (!add_memcached_server (cfg, $2, $4, MEMCACHED_SERVER_GREY)) {
-			yyerror ("yyparse: add_memcached_server");
+cache_grey_params:
+	OBRACE cache_hosts COMMA cache_hosts EBRACE {
+		if (!add_cache_server (cfg, $2, $4, CACHE_SERVER_GREY)) {
+			yyerror ("yyparse: add_cache_server");
 			YYERROR;
 		}
 		free ($2);
 		free ($4);
 	}
-	| memcached_hosts {
-		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_GREY)) {
-			yyerror ("yyparse: add_memcached_server");
+	| cache_hosts {
+		if (!add_cache_server (cfg, $1, NULL, CACHE_SERVER_GREY)) {
+			yyerror ("yyparse: add_cache_server");
 			YYERROR;
 		}
 		free ($1);
 	}
 	;
 
-memcached_white_servers:
-	SERVERS_WHITE EQSIGN memcached_white_server
+cache_white_servers:
+	SERVERS_WHITE EQSIGN cache_white_server
 	;
 
-memcached_white_server:
-	memcached_white_params
-	| memcached_white_server COMMA memcached_white_params
+cache_white_server:
+	cache_white_params
+	| cache_white_server COMMA cache_white_params
 	;
 
-memcached_white_params:
-	OBRACE memcached_hosts COMMA memcached_hosts EBRACE {
-		if (!add_memcached_server (cfg, $2, $4, MEMCACHED_SERVER_WHITE)) {
-			yyerror ("yyparse: add_memcached_server");
+cache_white_params:
+	OBRACE cache_hosts COMMA cache_hosts EBRACE {
+		if (!add_cache_server (cfg, $2, $4, CACHE_SERVER_WHITE)) {
+			yyerror ("yyparse: add_cache_server");
 			YYERROR;
 		}
 		free ($2);
 		free ($4);
 	}
-	| memcached_hosts {
-		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_WHITE)) {
-			yyerror ("yyparse: add_memcached_server");
+	| cache_hosts {
+		if (!add_cache_server (cfg, $1, NULL, CACHE_SERVER_WHITE)) {
+			yyerror ("yyparse: add_cache_server");
 			YYERROR;
 		}
 		free ($1);
 	}
 	;
 
-memcached_limits_servers:
-	SERVERS_LIMITS EQSIGN memcached_limits_server
+cache_limits_servers:
+	SERVERS_LIMITS EQSIGN cache_limits_server
 	;
 
-memcached_limits_server:
-	memcached_limits_params
-	| memcached_limits_server COMMA memcached_limits_params
+cache_limits_server:
+	cache_limits_params
+	| cache_limits_server COMMA cache_limits_params
 	;
 
-memcached_limits_params:
-	memcached_hosts {
-		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_LIMITS)) {
-			yyerror ("yyparse: add_memcached_server");
+cache_limits_params:
+	cache_hosts {
+		if (!add_cache_server (cfg, $1, NULL, CACHE_SERVER_LIMITS)) {
+			yyerror ("yyparse: add_cache_server");
 			YYERROR;
 		}
 		free ($1);
 	}
 	;
 
-memcached_id_servers:
-	SERVERS_ID EQSIGN memcached_id_server
+cache_id_servers:
+	SERVERS_ID EQSIGN cache_id_server
 	;
 
-memcached_id_server:
-	memcached_id_params
-	| memcached_id_server COMMA memcached_id_params
+cache_id_server:
+	cache_id_params
+	| cache_id_server COMMA cache_id_params
 	;
 
-memcached_id_params:
-	memcached_hosts {
-		if (!add_memcached_server (cfg, $1, NULL, MEMCACHED_SERVER_ID)) {
-			yyerror ("yyparse: add_memcached_server");
+cache_id_params:
+	cache_hosts {
+		if (!add_cache_server (cfg, $1, NULL, CACHE_SERVER_ID)) {
+			yyerror ("yyparse: add_cache_server");
 			YYERROR;
 		}
 		free ($1);
 	}
 	;
 
-memcached_hosts:
+cache_copy_servers:
+	SERVERS_COPY EQSIGN cache_copy_server
+	;
+
+cache_copy_server:
+	cache_copy_params
+	| cache_copy_server COMMA cache_copy_params
+	;
+
+cache_copy_params:
+	cache_hosts {
+		if (!add_cache_server (cfg, $1, NULL, CACHE_SERVER_COPY)) {
+			yyerror ("yyparse: add_cache_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+
+cache_spam_servers:
+	SERVERS_SPAM EQSIGN cache_spam_server
+	;
+
+cache_spam_server:
+	cache_spam_params
+	| cache_spam_server COMMA cache_spam_params
+	;
+
+cache_spam_params:
+	cache_hosts {
+		if (!add_cache_server (cfg, $1, NULL, CACHE_SERVER_SPAM)) {
+			yyerror ("yyparse: add_cache_server");
+			YYERROR;
+		}
+		free ($1);
+	}
+	;
+
+cache_hosts:
 	STRING
 	| QUOTEDSTRING
 	| IPADDR
 	| DOMAIN_STR
 	| HOSTPORT
 	;
-memcached_error_time:
+cache_error_time:
 	ERROR_TIME EQSIGN NUMBER {
-		cfg->memcached_error_time = $3;
+		cfg->cache_error_time = $3;
 	}
 	;
-memcached_dead_time:
+cache_dead_time:
 	DEAD_TIME EQSIGN NUMBER {
-		cfg->memcached_dead_time = $3;
+		cfg->cache_dead_time = $3;
 	}
 	;
-memcached_maxerrors:
+cache_maxerrors:
 	MAXERRORS EQSIGN NUMBER {
-		cfg->memcached_maxerrors = $3;
+		cfg->cache_maxerrors = $3;
 	}
 	;
-memcached_connect_timeout:
+cache_connect_timeout:
 	CONNECT_TIMEOUT EQSIGN SECONDS {
-		cfg->memcached_connect_timeout = $3;
+		cfg->cache_connect_timeout = $3;
 	}
 	;
 
-memcached_protocol:
+cache_protocol:
 	PROTOCOL EQSIGN STRING {
 		/* Do nothing now*/
 	}
 	;
-memcached_id_prefix:
+cache_id_prefix:
 	ID_PREFIX EQSIGN QUOTEDSTRING {
 		free (cfg->id_prefix);
 		cfg->id_prefix = $3;
 	}
 	;
 
-memcached_grey_prefix:
+cache_grey_prefix:
 	GREY_PREFIX EQSIGN QUOTEDSTRING {
 		free (cfg->grey_prefix);
 		cfg->grey_prefix = $3;
 	}
 	;
 
-memcached_white_prefix:
+cache_white_prefix:
 	WHITE_PREFIX EQSIGN QUOTEDSTRING {
 		free (cfg->white_prefix);
 		cfg->white_prefix = $3;
 	}
 	;
 
-memcached_password:
+cache_password:
 	PASSWORD EQSIGN QUOTEDSTRING {
-		free (cfg->memcached_password);
-		cfg->memcached_password = $3;
+		free (cfg->cache_password);
+		cfg->cache_password = $3;
 	}
 	;
 
-memcached_dbname:
+cache_dbname:
 	DBNAME EQSIGN QUOTEDSTRING {
-		free (cfg->memcached_dbname);
-		cfg->memcached_dbname = $3;
+		free (cfg->cache_dbname);
+		cfg->cache_dbname = $3;
 	}
 	;
 
-beanstalk:
-	BEANSTALK OBRACE beanstalkbody EBRACE
-	;
-
-beanstalkbody:
-	beanstalkcmd SEMICOLON
-	| beanstalkbody beanstalkcmd SEMICOLON
-	;
-
-beanstalkcmd:
-	beanstalk_servers
-	| beanstalk_copy_server
-	| beanstalk_spam_server
-	| beanstalk_connect_timeout
-	| beanstalk_error_time
-	| beanstalk_dead_time
-	| beanstalk_maxerrors
-	| beanstalk_protocol
-	| beanstalk_id_regexp
-	| beanstalk_lifetime
-	| send_beanstalk_headers
-	| send_beanstalk_spam
-	| send_beanstalk_copy
-	| beanstalk_copy_prob
-	| beanstalk_extra_diff
-	;
-
-beanstalk_servers:
-	SERVERS EQSIGN beanstalk_server
-	;
-
-beanstalk_server:
-	beanstalk_params
-	| beanstalk_server COMMA beanstalk_params
-	;
-
-beanstalk_params:
-	beanstalk_hosts {
-		if (!add_beanstalk_server (cfg, $1, 0)) {
-			yyerror ("yyparse: add_beanstalk_server");
-			YYERROR;
-		}
-		free ($1);
+cache_copy_channel:
+	COPY_CHANNEL EQSIGN QUOTEDSTRING {
+		free (cfg->cache_copy_channel);
+		cfg->cache_copy_channel = $3;
 	}
 	;
 
-beanstalk_copy_server:
-	COPY_SERVER EQSIGN beanstalk_hosts {
-		if (!add_beanstalk_server (cfg, $3, 1)) {
-			yyerror ("yyparse: add_beanstalk_server");
-			YYERROR;
-		}
-		free ($3);
-	}
-	;
-beanstalk_spam_server:
-	SPAM_SERVER EQSIGN beanstalk_hosts {
-		if (!add_beanstalk_server (cfg, $3, 2)) {
-			yyerror ("yyparse: add_beanstalk_server");
-			YYERROR;
-		}
-		free ($3);
-	}
-	;
-
-beanstalk_hosts:
-	STRING
-	| QUOTEDSTRING
-	| IPADDR
-	| DOMAIN_STR
-	| HOSTPORT
-	;
-
-beanstalk_error_time:
-	ERROR_TIME EQSIGN NUMBER {
-		cfg->beanstalk_error_time = $3;
-	}
-	;
-beanstalk_dead_time:
-	DEAD_TIME EQSIGN NUMBER {
-		cfg->beanstalk_dead_time = $3;
-	}
-	;
-beanstalk_maxerrors:
-	MAXERRORS EQSIGN NUMBER {
-		cfg->beanstalk_maxerrors = $3;
-	}
-	;
-beanstalk_connect_timeout:
-	CONNECT_TIMEOUT EQSIGN SECONDS {
-		cfg->beanstalk_connect_timeout = $3;
-	}
-	;
-
-beanstalk_protocol:
-	PROTOCOL EQSIGN STRING {
-		/* Do nothing */
-	}
-	;
-beanstalk_id_regexp:
-	ID_REGEXP EQSIGN QUOTEDSTRING {
-		int offset;
-		const char *read_err;
-
-		if (cfg->special_mid_re) {
-			pcre_free (cfg->special_mid_re);
-		}
-		cfg->special_mid_re = pcre_compile ($3, 0, &read_err, &offset, NULL);
-		if (cfg->special_mid_re == NULL) {
-			yyerror ("yyparse: pcre_compile failed: %s", read_err);
-			YYERROR;
-		}
-
-		free($3);
-	}
-	;
-beanstalk_lifetime:
-	LIFETIME EQSIGN NUMBER {
-		cfg->beanstalk_lifetime = $3;
-	}
-	;
-
-send_beanstalk_headers:
-	SEND_BEANSTALK_HEADERS EQSIGN FLAG {
-		if ($3) {
-			cfg->send_beanstalk_headers = 1;
-		}
-		else {
-			cfg->send_beanstalk_headers = 0;
-		}
-	}
-	;
-send_beanstalk_copy:
-	SEND_BEANSTALK_COPY EQSIGN FLAG {
-		if ($3) {
-			cfg->send_beanstalk_copy = 1;
-		}
-		else {
-			cfg->send_beanstalk_copy = 0;
-		}
-	}
-	;
-send_beanstalk_spam:
-	SEND_BEANSTALK_SPAM EQSIGN FLAG {
-		if ($3) {
-			cfg->send_beanstalk_spam = 1;
-		}
-		else {
-			cfg->send_beanstalk_spam = 0;
-		}
-	}
-	;
-
-beanstalk_copy_prob:
+cache_copy_probability:
 	COPY_PROBABILITY EQSIGN NUMBER {
-		cfg->beanstalk_copy_prob = $3;
-	}
-	| COPY_PROBABILITY EQSIGN FLOAT {
-		cfg->beanstalk_copy_prob = $3;
+		cfg->cache_copy_prob = $3;
 	}
 	;
-
-beanstalk_extra_diff:
-	SEND_BEANSTALK_SPAM_EXTRA_DIFF EQSIGN FLAG {
-		if ($3) {
-			cfg->send_beanstalk_extra_diff = 1;
-		}
-		else {
-			cfg->send_beanstalk_extra_diff = 0;
-		}
+cache_spam_channel:
+	SPAM_CHANNEL EQSIGN QUOTEDSTRING {
+		free (cfg->cache_spam_channel);
+		cfg->cache_spam_channel = $3;
 	}
 	;
 
@@ -1601,7 +1457,7 @@ dkim_ip_list:
 
 use_redis:
 	USE_REDIS EQSIGN FLAG {
-		cfg->use_redis = $3;
+		cfg->cache_use_redis = $3;
 	}
 	;
 

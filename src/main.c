@@ -267,15 +267,6 @@ main(int argc, char *argv[])
 		msg_warn ("maxsize is not set, no limits on size of scanned mail");
 	}
 
-	/* Init awl */
-	if (cfg->awl_enable) {
-		cfg->awl_hash = awl_init (cfg->awl_pool_size, cfg->awl_max_hits, cfg->awl_ttl);
-		if (cfg->awl_hash == NULL) {
-			msg_warn ("cannot init awl");
-			cfg->awl_enable = 0;
-		}
-	}
-
 #ifdef HAVE_SRANDOMDEV
 	srandomdev();
 #else
