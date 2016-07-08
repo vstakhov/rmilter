@@ -312,7 +312,7 @@ check_message_id (struct mlfi_priv *priv, char *header)
 		}
 	}
 
-	if (cfg->memcached_servers_id_num == 0) {
+	if (cfg->cache_servers_id_num == 0) {
 		return;
 	}
 
@@ -372,7 +372,7 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 	int r;
 	CFG_RLOCK();
 
-	if (priv->priv_ip[0] != '\0' && cfg->memcached_servers_grey_num > 0 &&
+	if (priv->priv_ip[0] != '\0' && cfg->cache_servers_grey_num > 0 &&
 			cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		msg_debug ("<%s>; check_greylisting_ctx: checking greylisting", priv->mlfi_id);
@@ -1411,7 +1411,7 @@ mlfi_eom(SMFICTX * ctx)
 
 			switch (mres->action) {
 			case METRIC_ACTION_REJECT:
-				if (cfg->spam_server && cfg->send_beanstalk_spam) {
+				if (cfg->spam_server && cfg->send_cache_spam) {
 					send_beanstalk_copy (priv, cfg->spam_server);
 				}
 				if (!cfg->spamd_never_reject) {
@@ -1546,14 +1546,14 @@ mlfi_eom(SMFICTX * ctx)
 	}
 
 	/* Write message to beanstalk */
-	if (cfg->beanstalk_servers_num > 0 && cfg->send_beanstalk_headers) {
+	if (cfg->beanstalk_servers_num > 0 && cfg->send_cache_headers) {
 		send_beanstalk (priv);
 	}
 	/* Maybe write its copy */
-	if (cfg->copy_server && cfg->send_beanstalk_copy) {
+	if (cfg->copy_server && cfg->send_cache_copy) {
 		struct rmilter_rng_state *st = get_prng_state ();
 
-		prob_cur = cfg->beanstalk_copy_prob;
+		prob_cur = cfg->cache_copy_prob;
 		/* Normalize */
 		prob_max = 100;
 		while (prob_cur < 1.0) {

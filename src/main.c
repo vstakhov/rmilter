@@ -237,7 +237,7 @@ main(int argc, char *argv[])
 		return EBADF;
 	}
 
-	if (!cfg->use_redis) {
+	if (!cfg->cache_use_redis) {
 		msg_warn ("rmilter is configured to work with legacy memcached cache,"
 				" please consider switching to redis by adding "
 				"'use_redis = true;' into configuration");

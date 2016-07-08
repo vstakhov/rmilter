@@ -43,6 +43,11 @@ enum rmilter_query_type {
 	RMILTER_QUERY_ID,
 };
 
+enum rmilter_publish_type {
+	RMILTER_PUBLISH_COPY = 0,
+	RMILTER_PUBLISH_SPAM,
+};
+
 /**
  * Query cache (preferring redis) for the specified key
  * @param cfg
@@ -64,5 +69,9 @@ bool rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 
 bool rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 		const unsigned char *key, size_t keylen, struct mlfi_priv *priv);
+
+bool rmilter_publish_cache (struct config_file *cfg, enum rmilter_publish_type type,
+		const unsigned char *channel, size_t channel_len,
+		const unsigned char *data, size_t datalen, struct mlfi_priv *priv);
 
 #endif /* INCLUDE_CACHE_H_ */

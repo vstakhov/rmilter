@@ -399,14 +399,12 @@ SET(RMILTERSRC
                 src/radix.c
                 src/regexp.c
                 src/cache.c
-                src/beanstalk.c
                 ${CMAKE_BINARY_DIR}/cfg_lex.c
                 ${CMAKE_BINARY_DIR}/cfg_yacc.c
                 src/cfg_file.c
                 src/libclamc.c
                 src/ratelimit.c
                 src/main.c
-                src/awl.c
                 src/libspamd.c
                 src/greylist.c
                 src/rmilter.c)

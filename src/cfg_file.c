@@ -94,63 +94,57 @@ static size_t copy_regexp(char **dst, const char *src)
 	return rmilter_strlcpy (*dst, src, len + 1);
 }
 
-int add_memcached_server(struct config_file *cf, char *str, char *str2,
+int add_cache_server(struct config_file *cf, char *str, char *str2,
 		int type)
 {
 	char *cur_tok, *err_str;
 	struct cache_server *mc = NULL;
 	uint16_t port;
+	unsigned *pnum;
 
-	if (str == NULL)
+	if (str == NULL) {
 		return 0;
-
-	if (type == MEMCACHED_SERVER_GREY) {
-		if (cf->memcached_servers_grey_num == MAX_MEMCACHED_SERVERS) {
-			yyerror (
-					"yyparse: maximum number of memcached servers is reached %d",
-					MAX_MEMCACHED_SERVERS);
-			return 0;
-		}
-
-		mc = &cf->memcached_servers_grey[cf->memcached_servers_grey_num];
 	}
-	else if (type == MEMCACHED_SERVER_WHITE) {
-		if (cf->memcached_servers_white_num == MAX_MEMCACHED_SERVERS) {
-			yyerror (
-					"yyparse: maximum number of whitelist memcached servers is reached %d",
-					MAX_MEMCACHED_SERVERS);
-			return 0;
-		}
 
-		mc = &cf->memcached_servers_white[cf->memcached_servers_white_num];
+	switch (type) {
+	case CACHE_SERVER_GREY:
+		pnum = &cf->cache_servers_grey_num;
+		mc = cf->cache_servers_grey;
+		break;
+	case CACHE_SERVER_WHITE:
+		pnum = &cf->cache_servers_white_num;
+		mc = cf->cache_servers_white;
+		break;
+	case CACHE_SERVER_LIMITS:
+		pnum = &cf->cache_servers_limits_num;
+		mc = cf->cache_servers_limits;
+		break;
+	case CACHE_SERVER_ID:
+		pnum = &cf->cache_servers_id_num;
+		mc = cf->cache_servers_id;
+		break;
+	case CACHE_SERVER_COPY:
+		pnum = &cf->cache_servers_copy_num;
+		mc = cf->cache_servers_copy;
+		break;
+	case CACHE_SERVER_SPAM:
+		pnum = &cf->cache_servers_spam_num;
+		mc = cf->cache_servers_spam;
+		break;
 	}
-	else if (type == MEMCACHED_SERVER_LIMITS) {
-		if (cf->memcached_servers_limits_num == MAX_MEMCACHED_SERVERS) {
-			yyerror (
-					"yyparse: maximum number of limits memcached servers is reached %d",
-					MAX_MEMCACHED_SERVERS);
-			return 0;
-		}
 
-		mc = &cf->memcached_servers_limits[cf->memcached_servers_limits_num];
-	}
-	else if (type == MEMCACHED_SERVER_ID) {
-		if (cf->memcached_servers_id_num == MAX_MEMCACHED_SERVERS) {
-			yyerror (
-					"yyparse: maximum number of id memcached servers is reached %d",
-					MAX_MEMCACHED_SERVERS);
-			return 0;
-		}
-
-		mc = &cf->memcached_servers_id[cf->memcached_servers_id_num];
-	}
-	if (mc == NULL)
+	if (*pnum >= MAX_CACHE_SERVERS) {
+		yyerror ("yyparse: maximum number of cache servers is reached %d",
+				MAX_CACHE_SERVERS);
 		return 0;
+	}
 
+	mc += *pnum;
 	cur_tok = strsep (&str, ":");
 
-	if (cur_tok == NULL || *cur_tok == '\0')
+	if (cur_tok == NULL || *cur_tok == '\0') {
 		return 0;
+	}
 
 	/* cur_tok - server name, str - server port */
 	if (str == NULL) {
@@ -172,18 +166,7 @@ int add_memcached_server(struct config_file *cf, char *str, char *str2,
 				"server %s will be ignored", str2);
 	}
 
-	if (type == MEMCACHED_SERVER_GREY) {
-		cf->memcached_servers_grey_num++;
-	}
-	else if (type == MEMCACHED_SERVER_WHITE) {
-		cf->memcached_servers_white_num++;
-	}
-	else if (type == MEMCACHED_SERVER_LIMITS) {
-		cf->memcached_servers_limits_num++;
-	}
-	else if (type == MEMCACHED_SERVER_ID) {
-		cf->memcached_servers_id_num++;
-	}
+	(*pnum)++;
 
 	return 1;
 }
@@ -298,61 +281,6 @@ int add_spamd_server(struct config_file *cf, char *str, int is_extra)
 	return 1;
 }
 
-int add_beanstalk_server(struct config_file *cf, char *str, int type)
-{
-	char *cur_tok, *err_str;
-	struct beanstalk_server *srv;
-	struct hostent *he;
-
-	if (str == NULL)
-		return 0;
-
-	cur_tok = strsep (&str, ":");
-
-	if (cur_tok == NULL || *cur_tok == '\0')
-		return 0;
-
-	if (type == 1) {
-		cf->copy_server = malloc (sizeof(struct beanstalk_server));
-		srv = cf->copy_server;
-	}
-	else if (type == 2) {
-		cf->spam_server = malloc (sizeof(struct beanstalk_server));
-		srv = cf->spam_server;
-	}
-	else {
-		if (cf->beanstalk_servers_num == MAX_BEANSTALK_SERVERS) {
-			yyerror (
-					"yyparse: maximum number of beanstalk servers is reached %d",
-					MAX_BEANSTALK_SERVERS);
-		}
-
-		srv = &cf->beanstalk_servers[cf->beanstalk_servers_num];
-	}
-
-	if (srv == NULL)
-		return 0;
-
-	if (str == '\0') {
-		srv->port = DEFAULT_BEANSTALK_PORT;
-	}
-	else {
-		srv->port = strtoul (str, &err_str, 10);
-		if (*err_str != '\0') {
-			yyerror ("yyparse: bad beanstalk port %s", str);
-			return 0;
-		}
-	}
-
-	srv->name = strdup (cur_tok);
-
-	if (type == 0) {
-		cf->beanstalk_servers_num++;
-	}
-
-	return 1;
-}
-
 struct action *
 create_action(enum action_type type, const char *message)
 {
@@ -463,8 +391,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->clamav_connect_timeout = DEFAULT_CLAMAV_CONNECT_TIMEOUT;
 	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
 	cfg->clamav_results_timeout = DEFAULT_CLAMAV_RESULTS_TIMEOUT;
-	cfg->memcached_connect_timeout = DEFAULT_MEMCACHED_CONNECT_TIMEOUT;
-	cfg->beanstalk_connect_timeout = DEFAULT_MEMCACHED_CONNECT_TIMEOUT;
+	cfg->cache_connect_timeout = DEFAULT_MEMCACHED_CONNECT_TIMEOUT;
 	cfg->spamd_connect_timeout = DEFAULT_SPAMD_CONNECT_TIMEOUT;
 	cfg->spamd_results_timeout = DEFAULT_SPAMD_RESULTS_TIMEOUT;
 
@@ -484,16 +411,9 @@ void init_defaults(struct config_file *cfg)
 	cfg->spamd_temp_fail = 0;
 	cfg->spam_bar_char = strdup ("x");
 
-	cfg->memcached_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
-	cfg->memcached_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
-	cfg->memcached_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
-
-	cfg->beanstalk_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
-	cfg->beanstalk_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
-	cfg->beanstalk_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
-	cfg->beanstalk_lifetime = DEFAULT_BEANSTALK_LIFETIME;
-	cfg->copy_server = NULL;
-	cfg->spam_server = NULL;
+	cfg->cache_error_time = DEFAULT_UPSTREAM_ERROR_TIME;
+	cfg->cache_dead_time = DEFAULT_UPSTREAM_DEAD_TIME;
+	cfg->cache_maxerrors = DEFAULT_UPSTREAM_MAXERRORS;
 
 	cfg->grey_whitelist_tree = radix_create_compressed ();
 	cfg->limit_whitelist_tree = radix_create_compressed ();
@@ -513,8 +433,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->id_prefix = strdup ("id");
 	cfg->spamd_spam_add_header = 1;
 
-	cfg->awl_enable = 0;
-	cfg->beanstalk_copy_prob = 100.0;
+	cfg->cache_copy_prob = 100.0;
 
 	cfg->spamd_soft_fail = 1;
 	cfg->spamd_greylist = 1;
@@ -670,28 +589,23 @@ void free_config(struct config_file *cfg)
 	if (cfg->white_prefix) {
 		free (cfg->white_prefix);
 	}
-	if (cfg->memcached_password) {
-		free (cfg->memcached_password);
+	if (cfg->cache_password) {
+		free (cfg->cache_password);
 	}
-	if (cfg->memcached_dbname) {
-		free (cfg->memcached_dbname);
+	if (cfg->cache_dbname) {
+		free (cfg->cache_dbname);
 	}
-	if (cfg->copy_server) {
-		free (cfg->copy_server);
+	if (cfg->cache_copy_channel) {
+		free (cfg->cache_copy_channel);
 	}
-	if (cfg->spam_server) {
-		free (cfg->spam_server);
+	if (cfg->cache_spam_channel) {
+		free (cfg->cache_spam_channel);
 	}
 	if (cfg->greylisted_message) {
 		free (cfg->greylisted_message);
 	}
 	if (cfg->spam_bar_char) {
 		free (cfg->spam_bar_char);
-	}
-
-	if (cfg->awl_enable && cfg->awl_hash != NULL) {
-		free (cfg->awl_hash->pool);
-		free (cfg->awl_hash);
 	}
 
 #ifdef WITH_DKIM

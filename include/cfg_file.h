@@ -32,10 +32,7 @@
 #include "util.h"
 #include "pcre.h"
 #include "upstream.h"
-#include "beanstalk.h"
 #include "radix.h"
-#include "awl.h"
-
 #include "uthash.h"
 
 #ifdef WITH_DKIM
@@ -50,15 +47,12 @@
 #define COND_BODY_FLAG 0x20
 
 #define MAX_SPF_DOMAINS 1024
-#define MAX_CLAMAV_SERVERS 48
-#define MAX_SPAMD_SERVERS 48
-#define MAX_MEMCACHED_SERVERS 48
-#define MAX_BEANSTALK_SERVERS 48
+#define MAX_CLAMAV_SERVERS 32
+#define MAX_SPAMD_SERVERS 32
+#define MAX_CACHE_SERVERS 32
 #define DEFAULT_MEMCACHED_PORT 11211
 #define DEFAULT_CLAMAV_PORT 3310
 #define DEFAULT_SPAMD_PORT 11333
-#define DEFAULT_BEANSTALK_PORT 11300
-#define DEFAULT_BEANSTALK_LIFETIME 172800
 /* Clamav timeouts */
 #define DEFAULT_CLAMAV_CONNECT_TIMEOUT 1000
 #define DEFAULT_CLAMAV_PORT_TIMEOUT 3000
@@ -76,10 +70,12 @@
 #define DEFAULT_UPSTREAM_DEAD_TIME 300
 #define DEFAULT_UPSTREAM_MAXERRORS 10
 
-#define MEMCACHED_SERVER_LIMITS 0
-#define MEMCACHED_SERVER_GREY 1
-#define MEMCACHED_SERVER_WHITE 2
-#define MEMCACHED_SERVER_ID 3
+#define CACHE_SERVER_LIMITS 0
+#define CACHE_SERVER_GREY 1
+#define CACHE_SERVER_WHITE 2
+#define CACHE_SERVER_ID 3
+#define CACHE_SERVER_COPY 4
+#define CACHE_SERVER_SPAM 5
 
 #define DEFAUL_SPAMD_REJECT "Spam message rejected; If this is not spam contact abuse team"
 #define DEFAULT_GREYLISTED_MESSAGE "Try again later"
@@ -220,7 +216,7 @@ struct config_file {
 	size_t sizelimit;
 
 	struct clamav_server clamav_servers[MAX_CLAMAV_SERVERS];
-	size_t clamav_servers_num;
+	unsigned int clamav_servers_num;
 	unsigned int clamav_error_time;
 	unsigned int clamav_dead_time;
 	unsigned int clamav_maxerrors;
@@ -228,13 +224,12 @@ struct config_file {
 	unsigned int clamav_port_timeout;
 	unsigned int clamav_results_timeout;
 	radix_compressed_t *clamav_whitelist;
-
 	unsigned int tempfiles_mode;
 
 	struct spamd_server spamd_servers[MAX_SPAMD_SERVERS];
-	size_t spamd_servers_num;
+	unsigned int spamd_servers_num;
 	struct spamd_server extra_spamd_servers[MAX_SPAMD_SERVERS];
-	size_t extra_spamd_servers_num;
+	unsigned int extra_spamd_servers_num;
 	unsigned int spamd_error_time;
 	unsigned int spamd_dead_time;
 	unsigned int spamd_maxerrors;
@@ -246,62 +241,58 @@ struct config_file {
 	char *diff_dir;
 	char *check_symbols;
 	char *symbols_dir;
-	u_char spamd_soft_fail;
-	u_char spamd_greylist;
-	u_char spamd_spam_add_header;
 	char *trace_symbol;
 	char *trace_addr;
 	char *spam_header;
 	char *spam_header_value;
 	char *spam_bar_char;
 	char *spamd_settings_id;
-	u_char spam_no_auth_header;
-	u_char extended_spam_headers;
+
 	unsigned int spamd_retry_timeout;
 	unsigned int spamd_retry_count;
-	u_char spamd_temp_fail;
-	u_char spamd_never_reject;
 
 	pcre* special_mid_re;
 
-	bool use_redis;
+	struct cache_server cache_servers_limits[MAX_CACHE_SERVERS];
+	unsigned int  cache_servers_limits_num;
+	struct cache_server cache_servers_grey[MAX_CACHE_SERVERS];
+	unsigned int  cache_servers_grey_num;
+	struct cache_server cache_servers_white[MAX_CACHE_SERVERS];
+	unsigned int  cache_servers_white_num;
+	struct cache_server cache_servers_id[MAX_CACHE_SERVERS];
+	unsigned int  cache_servers_id_num;
+	struct cache_server cache_servers_copy[MAX_CACHE_SERVERS];
+	unsigned int  cache_servers_copy_num;
+	struct cache_server cache_servers_spam[MAX_CACHE_SERVERS];
+	unsigned int  cache_servers_spam_num;
+	unsigned int cache_error_time;
+	unsigned int cache_dead_time;
+	unsigned int cache_maxerrors;
+	unsigned int cache_connect_timeout;
+	char *cache_password;
+	char *cache_dbname;
+	char *cache_spam_channel;
+	char *cache_copy_channel;
 
-	struct cache_server memcached_servers_limits[MAX_MEMCACHED_SERVERS];
-	size_t memcached_servers_limits_num;
-	struct cache_server memcached_servers_grey[MAX_MEMCACHED_SERVERS];
-	size_t memcached_servers_grey_num;
-	struct cache_server memcached_servers_white[MAX_MEMCACHED_SERVERS];
-	size_t memcached_servers_white_num;
-	struct cache_server memcached_servers_id[MAX_MEMCACHED_SERVERS];
-	size_t memcached_servers_id_num;
-	unsigned int memcached_error_time;
-	unsigned int memcached_dead_time;
-	unsigned int memcached_maxerrors;
-	unsigned int memcached_connect_timeout;
-	char *memcached_password;
-	char *memcached_dbname;
+	double cache_copy_prob;
 
-	struct beanstalk_server beanstalk_servers[MAX_BEANSTALK_SERVERS];
-	size_t beanstalk_servers_num;
-	struct beanstalk_server *copy_server;
-	struct beanstalk_server *spam_server;
-	double beanstalk_copy_prob;
-	char send_beanstalk_copy;
-	char send_beanstalk_spam;
-	char send_beanstalk_headers;
-	char send_beanstalk_extra_diff;
-
-	unsigned int beanstalk_error_time;
-	unsigned int beanstalk_dead_time;
-	unsigned int beanstalk_maxerrors;
-	unsigned int beanstalk_connect_timeout;
-	unsigned int beanstalk_lifetime;
+	unsigned send_cache_copy:1;
+	unsigned send_cache_spam:1;
+	unsigned send_cache_headers:1;
+	unsigned send_cache_extra_diff:1;
+	unsigned cache_use_redis:1;
+	unsigned spamd_soft_fail:1;
+	unsigned spamd_greylist:1;
+	unsigned spamd_spam_add_header:1;
+	unsigned spam_no_auth_header:1;
+	unsigned extended_spam_headers:1;
+	unsigned spamd_temp_fail:1;
+	unsigned spamd_never_reject:1;
+	unsigned use_dcc:1;
+	unsigned strict_auth:1;
+	unsigned weighted_clamav:1;
 
 	LIST_HEAD (ruleset, rule) rules;
-
-	char use_dcc;
-	char strict_auth;
-	char weighted_clamav;
 
 	/* limits section */
 	bucket_t limit_to;
@@ -324,20 +315,14 @@ struct config_file {
 	radix_compressed_t *grey_whitelist_tree;
 	radix_compressed_t *limit_whitelist_tree;
 	radix_compressed_t *our_networks;
-	/* Autowhitelist section */
-	u_char awl_enable;
-	awl_hash_t *awl_hash;
-	uint16_t awl_max_hits;
-	unsigned int awl_ttl;
-	size_t awl_pool_size;
 
 	/* DKIM section */
 	struct dkim_domain_entry *dkim_domains;
-	u_char dkim_relaxed_header;
-	u_char dkim_relaxed_body;
-	u_char dkim_sign_sha256;
-	u_char dkim_auth_only;
-	u_char dkim_fold_header;
+	unsigned dkim_relaxed_header:1;
+	unsigned dkim_relaxed_body:1;
+	unsigned dkim_sign_sha256:1;
+	unsigned dkim_auth_only:1;
+	unsigned dkim_fold_header:1;
 	radix_compressed_t *dkim_ip_tree;
 #ifdef WITH_DKIM
 	DKIM_LIB *dkim_lib;
@@ -345,13 +330,12 @@ struct config_file {
 #endif
 
 	/* Number of config reloads */
-	short int serial;
+	unsigned int serial;
 };
 
-int add_memcached_server (struct config_file *cf, char *str, char *str2, int type);
+int add_cache_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
 int add_spamd_server (struct config_file *cf, char *str, int is_extra);
-int add_beanstalk_server (struct config_file *cf, char *str, int is_copy);
 struct action * create_action (enum action_type type, const char *message);
 struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 void init_defaults (struct config_file *cfg);

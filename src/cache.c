@@ -76,31 +76,31 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 
 	switch (type) {
 	case RMILTER_QUERY_GREYLIST:
-		if (cfg->memcached_servers_grey_num > 0) {
-			ptr = cfg->memcached_servers_grey;
-			mlen = cfg->memcached_servers_grey_num;
+		if (cfg->cache_servers_grey_num > 0) {
+			ptr = cfg->cache_servers_grey;
+			mlen = cfg->cache_servers_grey_num;
 		}
 		break;
 	case RMILTER_QUERY_WHITELIST:
-		if (cfg->memcached_servers_white_num > 0) {
-			ptr = cfg->memcached_servers_white;
-			mlen = cfg->memcached_servers_white_num;
+		if (cfg->cache_servers_white_num > 0) {
+			ptr = cfg->cache_servers_white;
+			mlen = cfg->cache_servers_white_num;
 		}
-		else if (cfg->memcached_servers_grey_num > 0) {
-			ptr = cfg->memcached_servers_grey;
-			mlen = cfg->memcached_servers_grey_num;
+		else if (cfg->cache_servers_grey_num > 0) {
+			ptr = cfg->cache_servers_grey;
+			mlen = cfg->cache_servers_grey_num;
 		}
 		break;
 	case RMILTER_QUERY_RATELIMIT:
-		if (cfg->memcached_servers_limits_num > 0) {
-			ptr = cfg->memcached_servers_limits;
-			mlen = cfg->memcached_servers_limits_num;
+		if (cfg->cache_servers_limits_num > 0) {
+			ptr = cfg->cache_servers_limits;
+			mlen = cfg->cache_servers_limits_num;
 		}
 		break;
 	case RMILTER_QUERY_ID:
-		if (cfg->memcached_servers_id_num > 0) {
-			ptr = cfg->memcached_servers_id;
-			mlen = cfg->memcached_servers_id_num;
+		if (cfg->cache_servers_id_num > 0) {
+			ptr = cfg->cache_servers_id;
+			mlen = cfg->cache_servers_id_num;
 		}
 		break;
 	}
@@ -108,8 +108,8 @@ rmilter_get_server (struct config_file *cfg, enum rmilter_query_type type,
 	if (ptr) {
 		serv = (struct cache_server *)get_upstream_by_hash (ptr, mlen,
 				sizeof (*serv), time (NULL),
-				cfg->memcached_error_time, cfg->memcached_dead_time,
-				cfg->memcached_maxerrors, key, keylen, priv);
+				cfg->cache_error_time, cfg->cache_dead_time,
+				cfg->cache_maxerrors, key, keylen, priv);
 	}
 
 	return serv;
@@ -130,9 +130,9 @@ rmilter_format_libmemcached_config (struct config_file *cfg,
 	}
 
 	memcached_behavior_set (ctx, MEMCACHED_BEHAVIOR_CONNECT_TIMEOUT,
-			cfg->memcached_connect_timeout);
+			cfg->cache_connect_timeout);
 	memcached_behavior_set (ctx, MEMCACHED_BEHAVIOR_POLL_TIMEOUT,
-				cfg->memcached_connect_timeout);
+				cfg->cache_connect_timeout);
 }
 #endif
 
@@ -152,13 +152,13 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 	serv = rmilter_get_server (cfg, type, key, keylen, priv);
 
 	if (serv) {
-		if (cfg->use_redis) {
+		if (cfg->cache_use_redis) {
 			/* Special workaround */
 			if (serv->port == DEFAULT_MEMCACHED_PORT) {
 				serv->port = DEFAULT_REDIS_PORT;
 			}
 
-			msec_to_tv (cfg->memcached_connect_timeout, &tv);
+			msec_to_tv (cfg->cache_connect_timeout, &tv);
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
 			if (redis == NULL || redis->err != 0) {
@@ -174,14 +174,14 @@ rmilter_query_cache (struct config_file *cfg, enum rmilter_query_type type,
 			}
 			else {
 				rep = 1;
-				if (cfg->memcached_password) {
+				if (cfg->cache_password) {
 					redisAppendCommand (redis, "AUTH %s",
-							cfg->memcached_password);
+							cfg->cache_password);
 					rep ++;
 				}
-				if (cfg->memcached_dbname) {
+				if (cfg->cache_dbname) {
 					redisAppendCommand (redis, "SELECT %s",
-							cfg->memcached_dbname);
+							cfg->cache_dbname);
 					rep ++;
 				}
 
@@ -288,12 +288,12 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 	serv = rmilter_get_server (cfg, type, key, keylen, priv);
 
 	if (serv) {
-		if (cfg->use_redis) {
+		if (cfg->cache_use_redis) {
 			if (serv->port == DEFAULT_MEMCACHED_PORT) {
 				serv->port = DEFAULT_REDIS_PORT;
 			}
 
-			msec_to_tv (cfg->memcached_connect_timeout, &tv);
+			msec_to_tv (cfg->cache_connect_timeout, &tv);
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
 			if (redis == NULL || redis->err != 0) {
@@ -309,14 +309,14 @@ rmilter_set_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			}
 			else {
 				rep = 1;
-				if (cfg->memcached_password) {
+				if (cfg->cache_password) {
 					redisAppendCommand (redis, "AUTH %s",
-							cfg->memcached_password);
+							cfg->cache_password);
 					rep ++;
 				}
-				if (cfg->memcached_dbname) {
+				if (cfg->cache_dbname) {
 					redisAppendCommand (redis, "SELECT %s",
-							cfg->memcached_dbname);
+							cfg->cache_dbname);
 					rep ++;
 				}
 
@@ -407,12 +407,12 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 	serv = rmilter_get_server (cfg, type, key, keylen, priv);
 
 	if (serv) {
-		if (cfg->use_redis) {
+		if (cfg->cache_use_redis) {
 			if (serv->port == DEFAULT_MEMCACHED_PORT) {
 				serv->port = DEFAULT_REDIS_PORT;
 			}
 
-			msec_to_tv (cfg->memcached_connect_timeout, &tv);
+			msec_to_tv (cfg->cache_connect_timeout, &tv);
 			redis = redisConnectWithTimeout (serv->addr, serv->port, tv);
 
 			if (redis == NULL || redis->err != 0) {
@@ -429,14 +429,14 @@ rmilter_delete_cache (struct config_file *cfg, enum rmilter_query_type type ,
 			else {
 
 				rep = 1;
-				if (cfg->memcached_password) {
+				if (cfg->cache_password) {
 					redisAppendCommand (redis, "AUTH %s",
-							cfg->memcached_password);
+							cfg->cache_password);
 					rep ++;
 				}
-				if (cfg->memcached_dbname) {
+				if (cfg->cache_dbname) {
 					redisAppendCommand (redis, "SELECT %s",
-							cfg->memcached_dbname);
+							cfg->cache_dbname);
 					rep ++;
 				}
 
