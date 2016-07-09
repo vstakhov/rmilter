@@ -799,7 +799,7 @@ rmilter_file_xmap (const char *fname, unsigned int mode,
 }
 
 GString *
-rspamd_header_value_fold (const gchar *name,
+rmilter_header_value_fold (const gchar *name,
 		const gchar *value,
 		guint fold_max)
 {

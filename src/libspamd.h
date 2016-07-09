@@ -60,6 +60,7 @@ struct rspamd_symbol {
 
 struct rspamd_metric_result {
 	ucl_object_t *obj;
+	const char *dkim_signature;
 	const char *metric_name;
 	const char *subject;
 	const char *message;

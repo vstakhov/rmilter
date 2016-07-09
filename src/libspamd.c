@@ -109,6 +109,11 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	elt = ucl_object_lookup (obj, "message-id");
 	res->message_id = ucl_object_tostring (elt);
 
+	elt = ucl_object_lookup (obj, "dkim-signature");
+	if (elt) {
+		res->dkim_signature = ucl_object_tostring (elt);
+	}
+
 	if (act_str) {
 		if (strcmp (act_str, "reject") == 0) {
 			res->action = METRIC_ACTION_REJECT;
@@ -781,6 +786,18 @@ log_retry:
 			smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->queue_id);
 		}
 	}
+
+	if (res->dkim_signature) {
+		/* Add dkim signature passed from rspamd */
+		GString *folded = rmilter_header_value_fold ("DKIM-Signature",
+				res->dkim_signature, 76);
+
+		if (folded) {
+			smfi_addheader (ctx, "DKIM-Signature", folded->str);
+			g_string_free (folded, TRUE);
+		}
+	}
+
 	/* Trace spam messages to specific addr */
 	if (!extra && to_trace && cfg->trace_addr) {
 		smfi_addrcpt (ctx, cfg->trace_addr);
