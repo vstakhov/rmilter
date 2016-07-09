@@ -95,4 +95,14 @@ ssize_t rmilter_atomic_write (int fd, const void *buf, size_t len);
 int rmilter_file_xopen (const char *fname, int oflags, unsigned int mode);
 void* rmilter_file_xmap (const char *fname, unsigned int mode, size_t *size);
 
+/**
+ * Fold header using rfc822 rules, return new GString from the previous one
+ * @param name name of header (used just for folding)
+ * @param value value of header
+ * @return new GString with the folded value
+ */
+GString *rmilter_header_value_fold (const gchar *name,
+		const gchar *value,
+		guint fold_max);
+
 #endif /* UTIL_H_ */
