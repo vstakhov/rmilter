@@ -236,8 +236,8 @@ ENDIF()
 
 ############################# CONFIGURE SECTION #############################################
 
-INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/include"
-					"${CMAKE_BINARY_DIR}/include"
+INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/src"
+					"${CMAKE_BINARY_DIR}/src"
 					"${CMAKE_BINARY_DIR}/"
 					"${CMAKE_SOURCE_DIR}/compat"
 					"${CMAKE_SOURCE_DIR}/uthash"
