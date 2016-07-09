@@ -178,18 +178,17 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		const struct spamd_server *srv, struct config_file *cfg,
 		struct rspamd_metric_result *res)
 {
-	char buf[8192];
-	sds readbuf;
+	sds buf = NULL;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
-	int s, r, fd, ofl, size = 0, to_write, written;
+	int s = -1, fd = -1, ofl, size = 0, ret = -1;
 	struct stat sb;
 	struct rspamd_metric_result *cur = NULL;
 	struct rcpt *rcpt;
 	struct rspamd_symbol *cur_symbol;
 	struct http_parser parser;
 	struct http_parser_settings ps;
-	struct iovec iov[2];
+	void *map = NULL;
 
 	/* somebody doesn't need reply... */
 	if (!srv) {
@@ -198,213 +197,122 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	s = rmilter_connect_addr (srv->name, srv->port, cfg->spamd_connect_timeout, priv);
 
-	/* Get file size */
-	fd = open (priv->file, O_RDONLY);
-	if (fstat (fd, &sb) == -1) {
-		msg_warn("<%s>; rspamd: stat failed: %s",  priv->mlfi_id, strerror (errno));
-		close (s);
-		return -1;
-	}
-
 	if (rmilter_poll_fd (s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
 		msg_warn("<%s>; rspamd: timeout waiting writing, %s",  priv->mlfi_id, srv->name);
 		close (s);
-		return -1;
+		goto err;
 	}
+
 	/* Set blocking again */
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
-	r = 0;
-	to_write = sizeof (buf) - r;
-	written = snprintf (buf + r, to_write,
+	buf = sdscatprintf (buf,
 			"GET /symbols HTTP/1.0\r\nContent-Length: %ld\r\n",
 			(long int )sb.st_size);
 
-	if (written > to_write) {
-		msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-				 priv->mlfi_id, srv->name);
-		close (fd);
-		close (s);
-		return -1;
-	}
-	r += written;
-
 	DL_FOREACH (priv->rcpts, rcpt)
 	{
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "Rcpt: %s\r\n", rcpt->r_addr);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					 priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
-		}
-		r += written;
+		buf = sdscatprintf (buf, "Rcpt: %s\r\n", rcpt->r_addr);
 	}
 
 	if (priv->priv_from[0] != '\0') {
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "From: %s\r\n", priv->priv_from);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					 priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
-		}
-		r += written;
+		buf = sdscatprintf (buf, "From: %s\r\n", priv->priv_from);
 	}
+
 	if (priv->priv_helo[0] != '\0') {
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "Helo: %s\r\n", priv->priv_helo);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					 priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
-		}
-		r += written;
+		buf = sdscatprintf (buf, "Helo: %s\r\n", priv->priv_helo);
 	}
+
 	if (priv->priv_hostname[0] != '\0'
 			&& memcmp (priv->priv_hostname, "unknown", 8) != 0) {
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "Hostname: %s\r\n",
+		buf = sdscatprintf (buf, "Hostname: %s\r\n",
 				priv->priv_hostname);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					 priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
-		}
-		r += written;
-	}
-	if (priv->priv_ip[0] != '\0') {
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "IP: %s\r\n", priv->priv_ip);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					 priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
-		}
-		r += written;
-	}
-	if (priv->priv_user[0] != '\0') {
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "User: %s\r\n", priv->priv_user);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					 priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
-		}
-		r += written;
 	}
 
-	to_write = sizeof(buf) - r;
-	written = snprintf(buf + r, to_write, "Queue-ID: %s\r\n",
-			priv->queue_id);
-	if (written > to_write) {
-		msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-				 priv->mlfi_id, srv->name);
-		close (fd);
-		close (s);
-		return -1;
+	if (priv->priv_ip[0] != '\0') {
+		buf = sdscatprintf (buf, "IP: %s\r\n", priv->priv_ip);
 	}
-	r += written;
+
+	if (priv->priv_user[0] != '\0') {
+		buf = sdscatprintf (buf, "User: %s\r\n", priv->priv_user);
+	}
+
+	buf = sdscatprintf (buf, "Queue-ID: %s\r\n", priv->queue_id);
 
 	if (cfg->spamd_settings_id) {
-		to_write = sizeof(buf) - r;
-		written = snprintf(buf + r, to_write, "Settings-ID: %s\r\n",
-				cfg->spamd_settings_id);
-		if (written > to_write) {
-			msg_warn("<%s>; rspamd: buffer overflow while filling buffer (%s)",
-					priv->mlfi_id, srv->name);
-			close (fd);
-			close (s);
-			return -1;
+		buf = sdscatprintf (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
+	}
+
+	buf = sdscat (buf, "\r\n");
+
+	if (write (s, buf, sdslen (buf)) == -1) {
+		msg_warn("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+				strerror (errno));
+		goto err;
+	}
+
+	if (priv->file[0] != '\0') {
+		fd = open (priv->file, O_RDONLY);
+
+		if (fd == -1) {
+			msg_warn("<%s>; rspamd: open (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
 		}
-		r += written;
-	}
 
-	iov[0].iov_base = buf;
-	iov[0].iov_len = r;
-	iov[1].iov_base = "\r\n";
-	iov[1].iov_len = 2;
-
-	if (writev (s, iov, sizeof (iov) / sizeof (iov[0])) == -1) {
-		msg_warn("<%s>; rspamd: writev (%s), %s", priv->mlfi_id, srv->name,
-				strerror (errno));
-		close (fd);
-		close (s);
-		return -1;
-	}
-
+		(void)map;
 #if defined(FREEBSD) && defined(HAVE_SENDFILE)
-	if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
-		close(fd);
-		close(s);
-		return -1;
-	}
+		if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
+			msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+			goto err;
+		}
 #elif defined(LINUX) && defined(HAVE_SENDFILE)
-	off_t off = 0;
-	if (sendfile(s, fd, &off, sb.st_size) == -1) {
-		msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
-		close(fd);
-		close(s);
-		return -1;
-	}
+		off_t off = 0;
+		if (sendfile(s, fd, &off, sb.st_size) == -1) {
+			msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+			goto err;
+		}
 #else
-	void *map;
 
-	map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-	if (map == MAP_FAILED) {
-		msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
-				strerror (errno));
-		close(fd);
-		close(s);
-		return -1;
-	}
+		map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-	if (rmilter_atomic_write (s, map, sb.st_size) == -1) {
-		msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
-				strerror (errno));
-		close(fd);
-		close(s);
+		if (map == MAP_FAILED) {
+			map = NULL;
+			msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
+		}
+
+		if (rmilter_atomic_write (s, map, sb.st_size) == -1) {
+			msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
+		}
+
 		munmap (map, sb.st_size);
-		return -1;
-	}
-
-	munmap (map, sb.st_size);
 #endif
+	}
 
 	fcntl (s, F_SETFL, ofl|O_NONBLOCK);
-	close (fd);
 
 	/*
 	 * read results
 	 */
-	readbuf = sdsempty ();
+	sdsclear (buf);
 
 	for (;;) {
+		ssize_t r;
+		char io_buf[16384];
+
 		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
 			msg_warn("<%s>; rspamd: timeout waiting results %s", priv->mlfi_id,
 					srv->name);
-			close (s);
-			sdsfree (readbuf);
-
-			return -1;
+			goto err;
 		}
 
-		r = read (s, buf, sizeof (buf));
+		r = read (s, io_buf, sizeof (io_buf));
 
 		if (r == -1) {
 			if (errno == EAGAIN || errno == EINTR) {
@@ -413,29 +321,23 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			else {
 				msg_warn("<%s>; rspamd: read, %s, %s", priv->mlfi_id,  srv->name,
 						strerror (errno));
-				close (s);
-				sdsfree (readbuf);
-
-				return -1;
+				goto err;
 			}
 		}
 		else if (r == 0) {
 			break;
 		}
 		else {
-			readbuf = sdscatlen (readbuf, buf, r);
+			buf = sdscatlen (buf, io_buf, r);
 		}
 	}
 
-	size = sdslen (readbuf);
-	close (s);
+	size = sdslen (buf);
 
 	if (size == 0) {
 		msg_err ("<%s>; rspamd; got empty reply from %s",
 				priv->mlfi_id, srv->name);
-		sdsfree (readbuf);
-
-		return -1;
+		goto err;
 	}
 
 	/* Now we need to parse HTTP reply */
@@ -448,15 +350,11 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	parser.data = res;
 	parser.content_length = size;
 
-	if (http_parser_execute (&parser, &ps, readbuf, size) != (size_t)size) {
+	if (http_parser_execute (&parser, &ps, buf, size) != (size_t)size) {
 		msg_err ("<%s>; rspamd; HTTP parser error: %s when rspamd reply",
 				priv->mlfi_id, http_errno_description (parser.http_errno));
-		sdsfree (readbuf);
-
-		return -1;
+		goto err;
 	}
-
-	sdsfree (readbuf);
 
 	if (!res->parsed) {
 		if (parser.status_code != 200) {
@@ -468,10 +366,29 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 					priv->mlfi_id);
 		}
 
-		return -1;
+		goto err;
 	}
 
-	return 0;
+	ret = 0;
+
+err:
+	if (fd != -1) {
+		close (fd);
+	}
+
+	if (s != -1) {
+		close (s);
+	}
+
+	if (buf) {
+		sdsfree (buf);
+	}
+
+	if (map != NULL) {
+		munmap (map, sb.st_size);
+	}
+
+	return ret;
 }
 #undef TEST_WORD
 /*
