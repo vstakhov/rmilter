@@ -368,6 +368,9 @@ ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
 	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
 ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
 	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
+ProcessPackage(GLIB2 LIBRARY glib-2.0 INCLUDE glib.h
+	INCLUDE_SUFFIXES include/glib
+	ROOT ${GLIB_ROOT_DIR} MODULES glib-2.0>=2.28)
 
 IF(ENABLE_DKIM MATCHES "ON")
 	SET(WITH_DKIM 1)

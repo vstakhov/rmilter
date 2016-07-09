@@ -346,6 +346,8 @@ typedef int bool;
 #include <pthread.h>
 #include <ctype.h>
 
+#include <glib.h>
+
 /* compat */
 #include "queue.h"
 
