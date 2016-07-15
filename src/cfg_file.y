@@ -866,7 +866,7 @@ ip_net:
 	;
 
 cache:
-	cache OBRACE cachebody EBRACE {}
+	MEMCACHED OBRACE cachebody EBRACE {}
 	| REDIS OBRACE cachebody EBRACE { cfg->cache_use_redis = 1; }
 	;
 
