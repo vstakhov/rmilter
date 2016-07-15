@@ -22,7 +22,7 @@ Rmilter configuration format is described in the **[following page](https://rspa
 
 Here is a scheme that demonstrates Rspamd and Rmilter integration using Postfix MTA:
 
-<img class="img-responsive" src="/img/rspamd-schemes.007.png">
+<img class="img-responsive" src="https://rspamd.com/img/rspamd-schemes.007.png">
 
 There are several useful settings for postfix to work with this milter:
 
