@@ -197,9 +197,14 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	s = rmilter_connect_addr (srv->name, srv->port, cfg->spamd_connect_timeout, priv);
 
+	if (s == -1) {
+		msg_warn("<%s>; rspamd: cannot connect to %s: %s",  priv->mlfi_id,
+				srv->name, strerror (errno));
+		goto err;
+	}
+
 	if (rmilter_poll_fd (s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
 		msg_warn("<%s>; rspamd: timeout waiting writing, %s",  priv->mlfi_id, srv->name);
-		close (s);
 		goto err;
 	}
 
