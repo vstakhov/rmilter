@@ -205,6 +205,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	if (rmilter_poll_fd (s, cfg->spamd_connect_timeout, POLLOUT) < 1) {
 		msg_warn("<%s>; rspamd: timeout waiting writing, %s",  priv->mlfi_id, srv->name);
+		errno = ETIMEDOUT;
 		goto err;
 	}
 

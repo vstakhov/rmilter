@@ -604,6 +604,10 @@ rmilter_connect_addr (const char *addr, int port, int msec,
 	}
 
 	if (s < 0) {
+		if (s == 0) {
+			errno = ETIMEDOUT;
+		}
+
 		msg_err ("<%s>; rmilter_connect_addr: connect failed: %s: %s",
 				priv->mlfi_id, cause, strerror (error));
 		return -1;
