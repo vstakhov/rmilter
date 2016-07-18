@@ -207,7 +207,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
-	buf = sdscatprintf (buf,
+	buf = sdscatprintf (sdsempty (),
 			"GET /symbols HTTP/1.0\r\nContent-Length: %ld\r\n",
 			(long int )sb.st_size);
 
