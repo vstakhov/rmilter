@@ -397,6 +397,50 @@ err:
 	return ret;
 }
 #undef TEST_WORD
+
+static void
+rmiler_process_rspamd_block (const ucl_object_t *obj, SMFICTX *ctx)
+{
+	const ucl_object_t *elt, *cur, *cur_elt;
+	ucl_object_iter_t it;
+
+	if (obj && ucl_object_type (obj) == UCL_OBJECT) {
+		elt = ucl_object_lookup (obj, "headers_remove");
+		/*
+		 * headers_remove: ["name1", "name2" ...]
+		 */
+		if (elt && ucl_object_type (elt) == UCL_ARRAY) {
+			it = NULL;
+
+			while ((cur = ucl_object_iterate (elt, &it, true)) != NULL) {
+				if (ucl_object_type (cur) == UCL_STRING) {
+					/* TODO: allow to remove multiple headers with the same name */
+					smfi_chgheader (ctx, (char *)ucl_object_tostring (cur),
+							1, NULL);
+				}
+			}
+		}
+
+		elt = ucl_object_lookup (obj, "headers_add");
+		/*
+		 * headers_add: {"name": "value", ... }
+		 * name could have multiple values
+		 */
+		if (elt && ucl_object_type (elt) == UCL_OBJECT) {
+			it = NULL;
+
+			while ((cur = ucl_object_iterate (elt, &it, true)) != NULL) {
+				LL_FOREACH (cur, cur_elt) {
+					if (ucl_object_type (cur_elt) == UCL_STRING) {
+						smfi_addheader (ctx, (char *)ucl_object_key (cur),
+								(char *)ucl_object_tostring (cur_elt));
+					}
+				}
+			}
+		}
+	}
+}
+
 /*
  * spamdscan() - send file to one of remote spamd, with pseudo load-balancing
  * (select one random server, fallback to others in case of errors).
@@ -423,6 +467,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extr
 	struct timespec sleep_ts;
 	SMFICTX *ctx = _ctx;
 	sds optbuf, logbuf, headerbuf;
+	const ucl_object_t *obj;
 	bool extended_options = true, print_symbols = true;
 
 	gettimeofday (&t, NULL);
@@ -632,64 +677,15 @@ log_retry:
 		}
 	}
 
-
-
 	msg_info ("%s", logbuf);
 	sdsfree (logbuf);
 
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
-			smfi_addheader (ctx, "X-Spamd-Extra-Result", headerbuf);
+			smfi_addheader (ctx, "X-Rspamd-Extra-Result", headerbuf);
 		}
 		else {
-			smfi_addheader (ctx, "X-Spamd-Result", headerbuf);
-
-			j = (int) fabs (res->score);
-
-			/* Fill spam bar (exim compatible) */
-			if (j != 0) {
-				char sc = res->score > 0 ? '+' : '-';
-
-				for (i = 0; i < j; i++) {
-					if (i > 50) {
-						break;
-					}
-
-					bar_buf[i] = sc;
-				}
-
-				bar_buf[i] = '\0';
-			}
-			else {
-				bar_buf[0] = '/';
-				bar_buf[1] = '\0';
-			}
-
-			smfi_addheader (ctx, "X-Spamd-Bar", bar_buf);
-
-			/*
-			 * SA compatible headers:
-			 * X-Spam-Level
-			 * X-Spam-Status
-			 */
-
-			if (res->score > 0 && cfg->spam_bar_char) {
-				for (i = 0; i < (int) res->score; i++) {
-					if (i > 50) {
-						break;
-					}
-
-					bar_buf[i] = cfg->spam_bar_char[0];
-				}
-
-				bar_buf[i] = '\0';
-				smfi_addheader (ctx, "X-Spam-Level", bar_buf);
-			}
-
-			snprintf (hdrbuf, sizeof(hdrbuf), "%s, score=%.1f",
-					res->action > METRIC_ACTION_GREYLIST ? "Yes" : "No",
-					res->score);
-			smfi_addheader (ctx, "X-Spam-Status", hdrbuf);
+			smfi_addheader (ctx, "X-Rspamd-Result", headerbuf);
 		}
 	}
 
@@ -698,15 +694,15 @@ log_retry:
 	/* All other statistic headers */
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
-			smfi_addheader (ctx, "X-Spamd-Extra-Server", selected->name);
+			smfi_addheader (ctx, "X-Rspamd-Extra-Server", selected->name);
 			snprintf (hdrbuf, sizeof(hdrbuf), "%.2f", tf - ts);
-			smfi_addheader (ctx, "X-Spamd-Extra-Scan-Time", hdrbuf);
+			smfi_addheader (ctx, "X-Rspamd-Extra-Scan-Time", hdrbuf);
 		}
 		else {
-			smfi_addheader (ctx, "X-Spamd-Server", selected->name);
+			smfi_addheader (ctx, "X-Rspamd-Server", selected->name);
 			snprintf (hdrbuf, sizeof (hdrbuf), "%.2f", tf - ts);
-			smfi_addheader (ctx, "X-Spamd-Scan-Time", hdrbuf);
-			smfi_addheader (ctx, "X-Spamd-Queue-ID", priv->queue_id);
+			smfi_addheader (ctx, "X-Rspamd-Scan-Time", hdrbuf);
+			smfi_addheader (ctx, "X-Rspamd-Queue-ID", priv->queue_id);
 		}
 	}
 
@@ -719,6 +715,11 @@ log_retry:
 			smfi_addheader (ctx, "DKIM-Signature", folded->str);
 			g_string_free (folded, TRUE);
 		}
+	}
+
+	obj = ucl_object_lookup (res->obj, "rmilter");
+	if (obj) {
+		rmiler_process_rspamd_block (obj, ctx);
 	}
 
 	/* Trace spam messages to specific addr */
