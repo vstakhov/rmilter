@@ -682,10 +682,10 @@ log_retry:
 
 	if (cfg->extended_spam_headers && !priv->authenticated) {
 		if (extra) {
-			smfi_addheader (ctx, "X-Rspamd-Extra-Result", headerbuf);
+			smfi_addheader (ctx, "X-Spamd-Extra-Result", headerbuf);
 		}
 		else {
-			smfi_addheader (ctx, "X-Rspamd-Result", headerbuf);
+			smfi_addheader (ctx, "X-Spamd-Result", headerbuf);
 		}
 	}
 
