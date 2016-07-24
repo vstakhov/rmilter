@@ -25,6 +25,7 @@
  */
 
 %x incl
+%x try_incl
 
 %{
 #include "cfg_file.h"
@@ -120,7 +121,7 @@ parse_flag (const char *str)
 		*(str + 2) == '\0') {
 		return 0;
 	}
-	
+
 	if (strcmp (str, "true") == 0 || strcmp (str, "TRUE") == 0) {
 		return 1;
 	}
@@ -178,6 +179,7 @@ flag           yes|YES|no|NO|true|TRUE|false|FALSE
 %}
 ^[ \t]*#.*						/* ignore comments */;
 .include						BEGIN(incl);
+.try_include					BEGIN(try_incl);
 tempdir							return TEMPDIR;
 tempfiles_mode					return TEMPFILES_MODE;
 pidfile							return PIDFILE;
@@ -313,6 +315,7 @@ fd:[0-9]+						yylval.string=strdup(yytext); return SOCKCRED;
 [a-zA-Z0-9].[a-zA-Z0-9\/.-]+	yylval.string=strdup(yytext); return DOMAIN_STR;
 r?:?[a-zA-Z0-9.-]+:[0-9]{1,5}	yylval.string=strdup(yytext); return HOSTPORT;
 r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
+
 <incl>[ \t]*      				/* eat the whitespace */
 <incl>[^ \t\n]+   {
 		/* got the include file name */
@@ -335,6 +338,31 @@ r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 		yy_switch_to_buffer (yy_create_buffer (yyin, YY_BUF_SIZE));
 
 		BEGIN(INITIAL);
+}
+
+<try_incl>[ \t]*      				/* eat the whitespace */
+<try_incl>[^ \t\n]+   {
+		/* got the include file name */
+		if ( include_stack_ptr >= MAX_INCLUDE_DEPTH ) {
+			yyerror ("yylex: includes nested too deeply" );
+			return -1;
+		}
+
+		yyin = fopen (yytext, "r");
+
+		if (!yyin) {
+			BEGIN(INITIAL);
+		}
+		else {
+			line_stack[include_stack_ptr] = yylineno;
+			include_stack[include_stack_ptr++] = YY_CURRENT_BUFFER;
+
+			yylineno = 1;
+
+			yy_switch_to_buffer (yy_create_buffer (yyin, YY_BUF_SIZE));
+
+			BEGIN(INITIAL);
+		}
 }
 
 <<EOF>> {
