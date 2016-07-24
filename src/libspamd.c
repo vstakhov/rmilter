@@ -209,12 +209,31 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		goto err;
 	}
 
+	if (priv->file[0] != '\0') {
+		fd = open (priv->file, O_RDONLY);
+
+		if (fd == -1) {
+			msg_warn("<%s>; rspamd: open (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
+		}
+
+		if (fstat (fd, &sb) == -1) {
+			msg_warn ("<%s>; rspamd: stat (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
+		}
+	}
+	else {
+		memset (&sb, 0, sizeof (sb));
+	}
+
 	/* Set blocking again */
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
 	buf = sdscatprintf (sdsempty (),
-			"GET /symbols HTTP/1.0\r\nContent-Length: %ld\r\n",
+			"POST /symbols HTTP/1.0\r\nContent-Length: %ld\r\n",
 			(long int )sb.st_size);
 
 	DL_FOREACH (priv->rcpts, rcpt)
@@ -252,20 +271,13 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	buf = sdscat (buf, "\r\n");
 
-	if (write (s, buf, sdslen (buf)) == -1) {
+	if (rmilter_atomic_write (s, buf, sdslen (buf)) == -1) {
 		msg_warn("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
 				strerror (errno));
 		goto err;
 	}
 
 	if (priv->file[0] != '\0') {
-		fd = open (priv->file, O_RDONLY);
-
-		if (fd == -1) {
-			msg_warn("<%s>; rspamd: open (%s), %s", priv->mlfi_id, srv->name,
-					strerror (errno));
-			goto err;
-		}
 
 		(void)map;
 #if defined(FREEBSD) && defined(HAVE_SENDFILE)
@@ -280,8 +292,6 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			goto err;
 		}
 #else
-
-
 		map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
 		if (map == MAP_FAILED) {
