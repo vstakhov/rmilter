@@ -253,3 +253,8 @@ dkim {
 	body_canon = relaxed;
 	sign_alg = sha256;
 };
+
+
+# include user's configuration, replace this with full path
+.try_include /usr/local/etc/rmilter.conf.local
+.try_include /usr/local/etc/rmilter.conf.d/*.conf

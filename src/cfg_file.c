@@ -33,6 +33,8 @@
 
 extern int yylineno;
 extern char *yytext;
+extern char* fnames_stack[];
+extern int include_stack_ptr;
 
 void parse_err(const char *fmt, ...)
 {
@@ -43,8 +45,16 @@ void parse_err(const char *fmt, ...)
 	va_start (aq, fmt);
 	rmilter_strlcpy (readbuf, yytext, sizeof(readbuf));
 
-	r = snprintf(logbuf, sizeof(logbuf), "config file parse error! line: %d, "
-			"text: %s, reason: ", yylineno, readbuf);
+	if (include_stack_ptr > 0) {
+		r = snprintf(logbuf, sizeof(logbuf), "config file <%s> parse error! line: %d, "
+				"text: %s, reason: ", fnames_stack[include_stack_ptr - 1],
+				yylineno, readbuf);
+	}
+	else {
+		r = snprintf(logbuf, sizeof(logbuf), "config file parse error! line: %d, "
+						"text: %s, reason: ",
+						yylineno, readbuf);
+	}
 	r += vsnprintf(logbuf + r, sizeof(logbuf) - r, fmt, aq);
 
 	va_end (aq);

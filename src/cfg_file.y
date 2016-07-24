@@ -365,7 +365,9 @@ clamavcmd:
 	;
 
 clamav_servers:
-	SERVERS EQSIGN clamav_server
+	SERVERS EQSIGN {
+		cfg->clamav_servers_num = 0;
+	} clamav_server
 	;
 
 clamav_server:
@@ -531,7 +533,10 @@ check_symbols:
 
 
 spamd_servers:
-	SERVERS EQSIGN spamd_server
+	SERVERS EQSIGN {
+		cfg->spamd_servers_num = 0;
+	}
+	spamd_server
 	;
 
 spamd_server:
@@ -898,7 +903,11 @@ cachecmd:
 	;
 
 cache_grey_servers:
-	SERVERS_GREY EQSIGN cache_grey_server
+	SERVERS_GREY EQSIGN
+	{
+		cfg->cache_servers_grey_num = 0;
+	}
+	cache_grey_server
 	;
 
 cache_grey_server:
@@ -925,7 +934,11 @@ cache_grey_params:
 	;
 
 cache_white_servers:
-	SERVERS_WHITE EQSIGN cache_white_server
+	SERVERS_WHITE EQSIGN
+	{
+		cfg->cache_servers_white_num = 0;
+	}
+	cache_white_server
 	;
 
 cache_white_server:
@@ -952,7 +965,11 @@ cache_white_params:
 	;
 
 cache_limits_servers:
-	SERVERS_LIMITS EQSIGN cache_limits_server
+	SERVERS_LIMITS EQSIGN
+	{
+		cfg->cache_servers_limits_num = 0;
+	}
+	cache_limits_server
 	;
 
 cache_limits_server:
@@ -971,7 +988,11 @@ cache_limits_params:
 	;
 
 cache_id_servers:
-	SERVERS_ID EQSIGN cache_id_server
+	SERVERS_ID EQSIGN
+	{
+		cfg->cache_servers_id_num = 0;
+	}
+	cache_id_server
 	;
 
 cache_id_server:
@@ -990,7 +1011,11 @@ cache_id_params:
 	;
 
 cache_copy_servers:
-	SERVERS_COPY EQSIGN cache_copy_server
+	SERVERS_COPY EQSIGN
+	{
+		cfg->cache_servers_copy_num = 0;
+	}
+	cache_copy_server
 	;
 
 cache_copy_server:
@@ -1009,7 +1034,11 @@ cache_copy_params:
 	;
 
 cache_spam_servers:
-	SERVERS_SPAM EQSIGN cache_spam_server
+	SERVERS_SPAM EQSIGN
+	{
+		cfg->cache_servers_spam_num = 0;
+	}
+	cache_spam_server
 	;
 
 cache_spam_server:

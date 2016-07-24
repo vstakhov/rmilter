@@ -232,7 +232,6 @@ dkim {
     sign_alg = sha256;
 };
 
-
 # Order of checks at EOM:
 #
 # SPF -> DCC -> CLAMAV

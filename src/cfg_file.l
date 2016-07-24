@@ -28,12 +28,16 @@
 %x try_incl
 
 %{
+#include "config.h"
+#include <glob.h>
 #include "cfg_file.h"
 #include "cfg_yacc.h"
 
-#define MAX_INCLUDE_DEPTH 10
+#define MAX_INCLUDE_DEPTH 100
 YY_BUFFER_STATE include_stack[MAX_INCLUDE_DEPTH];
 int line_stack[MAX_INCLUDE_DEPTH];
+FILE* files_stack[MAX_INCLUDE_DEPTH];
+char* fnames_stack[MAX_INCLUDE_DEPTH];
 int include_stack_ptr = 0;
 
 static size_t
@@ -159,6 +163,61 @@ parse_bucket (char *str, bucket_t *bucket)
 		return;
 	}
 }
+
+#define LEX_INCLUDE_FILE(pattern, require) do { \
+	FILE *f; \
+	glob_t g; \
+	unsigned int i; \
+	const char *fname; \
+	if (include_stack_ptr >= MAX_INCLUDE_DEPTH ) { \
+		yyerror ("yylex: includes nested too deeply" ); \
+	} \
+	if (glob (pattern, 0, NULL, &g) != 0) { \
+		if (require) { \
+			yyerror ("yylex: cannot glob include file %s: %s", pattern, \
+					strerror (errno)); \
+		} \
+		else { \
+			if (errno != ENOENT) { \
+				yywarn ("yylex: cannot glob include file %s: %s, ignore error", \
+					pattern, strerror (errno)); \
+			} \
+		} \
+	} \
+	else { \
+	if (require && g.gl_pathc == 0) { \
+		yyerror ("yylex: cannot glob include file %s: %s", pattern, \
+					strerror (errno)); \
+	} \
+	for (i = 0; i < g.gl_pathc; i ++) { \
+		fname = g.gl_pathv[i]; \
+		f = fopen (fname, "r"); \
+		if (!f) { \
+			if (require) { \
+				globfree (&g); \
+				yyerror ("yylex: cannot open include file %s: %s", fname, \
+						strerror (errno)); \
+			} \
+			else { \
+				if (errno != ENOENT) { \
+					yywarn ("yylex: cannot open include file %s: %s, ignore error", \
+						fname, strerror (errno)); \
+				} \
+			} \
+		} \
+		else { \
+			line_stack[include_stack_ptr] = yylineno; \
+			files_stack[include_stack_ptr] = yyin; \
+			yyin = f; \
+			fnames_stack[include_stack_ptr] = strdup (fname); \
+			include_stack[include_stack_ptr++] = YY_CURRENT_BUFFER; \
+			yylineno = 1; \
+			yy_switch_to_buffer (yy_create_buffer (f, YY_BUF_SIZE)); \
+		} \
+	} \
+	} \
+	globfree (&g); \
+} while (0)
 
 %}
 
@@ -318,51 +377,14 @@ r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 
 <incl>[ \t]*      				/* eat the whitespace */
 <incl>[^ \t\n]+   {
-		/* got the include file name */
-		if ( include_stack_ptr >= MAX_INCLUDE_DEPTH ) {
-			yyerror ("yylex: includes nested too deeply" );
-			return -1;
-		}
-
-		line_stack[include_stack_ptr] = yylineno;
-		include_stack[include_stack_ptr++] = YY_CURRENT_BUFFER;
-
-		yylineno = 1;
-		yyin = fopen (yytext, "r");
-
-		if (!yyin) {
-			yyerror ("yylex: cannot open include file");
-			return -1;
-		}
-
-		yy_switch_to_buffer (yy_create_buffer (yyin, YY_BUF_SIZE));
-
+		LEX_INCLUDE_FILE(yytext, 1);
 		BEGIN(INITIAL);
 }
 
-<try_incl>[ \t]*      				/* eat the whitespace */
+<try_incl>[ \t]*      			/* eat the whitespace */
 <try_incl>[^ \t\n]+   {
-		/* got the include file name */
-		if ( include_stack_ptr >= MAX_INCLUDE_DEPTH ) {
-			yyerror ("yylex: includes nested too deeply" );
-			return -1;
-		}
-
-		yyin = fopen (yytext, "r");
-
-		if (!yyin) {
-			BEGIN(INITIAL);
-		}
-		else {
-			line_stack[include_stack_ptr] = yylineno;
-			include_stack[include_stack_ptr++] = YY_CURRENT_BUFFER;
-
-			yylineno = 1;
-
-			yy_switch_to_buffer (yy_create_buffer (yyin, YY_BUF_SIZE));
-
-			BEGIN(INITIAL);
-		}
+		LEX_INCLUDE_FILE(yytext, 0);
+		BEGIN(INITIAL);
 }
 
 <<EOF>> {
@@ -372,6 +394,9 @@ r?:?[a-zA-Z0-9\/.-]+			yylval.string=strdup(yytext); return FILENAME;
 			yyterminate ();
 		}
 		else {
+			free (fnames_stack[include_stack_ptr + 1]);
+			fclose (yyin);
+			yyin = files_stack[include_stack_ptr];
 			yy_delete_buffer (YY_CURRENT_BUFFER);
 			yy_switch_to_buffer (include_stack[include_stack_ptr] );
 			yylineno = line_stack[include_stack_ptr];
