@@ -413,20 +413,25 @@ rmiler_process_rspamd_block (const ucl_object_t *obj, SMFICTX *ctx)
 {
 	const ucl_object_t *elt, *cur, *cur_elt;
 	ucl_object_iter_t it;
+	int nhdr;
 
 	if (obj && ucl_object_type (obj) == UCL_OBJECT) {
 		elt = ucl_object_lookup (obj, "headers_remove");
 		/*
-		 * headers_remove: ["name1", "name2" ...]
+		 * headers_remove:  {"name": 1, ... }
+		 * where number is the header's position starting from '1'
 		 */
-		if (elt && ucl_object_type (elt) == UCL_ARRAY) {
+		if (elt && ucl_object_type (elt) == UCL_OBJECT) {
 			it = NULL;
 
 			while ((cur = ucl_object_iterate (elt, &it, true)) != NULL) {
-				if (ucl_object_type (cur) == UCL_STRING) {
-					/* TODO: allow to remove multiple headers with the same name */
-					smfi_chgheader (ctx, (char *)ucl_object_tostring (cur),
-							1, NULL);
+				if (ucl_object_type (cur) == UCL_INT) {
+					nhdr = ucl_object_toint (cur);
+
+					if (nhdr >= 1) {
+						smfi_chgheader (ctx, (char *)ucl_object_key (cur),
+								nhdr, NULL);
+					}
 				}
 			}
 		}
