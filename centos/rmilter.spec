@@ -23,11 +23,7 @@ BuildRequires:  bison,flex
 BuildRequires:  sendmail-milter
 %endif
 BuildRequires:  sendmail-devel,openssl-devel,pcre-devel,glib2-devel
-%if 0%{?el6}
-BuildRequires:  cmake28
-%else
 BuildRequires:  cmake
-%endif
 %if 0%{?suse_version} || 0%{?el7} || 0%{?fedora}
 BuildRequires:  systemd
 Requires(pre):  systemd
@@ -50,7 +46,7 @@ Requires(postun): initscripts
 Source4:        %{name}.sh
 %endif
 
-Source0:        https://github.com/vstakhov/%{name}/archive/%{version}.tar.gz
+Source0:    https://rspamd.com/downloads/%{name}-%{version}.tar.xz
 Source1:	%{name}.conf
 Source2:	%{name}.conf.common
 Source3:	%{name}.conf.sysvinit
@@ -64,9 +60,6 @@ It provides several filter and mail scan features.
 rm -rf %{buildroot} || true
 
 %build
-%if 0%{?el6}
-%define __cmake /usr/bin/env cmake28
-%endif # el6
 
 %{__cmake} \
 		-DCMAKE_C_OPT_FLAGS="%{optflags}" \
@@ -170,7 +163,6 @@ fi
 %{_initrddir}/%{name}
 %attr(-, _rmilter, adm) %dir %{rmilter_home}
 %endif
-%{_mandir}/man8/%{name}.*
 %{_sbindir}/rmilter
 %dir %{_sysconfdir}/rmilter
 %dir %{_sysconfdir}/rmilter/rmilter.conf.d
