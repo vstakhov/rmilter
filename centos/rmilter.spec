@@ -22,7 +22,7 @@ BuildRequires:  bison,flex
 %else
 BuildRequires:  sendmail-milter
 %endif
-BuildRequires:  sendmail-devel,openssl-devel,pcre-devel
+BuildRequires:  sendmail-devel,openssl-devel,pcre-devel,glib2-devel
 %if 0%{?el6}
 BuildRequires:  cmake28
 %else
@@ -99,6 +99,8 @@ rm -rf %{buildroot} || true
 %{__install} -p -D -m 0755 %{SOURCE4} %{buildroot}%{_initrddir}/%{name}
 %{__install} -p -D -d -m 0755 %{buildroot}%{rmilter_home}
 %endif
+%{__install} -p -D -d -m 0755 %{buildroot}%{_sysconfdir}/%{name}/rmilter.conf.d/
+
 
 %clean
 rm -rf %{buildroot}
@@ -170,7 +172,8 @@ fi
 %endif
 %{_mandir}/man8/%{name}.*
 %{_sbindir}/rmilter
-%{_sysconfdir}/rmilter
+%dir %{_sysconfdir}/rmilter
+%dir %{_sysconfdir}/rmilter/rmilter.conf.d
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.common
 %config(noreplace) %{_sysconfdir}/rmilter/%{name}.conf.sysvinit
