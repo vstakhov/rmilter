@@ -1,3 +1,26 @@
+1.9.0:
+	* [CritFix] Fix spam scan
+	* [Feature] Add .try_include macro
+	* [Feature] Allow to use dkim signature from rspamd
+	* [Feature] Allow try_include and globs in rmilter macroes
+	* [Feature] Backport utility to fold headers from rspamd
+	* [Fix] Add checks for sendfile presence in a system
+	* [Fix] Fix errors handling
+	* [Fix] Fix spam scanning buffer allocation
+	* [Fix] Fix support of systems without sendfile
+	* [Fix] Keep compatibility with old redis (< 2.6.12)
+	* [Fix] Pass header number when removing headers specified by rspamd
+	* [Fix] Remove manpage from debian package
+	* [Fix] Update the sample files
+	* [Rework] Add glib dependency
+	* [Rework] Remove SA compatible headers, allow to process rmilter block
+	* [Rework] Remove beanstalk code, rename memcached vars, remove awl
+	* [Rework] Remove separated include directory
+	* [Rework] Reorganize documentation
+	* [Rework] Rework configuration
+	* [Rework] Rework the rest of the project to use pubsub
+	* [Rework] Simplify and modernize spam scan function
+
 1.8.6:
 	* Remove mkstemp mutex
 	* Fix issues with passing priv to routines
