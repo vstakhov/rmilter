@@ -190,6 +190,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	struct http_parser parser;
 	struct http_parser_settings ps;
 	void *map = NULL;
+	const size_t iobuf_len = 16384;
 
 	/* somebody doesn't need reply... */
 	if (!srv) {
@@ -325,7 +326,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		ssize_t r;
 
 		if (io_buf == NULL) {
-			io_buf = malloc (16384);
+			io_buf = malloc (iobuf_len);
 		}
 
 		if (io_buf == NULL) {
@@ -340,7 +341,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			goto err;
 		}
 
-		r = read (s, io_buf, sizeof (io_buf));
+		r = read (s, io_buf, iobuf_len);
 
 		if (r == -1) {
 			if (errno == EAGAIN || errno == EINTR) {
