@@ -233,7 +233,9 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
-	buf = sdscatfmt (sdsnewlen (NULL, 512),
+	buf = sdsnewlen (NULL, 512);
+	sdsclear (buf);
+	buf = sdscatfmt (buf,
 			"POST /symbols HTTP/1.0\r\nContent-Length: %U\r\n",
 			(uint64_t)sb.st_size);
 
