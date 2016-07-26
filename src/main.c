@@ -43,7 +43,7 @@ pthread_cond_t cfg_cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t cfg_reload_mtx = PTHREAD_MUTEX_INITIALIZER;
 /* R/W lock for reconfiguring milter */
 pthread_rwlock_t cfg_mtx = PTHREAD_RWLOCK_INITIALIZER;
-pthread_key_t rnd_state;
+struct rmilter_rng_state *rng_state = NULL;
 
 int
 my_strcmp (const void *s1, const void *s2)
@@ -165,6 +165,45 @@ reload_thread (void *unused)
 	return NULL;
 }
 
+static struct rmilter_rng_state*
+get_prng_state (void)
+{
+	static const char *rng_dev = "/dev/urandom";
+	struct rmilter_rng_state *st;
+	int fd;
+	struct timeval tv;
+
+	st = malloc (sizeof (*st));
+
+	if (st == NULL) {
+		abort ();
+	}
+
+	fd = open (rng_dev, O_RDONLY);
+
+	if (fd == -1) {
+		msg_warn ("cannot open %s to seed prng, use current time",
+				rng_dev);
+		gettimeofday (&tv, NULL);
+		memcpy (st->s, &tv, sizeof (tv));
+	}
+	else {
+		if (read (fd, st->s, sizeof (st->s)) == -1) {
+			msg_warn ("cannot read %d bytes from %s to seed prng, use current time",
+					(int)sizeof (*st), rng_dev);
+			gettimeofday (&tv, NULL);
+			memcpy (st->s, &tv, sizeof (tv));
+		}
+
+		close (fd);
+	}
+
+	st->p = 0;
+	pthread_mutex_init (&st->mtx, NULL);
+
+	return st;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -274,6 +313,7 @@ main(int argc, char *argv[])
 #endif
 
 	umask (0);
+	rng_state = get_prng_state ();
 
 	smfi_setconn(cfg->sock_cred);
 	if (smfi_register(smfilter) == MI_FAILURE) {
@@ -288,11 +328,6 @@ main(int argc, char *argv[])
 
 	if (daemonize && daemon (0, 0) == -1) {
 		msg_err("Unable to daemonize");
-		exit(EX_UNAVAILABLE);
-	}
-
-	if (pthread_key_create (&rnd_state, free) != 0) {
-		msg_err ("cannot create pthread key");
 		exit(EX_UNAVAILABLE);
 	}
 

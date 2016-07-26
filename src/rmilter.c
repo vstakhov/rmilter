@@ -90,12 +90,7 @@ struct smfiDesc smfilter =
 };
 
 extern struct config_file *cfg;
-extern pthread_key_t rnd_state;
-
-struct rmilter_rng_state {
-	uint64_t s[16];
-	int p;
-};
+extern struct rmilter_rng_state *rng_state;
 
 /* Milter mutexes */
 pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
@@ -167,50 +162,6 @@ normalize_email_addr (const char *src, char *dest, size_t destlen)
 	}
 }
 
-static struct rmilter_rng_state*
-get_prng_state (void)
-{
-	static const char *rng_dev = "/dev/urandom";
-	struct rmilter_rng_state *st;
-	int fd;
-	struct timeval tv;
-
-	st = pthread_getspecific (rnd_state);
-
-	if (st == NULL) {
-		st = malloc (sizeof (*st));
-
-		if (st == NULL) {
-			abort ();
-		}
-
-		fd = open (rng_dev, O_RDONLY);
-
-		if (fd == -1) {
-			msg_warn ("cannot open %s to seed prng, use current time",
-					rng_dev);
-			gettimeofday (&tv, NULL);
-			memcpy (st->s, &tv, sizeof (tv));
-		}
-		else {
-			if (read (fd, st->s, sizeof (st->s)) == -1) {
-				msg_warn ("cannot read %d bytes from %s to seed prng, use current time",
-						(int)sizeof (*st), rng_dev);
-				gettimeofday (&tv, NULL);
-				memcpy (st->s, &tv, sizeof (tv));
-			}
-
-			close (fd);
-		}
-
-		st->p = 0;
-
-		pthread_setspecific (rnd_state, st);
-	}
-
-	return st;
-}
-
 /*
  * xorshift1024*
  * from http://xoroshiro.di.unimi.it/
@@ -218,12 +169,18 @@ get_prng_state (void)
 static uint64_t
 prng_next (struct rmilter_rng_state *st)
 {
+	pthread_mutex_lock (&st->mtx);
+
 	const uint64_t s0 = st->s[st->p];
 	uint64_t s1 = st->s[st->p = (st->p + 1) & 15];
+	uint64_t res;
 
 	s1 ^= s1 << 31;
 	st->s[st->p] = s1 ^ s0 ^ (s1 >> 11) ^ (s0 >> 30);
-	return st->s[st->p] * UINT64_C(1181783497276652981);
+	res = st->s[st->p] * UINT64_C(1181783497276652981);
+	pthread_mutex_unlock (&st->mtx);
+
+	return res;
 }
 
 static inline int
@@ -405,7 +362,6 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 static void
 set_random_id (struct mlfi_priv *priv)
 {
-	struct rmilter_rng_state *st;
 	uint64_t val;
 	static const char hexdigests[16] = "0123456789abcdef";
 	const unsigned int nbytes = 5;
@@ -413,8 +369,8 @@ set_random_id (struct mlfi_priv *priv)
 	const char *p;
 	unsigned r = 0, i;
 
-	st = get_prng_state ();
-	val = prng_next (st);
+	val = prng_next (rng_state);
+	val ^= (uint64_t)pthread_self ();
 
 	buf = priv->mlfi_id;
 
@@ -1437,8 +1393,6 @@ mlfi_eom(SMFICTX * ctx)
 
 	/* Maybe write message copy */
 	if (cfg->cache_servers_copy > 0 && cfg->cache_copy_channel) {
-		struct rmilter_rng_state *st = get_prng_state ();
-
 		prob_cur = cfg->cache_copy_prob;
 		/* Normalize */
 		prob_max = 100;
@@ -1447,7 +1401,7 @@ mlfi_eom(SMFICTX * ctx)
 			prob_cur *= 10;
 		}
 
-		if (prng_next (st) % prob_max <= prob_cur) {
+		if (prng_next (rng_state) % prob_max <= prob_cur) {
 			publish_message (priv, RMILTER_PUBLISH_COPY, extra_buf,
 					sizeof (extra_buf));
 		}

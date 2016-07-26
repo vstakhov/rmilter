@@ -51,6 +51,13 @@
 #define XCODE_REJECT    "5.7.1"
 #define XCODE_TEMPFAIL  "4.7.1"
 
+
+struct rmilter_rng_state {
+	pthread_mutex_t mtx;
+	uint64_t s[16];
+	int p;
+};
+
 /* Structures and macros used */
 struct rcpt {
 	char r_addr[ADDRLEN + 1];
