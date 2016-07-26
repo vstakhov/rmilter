@@ -179,6 +179,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		struct rspamd_metric_result *res)
 {
 	sds buf = NULL;
+	char *io_buf = NULL;
 	struct sockaddr_un server_un;
 	struct sockaddr_in server_in;
 	int s = -1, fd = -1, ofl, size = 0, ret = -1;
@@ -232,41 +233,41 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	ofl = fcntl (s, F_GETFL, 0);
 	fcntl (s, F_SETFL, ofl & (~O_NONBLOCK));
 
-	buf = sdscatprintf (sdsempty (),
-			"POST /symbols HTTP/1.0\r\nContent-Length: %ld\r\n",
-			(long int )sb.st_size);
+	buf = sdscatfmt (sdsnewlen (NULL, 512),
+			"POST /symbols HTTP/1.0\r\nContent-Length: %U\r\n",
+			(uint64_t)sb.st_size);
 
 	DL_FOREACH (priv->rcpts, rcpt)
 	{
-		buf = sdscatprintf (buf, "Rcpt: %s\r\n", rcpt->r_addr);
+		buf = sdscatfmt (buf, "Rcpt: %s\r\n", rcpt->r_addr);
 	}
 
 	if (priv->priv_from[0] != '\0') {
-		buf = sdscatprintf (buf, "From: %s\r\n", priv->priv_from);
+		buf = sdscatfmt (buf, "From: %s\r\n", priv->priv_from);
 	}
 
 	if (priv->priv_helo[0] != '\0') {
-		buf = sdscatprintf (buf, "Helo: %s\r\n", priv->priv_helo);
+		buf = sdscatfmt (buf, "Helo: %s\r\n", priv->priv_helo);
 	}
 
 	if (priv->priv_hostname[0] != '\0'
 			&& memcmp (priv->priv_hostname, "unknown", 8) != 0) {
-		buf = sdscatprintf (buf, "Hostname: %s\r\n",
+		buf = sdscatfmt (buf, "Hostname: %s\r\n",
 				priv->priv_hostname);
 	}
 
 	if (priv->priv_ip[0] != '\0') {
-		buf = sdscatprintf (buf, "IP: %s\r\n", priv->priv_ip);
+		buf = sdscatfmt (buf, "IP: %s\r\n", priv->priv_ip);
 	}
 
 	if (priv->priv_user[0] != '\0') {
-		buf = sdscatprintf (buf, "User: %s\r\n", priv->priv_user);
+		buf = sdscatfmt (buf, "User: %s\r\n", priv->priv_user);
 	}
 
-	buf = sdscatprintf (buf, "Queue-ID: %s\r\n", priv->queue_id);
+	buf = sdscatfmt (buf, "Queue-ID: %s\r\n", priv->queue_id);
 
 	if (cfg->spamd_settings_id) {
-		buf = sdscatprintf (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
+		buf = sdscatfmt (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
 	}
 
 	buf = sdscat (buf, "\r\n");
@@ -320,7 +321,16 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	for (;;) {
 		ssize_t r;
-		char io_buf[16384];
+
+		if (io_buf == NULL) {
+			io_buf = malloc (16384);
+		}
+
+		if (io_buf == NULL) {
+			msg_err ("<%s>; rspamd: malloc (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
+		}
 
 		if (rmilter_poll_fd (s, cfg->spamd_results_timeout, POLLIN) < 1) {
 			msg_warn("<%s>; rspamd: timeout waiting results %s", priv->mlfi_id,
@@ -402,6 +412,10 @@ err:
 
 	if (map != NULL) {
 		munmap (map, sb.st_size);
+	}
+
+	if (io_buf) {
+		free (io_buf);
 	}
 
 	return ret;
@@ -566,8 +580,8 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extr
 	gettimeofday (&t, NULL);
 	tf = t.tv_sec + t.tv_usec / 1000000.0;
 
-	logbuf = sdsempty ();
-	headerbuf = sdsempty ();
+	logbuf = sdsnewlen (NULL, 1024);
+	headerbuf = sdsnewlen (NULL, 512);
 
 	if (res->symbols) {
 		/* Sort symbols by scores from high to low */
