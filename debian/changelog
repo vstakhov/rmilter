@@ -1,3 +1,9 @@
+rmilter (1.9.0) unstable; urgency=low
+
+  * Fixed debian build dependencies (glib2.0)
+
+ -- Vitaly Isaev <vitalyisaev2@gmail.com>  Tue, 26 Jul 2016 14:52:32 +0000
+
 rmilter (1.6.7) unstable; urgency=low
 
   * New release.
