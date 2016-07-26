@@ -353,7 +353,7 @@ IF(HAVE_SYS_SENDFILE_H)
 	CHECK_SYMBOL_EXISTS(sendfile sys/sendfile.h HAVE_SENDFILE)
 ELSE()
 	# BSD version
-	CHECK_SYMBOL_EXISTS(sendfile sys/types.h;sys/socket.h;sys/uio.h HAVE_SENDFILE)
+	CHECK_SYMBOL_EXISTS(sendfile "sys/types.h;sys/socket.h;sys/uio.h" HAVE_SENDFILE)
 ENDIF()
 CHECK_SYMBOL_EXISTS(mkstemp unistd.h HAVE_MKSTEMP)
 CHECK_SYMBOL_EXISTS(PATH_MAX limits.h HAVE_PATH_MAX)
