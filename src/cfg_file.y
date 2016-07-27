@@ -88,7 +88,8 @@ uint8_t cur_flags = 0;
 %type	<bucket>	BUCKET;
 %type	<seconds>	SECONDS;
 %type	<number>	NUMBER;
-%type   <frac>		FLOAT;
+%type	<frac>		FLOAT;
+%type	<frac>		prob_num;
 %%
 
 input	: /* empty */
@@ -1132,9 +1133,24 @@ cache_copy_channel:
 	;
 
 cache_copy_probability:
-	COPY_PROBABILITY EQSIGN NUMBER {
-		cfg->cache_copy_prob = $3;
+	COPY_PROBABILITY EQSIGN prob_num {
+		if ($3 < 0) {
+			YYERROR;
+		}
+		if ($3 > 1.0) {
+			if ($3 > 100.0) {
+				YYERROR;
+			}
+			cfg->cache_copy_prob = $3 / 100.0;
+		}
+		else {
+			cfg->cache_copy_prob = $3;
+		}
 	}
+	;
+prob_num:
+	NUMBER { $$ = (double)$1; }
+	| FLOAT
 	;
 cache_spam_channel:
 	SPAM_CHANNEL EQSIGN QUOTEDSTRING {
