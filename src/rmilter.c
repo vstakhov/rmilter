@@ -329,8 +329,10 @@ check_greylisting_ctx(SMFICTX *ctx, struct mlfi_priv *priv)
 	int r;
 	CFG_RLOCK();
 
-	if (priv->priv_ip[0] != '\0' && cfg->cache_servers_grey_num > 0 &&
-			cfg->greylisting_timeout > 0 && cfg->greylisting_expire > 0 && priv->strict != 0) {
+	if (cfg->greylisting_enable &&
+			priv->priv_ip[0] != '\0' && cfg->cache_servers_grey_num > 0 &&
+			cfg->greylisting_timeout > 0 &&
+			cfg->greylisting_expire > 0 && priv->strict != 0) {
 
 		msg_debug ("<%s>; check_greylisting_ctx: checking greylisting", priv->mlfi_id);
 

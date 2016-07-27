@@ -133,6 +133,13 @@ parse_flag (const char *str)
 		return 0;
 	}
 
+	if (strcmp (str, "on") == 0 || strcmp (str, "ON") == 0) {
+		return 1;
+	}
+	if (strcmp (str, "off") == 0 || strcmp (str, "OFF") == 0) {
+		return 0;
+	}
+
 	return -1;
 }
 
@@ -231,7 +238,7 @@ ls32          {h16}:{h16}|{IPv4address}
 IPv6address   ({h16}:){6}{ls32}|::({h16}:){5}{ls32}|({h16})?::({h16}:){4}{ls32}|(({h16}:){0,1}{h16})?::({h16}:){3}{ls32}|(({h16}:){0,2}{h16})?::({h16}:){2}{ls32}|(({h16}:){0,3}{h16})?::{h16}:{ls32}|(({h16}:){0,4}{h16})?::{ls32}|(({h16}:){0,5}{h16})?::{h16}|(({h16}:){0,6}{h16})?::
 IPaddress      {IPv4address}|\[{IPv6address}\]
 IPnetwork      {IPaddress}\/[0-9]{1,3}
-flag           yes|YES|no|NO|true|TRUE|false|FALSE
+flag           yes|YES|no|NO|true|TRUE|false|FALSE|on|ON|off|OFF
 %%
 %{
 /* Rules section */
@@ -294,6 +301,7 @@ password						return PASSWORD;
 dbname							return DBNAME;
 spam_channel					return SPAM_CHANNEL;
 copy_channel					return COPY_CHANNEL;
+enable							return ENABLE;
 
 dkim							return DKIM_SECTION;
 key								return DKIM_KEY;

@@ -447,6 +447,8 @@ void init_defaults(struct config_file *cfg)
 
 	cfg->spamd_soft_fail = 1;
 	cfg->spamd_greylist = 1;
+	cfg->greylisting_enable = 1;
+	cfg->ratelimit_enable = 1;
 
 	cfg->dkim_auth_only = 1;
 	cfg->pid_file = NULL;

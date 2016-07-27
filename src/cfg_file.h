@@ -291,6 +291,8 @@ struct config_file {
 	unsigned use_dcc:1;
 	unsigned strict_auth:1;
 	unsigned weighted_clamav:1;
+	unsigned greylisting_enable:1;
+	unsigned ratelimit_enable:1;
 
 	LIST_HEAD (ruleset, rule) rules;
 

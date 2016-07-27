@@ -169,7 +169,7 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 		dlen = sizeof (*b);
 
 		if (b == NULL) {
-			msg_err("<%s>; check_specific_limit: calloc failed: %s", 
+			msg_err("<%s>; check_specific_limit: calloc failed: %s",
 				priv->mlfi_id, strerror (errno));
 			return -1;
 		}
@@ -213,12 +213,17 @@ static int check_specific_limit(struct mlfi_priv *priv, struct config_file *cfg,
 	return 1;
 }
 
-int rate_check(struct mlfi_priv *priv, struct config_file *cfg,
+int
+rate_check (struct mlfi_priv *priv, struct config_file *cfg,
 		const char *rcpt, int is_update)
 {
 	double t;
 	struct timeval tm;
 	int r;
+
+	if (!cfg->ratelimit_enable) {
+		return 1;
+	}
 
 	if (priv->priv_addr.family == AF_INET
 			&& is_whitelisted (&priv->priv_addr, rcpt, cfg)

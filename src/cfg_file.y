@@ -70,7 +70,7 @@ uint8_t cur_flags = 0;
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 %token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID SPAMD_SPAM_ADD_HEADER
-%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL
+%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -818,6 +818,7 @@ greylistingcmd:
 	| greylisting_expire
 	| greylisting_whitelist_expire
 	| greylisted_message
+	| greylisting_enable
 	;
 
 greylisting_timeout:
@@ -862,6 +863,12 @@ greylisted_message:
 	GREYLISTED_MESSAGE EQSIGN QUOTEDSTRING {
 		free (cfg->greylisted_message);
 		cfg->greylisted_message = $3;
+	}
+	;
+
+greylisting_enable:
+	ENABLE EQSIGN FLAG {
+		cfg->greylisting_enable = $3;
 	}
 	;
 
@@ -1176,6 +1183,7 @@ limitcmd:
 	| limit_bounce_addrs
 	| limit_bounce_to
 	| limit_bounce_to_ip
+	| limit_enable
 	;
 
 limit_to:
@@ -1279,6 +1287,11 @@ limit_bounce_to_ip:
 	}
 	;
 
+limit_enable:
+	ENABLE EQSIGN FLAG {
+		cfg->ratelimit_enable = $3;
+	}
+	;
 
 whitelist:
 	WHITELIST EQSIGN whitelist_list
