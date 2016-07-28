@@ -39,7 +39,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
 OPTION(ENABLE_DEBUG        "Enable debug output [default: OFF]"              OFF)
 OPTION(ENABLE_OPTIMIZATION "Enable optimization [default: OFF]"              OFF)
 OPTION(ENABLE_DKIM         "Enable dkim signatures [default: ON]"           ON)
-OPTION(ENABLE_MEMCACHED    "Enable memcached storage [default: ON]"         ON)
+OPTION(ENABLE_MEMCACHED    "Enable memcached storage [default: OFF]"         OFF)
 OPTION(WANT_SYSTEMD_UNITS  "Install systemd unit files on Linux [default: OFF]" OFF)
 
 ############################# INCLUDE SECTION #############################################
@@ -437,5 +437,4 @@ ADD_CUSTOM_TARGET(dist ${CMAKE_SOURCE_DIR}/dist.sh
 # systemd unit
 IF(WANT_SYSTEMD_UNITS MATCHES "ON")
 	INSTALL(FILES "rmilter.service" DESTINATION ${SYSTEMDDIR})
-	INSTALL(FILES "rmilter.socket" DESTINATION ${SYSTEMDDIR})
 ENDIF()

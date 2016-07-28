@@ -1,3 +1,4 @@
 debian/rmilter.conf.common /etc
 debian/rmilter.conf /etc
 debian/rmilter.conf.sysvinit /etc
+debian/rmilter-tmpfiles.conf /usr/lib/tmpfiles.d
