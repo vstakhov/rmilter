@@ -6,94 +6,135 @@
 #.include ./rmilter-grey.conf
 
 # pidfile - path to pid file
-# Default: pidfile = /var/run/rmilter.pid
-
+#   Default: pidfile = /var/run/rmilter.pid
 pidfile = /var/run/rmilter/rmilter.pid;
+
+# bind_socket - socket credits for local bind:
+# unix:/path/to/file - bind to local socket
+# inet:port@host - bind to inet socket
+#   Default: bind_socket = unix:/var/tmp/rmilter.sock;
+bind_socket = unix:/var/run/rmilter/rmilter.sock;
+
+# tempdir - path to directory that contains temporary files
+#   Default: $TMPDIR
+tempdir = /tmp;
+
+# max_size - maximum size of scanned message for ClamAV, Rspamd and DCC
+#   Default: 0 (no limit)
+max_size = 10M;
+
+# strict_auth - strict checks for mails from authenticated senders
+#   Default: no
+#strict_auth = no;
+
+# spf_domains - path to file that contains hash of spf domains
+#   Default: empty
+#spf_domains = example.com, mail.ru;
+
+# use_dcc - whether or not use DCC
+#   Default: no
+#use_dcc = no;
+
+# whitelist -  global recipients whitelist
+#   Default: no
+#whitelist = abuse@example.com, postmaster@example.com;
+
+# our_networks -  treat mail from these networks as mail from authenticated users
+# (has no effect if `strict_auth` = `yes`)
+#   Default: empty
+#our_networks = 127.0.0.1/32, [::1]/128, 192.168.0.0/16;
 
 clamav {
 	# servers - clamav socket definitions in format:
 	# /path/to/file
 	# host[:port]
 	# sockets are separated by ','
-	# Default: empty
+	#   Default: empty
 	#servers = clam1.example.com, clam2.example.com;
 	# connect_timeout - timeout in miliseconds for connecting to clamav
-	# Default: 1s
-	connect_timeout = 1s;
+	#   Default: 1s
+	#connect_timeout = 1s;
 
 	# port_timeout - timeout in miliseconds for waiting for clamav port response
-	# Default: 4s
-	port_timeout = 4s;
+	#   Default: 4s
+	#port_timeout = 4s;
 
 	# results_timeout - timeout in miliseconds for waiting for clamav response
-	# Default: 20s
-	results_timeout = 20s;
+	#   Default: 20s
+	#results_timeout = 20s;
 
 	# error_time - time in seconds during which we are counting errors
-	# Default: 10
-	error_time = 10;
+	#   Default: 10
+	#error_time = 10;
 
 	# dead_time - time in seconds during which we are thinking that server is down
-	# Default: 300
-	dead_time = 300;
+	#   Default: 300
+	#dead_time = 300;
 
 	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
-	# Default: 10
+	#   Default: 10
 	maxerrors = 10;
 };
 
 spamd {
-	# servers - spamd socket definitions in format:
+	# servers - Rspamd socket definitions in format:
 	# /path/to/file
 	# host[:port]
 	# sockets are separated by ','
-	# is server name is prefixed with r: it is rspamd server
-	# Default: empty
+	# if server name is prefixed with 'r:' it is an Rspamd server
+	#   Default: empty
 	servers = r:localhost:11333;
 
-	# also_check - extra spamd servers to check
+	# also_check - extra Rspamd servers to check
 	#also_check = r:clam10.example.com;
 
 	# diff_dir - path where to write messages that have different results from main and extra checks
 	#diff_dir = /var/run/rmilter/diffmsg;
 
 	# connect_timeout - timeout in miliseconds for connecting to spamd
-	# Default: 1s
-	connect_timeout = 1s;
+	#   Default: 1s
+	#connect_timeout = 1s;
 
 	# results_timeout - timeout in miliseconds for waiting for spamd response
-	# Default: 20s
-	results_timeout = 20s;
+	#   Default: 20s
+	#results_timeout = 20s;
 
 	# error_time - time in seconds during which we are counting errors
-	# Default: 10
-	error_time = 10;
+	#   Default: 10
+	#error_time = 10;
 
 	# dead_time - time in seconds during which we are thinking that server is down
-	# Default: 300
-	dead_time = 300;
+	#   Default: 300
+	#dead_time = 300;
 
-	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
+	# maxerrors - maximum number of errors that can occur during error_time to make Rmilter thinking that
 	# this upstream is dead
-	# Default: 10
-	maxerrors = 10;
+	#   Default: 10
+	#maxerrors = 10;
 
-	# reject_message - reject message for spam
-	# Default: "Spam message rejected; If this is not spam contact abuse team"
-	reject_message = "Spam message rejected; If this is not spam contact abuse at example.com";
+	# reject_message - reject message for spam (quoted string)
+	#   Default: "Spam message rejected; If this is not spam contact abuse team"
+	#reject_message = "Spam message rejected; If this is not spam contact abuse at example.com";
 
 	# whitelist - list of ips or nets that should be not checked with spamd
-	# Default: empty
+	#   Default: empty
 	whitelist = 127.0.0.1/32, [::1]/128, 192.168.0.0/16;
 
 	# rspamd_metric - metric for using with rspamd
-	# Default: "default"
-	rspamd_metric = "default";
+	#   Default: "default"
+	#rspamd_metric = "default";
 
-	spamd_soft_fail = yes;
-	spamd_greylist = yes;
-	# For using in the personal email
+	# spamd_soft_fail - if action is not reject use it for other actions (flag)
+	#   Default: true
+	#spamd_soft_fail = yes;
+
+	# spamd_greylist - greylist message only if action is greylist (flag)
+	#   Default: true
+	#spamd_greylist = yes;
+
+	# extended_spam_headers - add extended spamd headers to messages (flag)
+	#   Default: false
 	#extended_spam_headers = yes;
 };
 
@@ -123,74 +164,43 @@ redis {
 	# copy_probability = 0.5;
 
 	# id_prefix - prefix for extracting message ids from redis
-	# Default: empty (no prefix is prepended to key)
+	#   Default: empty (no prefix is prepended to key)
 	id_prefix = "message_id.";
 
 	# grey_prefix - prefix for extracting greylisted records from redis
-	# Default: empty (no prefix is prepended to key)
+	#   Default: empty (no prefix is prepended to key)
 	grey_prefix = "grey.";
 
 	# white_prefix - prefix for extracting whitelisted records from redis
-	# Default: empty (no prefix is prepended to key)
+	#   Default: empty (no prefix is prepended to key)
 	white_prefix = "white.";
 
 	# spam_channel - redis pub/sub channel to send spam messages to
-	# Default: empty
+	#   Default: empty
 	# spam_channel = "spam";
 
 	# copy_channel - redis pub/sub channel to send messages copies to
-	# Default: empty
+	#   Default: empty
 	# copy_channel = "copy";
 
 	# connect_timeout - timeout in miliseconds for waiting for redis
-	# Default: 1s
-	connect_timeout = 1s;
+	#   Default: 1s
+	#connect_timeout = 1s;
 
 	# error_time - time in seconds during which we are counting errors
-	# Default: 10
-	error_time = 10;
+	#   Default: 10
+	#error_time = 10;
 
 	# dead_time - time in seconds during which we are thinking that server is down
-	# Default: 300
-	dead_time = 300;
+	#   Default: 300
+	#dead_time = 300;
 
 	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
-	# Default: 10
-	maxerrors = 10;
+	#   Default: 10
+	#maxerrors = 10;
 };
 
-# bind_socket - socket credits for local bind:
-# unix:/path/to/file - bind to local socket
-# inet:port@host - bind to inet socket
-# Default: bind_socket = unix:/var/tmp/rmilter.sock;
-
-bind_socket = unix:/var/run/rmilter/rmilter.sock;
-
-# tempdir - path to directory that contains temporary files
-# Default: $TMPDIR
-
-tempdir = /tmp;
-
-# max_size - maximum size of scanned mail with clamav and dcc
-# Default: 0 (no limit)
-
-max_size = 10M;
-
-# strict_auth - strict checks for mails from authenticated senders
-# Default: no
-
-strict_auth = no;
-
-# spf_domains - path to file that contains hash of spf domains
-# Default: empty
-
-#spf_domains = example.com, mail.ru;
-
-# use_dcc - whether use or not dcc system
-# Default: no
-
-#use_dcc = yes;
 
 # rule definition:
 # rule {
@@ -205,6 +215,10 @@ strict_auth = no;
 
 # limits section
 limits {
+	# enable: enable or disable rate limits (binary flag)
+	#   Default: true
+	#enable = yes;
+
 	# Whitelisted ip or networks
 	#limit_whitelist = 194.67.45.4/32;
 	# Whitelisted recipients
@@ -224,11 +238,21 @@ limits {
 };
 
 greylisting {
-	timeout = 300s;
+	# enable - enable or disable greylisting (binary flag)
+	#   Default: true
+	#enable = yes;
+
+	# timeout - time during which we mark message greylisted
+	#   Default: 300s
+	#timeout = 300s;
+
+	# expire - time during which we save a greylisting record
+	#   Default: 1d
 	expire = 3d;
-	whitelist = 127.0.0.1,
-				192.168.1.1,
-				192.168.2.0/24;
+
+	# whitelist -  list of ip addresses or networks that should be whitelisted from greylisting
+	#   Default: empty
+	whitelist = 127.0.0.1/32, [::1]/128, 192.168.0.0/16;
 };
 
 dkim {
