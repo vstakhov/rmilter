@@ -9,7 +9,6 @@ bind_socket = unix:/run/rmilter/rmilter.sock;
 
 pidfile = /run/rmilter/rmilter.pid;
 
-
 # include user's configuration
 .try_include /etc/rmilter.conf.local
 .try_include /etc/rmilter.conf.d/*.conf

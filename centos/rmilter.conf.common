@@ -206,29 +206,6 @@ limits {
 	limit_to_ip_from = 100:0.033333333;
 };
 
-beanstalk {
-	# List of beanstalk servers, random selected
-	#servers = bot01.example.com:3132;
-	
-	# Address of server to which rmilter should send all messages copies
-	#copy_server = somehost:13333;
-	
-	# Address of server to which rmilter should send spam messages copies
-	#spam_server = otherhost:13333;
-	
-	# Beanstalk protocol
-	protocol = tcp;
-	# Time to live for task in seconds
-	lifetime = 172800;
-	# Regexp that define for which messages we should put the whole message to beanstalk
-	# now only In-Reply-To headers are checked
-	id_regexp = "/^SomeID.*$/";
-	# Flags for sending beanstalk copies
-	send_beanstalk_headers = yes;
-	send_beanstalk_copy = yes;
-	send_beanstalk_spam = yes;
-};
-
 greylisting {
 	timeout = 300s;
 	expire = 3d;
@@ -236,10 +213,6 @@ greylisting {
 				192.168.1.1,
 				192.168.2.0/24,
 				[::1]/128;
-	awl_enable = yes;
-	awl_pool = 10M;
-	awl_hits = 10;
-	awl_ttl = 3600s;
 };
 
 dkim {

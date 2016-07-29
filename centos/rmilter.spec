@@ -2,6 +2,10 @@
 %define rmilter_group     adm
 %define rmilter_home      %{_localstatedir}/run/rmilter
 
+%define has_systemd       1
+%{?el6:%undefine has_systemd}
+%{?!suse_version:%define not_suse 1}
+
 Name:           rmilter
 Version:        1.7.0
 Release:        1
@@ -17,14 +21,12 @@ License:        BSD2c
 %endif
 URL:            https://github.com/vstakhov/rmilter
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}
-%if 0%{?suse_version}
-BuildRequires:  bison,flex
-%else
+%if 0%{?not_suse}
 BuildRequires:  sendmail-milter
 %endif
 BuildRequires:  sendmail-devel,openssl-devel,pcre-devel,glib2-devel
-BuildRequires:  cmake
-%if 0%{?suse_version} || 0%{?el7} || 0%{?fedora}
+BuildRequires:  cmake,bison,flex,libopendkim-devel
+%if 0%{?has_systemd}
 BuildRequires:  systemd
 Requires(pre):  systemd
 Requires(post): systemd
@@ -50,6 +52,7 @@ Source0:    https://rspamd.com/downloads/%{name}-%{version}.tar.xz
 Source1:	%{name}.conf
 Source2:	%{name}.conf.common
 Source3:	%{name}.conf.sysvinit
+Source5:	80-rmilter.preset
 
 %description
 The rmilter utility is designed to act as milter for sendmail and postfix MTA.
@@ -66,11 +69,11 @@ rm -rf %{buildroot} || true
         -DCMAKE_INSTALL_PREFIX=%{_prefix} \
         -DCONFDIR=%{_sysconfdir}/rmilter \
         -DMANDIR=%{_mandir} \
-%if 0%{?el6}
-        -DWANT_SYSTEMD_UNITS=OFF \
-%else
+%if 0%{?has_systemd}
         -DWANT_SYSTEMD_UNITS=ON \
         -DSYSTEMDDIR=%{_unitdir} \
+%else
+        -DWANT_SYSTEMD_UNITS=OFF \
 %endif
 %if 0%{?suse_version}
         -DCMAKE_SKIP_INSTALL_RPATH=ON \
@@ -91,6 +94,8 @@ rm -rf %{buildroot} || true
 %if 0%{?el6}
 %{__install} -p -D -m 0755 %{SOURCE4} %{buildroot}%{_initrddir}/%{name}
 %{__install} -p -D -d -m 0755 %{buildroot}%{rmilter_home}
+%else
+%{__install} -p -D -m 0644 %{SOURCE5} %{buildroot}%{_presetdir}/80-rmilter.preset
 %endif
 %{__install} -p -D -d -m 0755 %{buildroot}%{_sysconfdir}/%{name}/rmilter.conf.d/
 
@@ -104,18 +109,17 @@ rm -rf %{buildroot}
 
 %if 0%{?suse_version}
 %service_add_pre %{name}.service
-%service_add_pre %{name}.socket
 %endif
 
 %post
 %{__chown} -R %{rmilter_user}:%{rmilter_group} %{rmilter_home}
 %if 0%{?suse_version}
 %service_add_post %{name}.service
-%service_add_post %{name}.socket
 %endif
-%if 0%{?fedora} || 0%{?el7}
-%systemd_post %{name}.service
-%systemd_post %{name}.socket
+%if 0%{?not_suse} && 0%{?has_systemd}
+#Macro is not used as we want to do this on upgrade
+#%systemd_post %{name}.service
+systemctl --no-reload preset %{name}.service >/dev/null 2>&1 || :
 %endif
 %if 0%{?el6}
 /sbin/chkconfig --add %{name}
@@ -124,11 +128,9 @@ rm -rf %{buildroot}
 %preun
 %if 0%{?suse_version}
 %service_del_preun %{name}.service
-%service_del_preun %{name}.socket
 %endif
-%if 0%{?fedora} || 0%{?el7}
+%if 0%{?not_suse} && 0%{?has_systemd}
 %systemd_preun %{name}.service
-%systemd_preun %{name}.socket
 %endif
 %if 0%{?el6}
 if [ $1 = 0 ]; then
@@ -140,11 +142,9 @@ fi
 %postun
 %if 0%{?suse_version}
 %service_del_postun %{name}.service
-%service_del_postun %{name}.socket
 %endif
-%if 0%{?fedora} || 0%{?el7}
+%if 0%{?not_suse} && 0%{?has_systemd}
 %systemd_postun_with_restart %{name}.service
-%systemd_postun %{name}.socket
 %endif
 %if 0%{?el6}
 if [ $1 -ge 1 ]; then
@@ -155,9 +155,9 @@ fi
 
 %files
 %defattr(-,root,root,-)
-%if 0%{?suse_version} || 0%{?fedora} || 0%{?el7}
+%if 0%{?has_systemd}
 %{_unitdir}/%{name}.service
-%{_unitdir}/%{name}.socket
+%{_presetdir}/80-rmilter.preset
 %endif
 %if 0%{?el6}
 %{_initrddir}/%{name}
