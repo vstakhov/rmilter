@@ -9,6 +9,41 @@
 # Default: pidfile = /var/run/rmilter.pid
 pidfile = /var/run/rmilter/rmilter.pid;
 
+# bind_socket - socket credits for local bind:
+# unix:/path/to/file - bind to local socket
+# inet:port@host - bind to inet socket
+# Default: bind_socket = unix:/var/tmp/rmilter.sock;
+bind_socket = unix:/var/run/rmilter/rmilter.sock;
+
+# tempdir - path to directory that contains temporary files
+# Default: $TMPDIR
+tempdir = /tmp;
+
+# max_size - maximum size of scanned message for ClamAV, Rspamd and DCC
+# Default: 0 (no limit)
+max_size = 10M;
+
+# strict_auth - strict checks for mails from authenticated senders
+# Default: no
+#strict_auth = no;
+
+# spf_domains - path to file that contains hash of spf domains
+# Default: empty
+#spf_domains = example.com, mail.ru;
+
+# use_dcc - whether or not use DCC
+# Default: no
+#use_dcc = no;
+
+# whitelist -  global recipients whitelist
+# Default: no
+#whitelist = abuse@example.com, postmaster@example.com;
+
+# our_networks -  treat mail from these networks as mail from authenticated users
+# (has no effect if `strict_auth` = `yes`)
+# Default: empty
+#our_networks = 127.0.0.1/32, [::1]/128, 192.168.0.0/16;
+
 clamav {
 	# servers - clamav socket definitions in format:
 	# /path/to/file
@@ -166,33 +201,6 @@ redis {
 	#maxerrors = 10;
 };
 
-# bind_socket - socket credits for local bind:
-# unix:/path/to/file - bind to local socket
-# inet:port@host - bind to inet socket
-# Default: bind_socket = unix:/var/tmp/rmilter.sock;
-bind_socket = unix:/var/run/rmilter/rmilter.sock;
-
-# tempdir - path to directory that contains temporary files
-# Default: $TMPDIR
-tempdir = /tmp;
-
-# max_size - maximum size of scanned mail with clamav, rspamd and dcc
-# Default: 0 (no limit)
-max_size = 10M;
-
-# strict_auth - strict checks for mails from authenticated senders
-# Default: no
-#strict_auth = no;
-
-# spf_domains - path to file that contains hash of spf domains
-# Default: empty
-
-#spf_domains = example.com, mail.ru;
-
-# use_dcc - whether use or not dcc system
-# Default: no
-
-#use_dcc = yes;
 
 # rule definition:
 # rule {
