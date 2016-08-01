@@ -1,3 +1,13 @@
+1.9.1:
+	* [Feature] Allow to disable greylisting and ratelimit globally
+	* [Feature] Optimize sending data to rspamd
+	* [Fix] Avoid using of LTS as it seems to be broken on FreeBSD
+	* [Fix] Fix detection of sendfile on FreeBSD
+	* [Fix] Fix probability setup
+	* [Fix] Fix sdsnewlen usage
+	* [Fix] Fix usage of magic constants
+	* [Rework] Remove systemd socket activation
+
 1.9.0:
 	* [CritFix] Fix spam scan
 	* [Feature] Add .try_include macro
