@@ -480,6 +480,13 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 			memcpy (&priv->priv_addr.addr.sa6, &addr_storage->sa6, sizeof (struct sockaddr_in6));
 			port = ntohs (addr_storage->sa6.sin6_port);
 			break;
+		case AF_UNIX:
+			rmilter_strlcpy (priv->priv_ip, "127.0.0.1", sizeof(priv->priv_ip));
+			priv->priv_addr.addr.sa.sa_family = AF_INET;
+			priv->priv_addr.addr.sa4.sin_addr.s_addr = INADDR_LOOPBACK;
+			priv->priv_addr.addr.sa4.sin_port = 0;
+			port = 0;
+			break;
 		default:
 			rmilter_strlcpy (priv->priv_ip, "NULL", sizeof(priv->priv_ip));
 			memcpy (&priv->priv_addr.addr.sa, &addr_storage->sa, sizeof (struct sockaddr));
