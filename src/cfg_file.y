@@ -686,9 +686,7 @@ extended_spam_headers:
 
 spamd_greylist:
 	SPAMD_GREYLIST EQSIGN FLAG {
-		if ($3) {
-			cfg->spamd_greylist = 1;
-		}
+		cfg->spamd_greylist = $3;
 	}
 	;
 
