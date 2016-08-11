@@ -433,9 +433,9 @@ rmiler_process_rspamd_block (const ucl_object_t *obj, SMFICTX *ctx)
 	int nhdr;
 
 	if (obj && ucl_object_type (obj) == UCL_OBJECT) {
-		elt = ucl_object_lookup (obj, "headers_remove");
+		elt = ucl_object_lookup (obj, "remove_headers");
 		/*
-		 * headers_remove:  {"name": 1, ... }
+		 * remove_headers:  {"name": 1, ... }
 		 * where number is the header's position starting from '1'
 		 */
 		if (elt && ucl_object_type (elt) == UCL_OBJECT) {
@@ -453,9 +453,9 @@ rmiler_process_rspamd_block (const ucl_object_t *obj, SMFICTX *ctx)
 			}
 		}
 
-		elt = ucl_object_lookup (obj, "headers_add");
+		elt = ucl_object_lookup (obj, "add_headers");
 		/*
-		 * headers_add: {"name": "value", ... }
+		 * add_headers: {"name": "value", ... }
 		 * name could have multiple values
 		 */
 		if (elt && ucl_object_type (elt) == UCL_OBJECT) {
