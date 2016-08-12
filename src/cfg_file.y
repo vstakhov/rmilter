@@ -651,36 +651,25 @@ spamd_rspamd_metric:
 
 spamd_soft_fail:
 	SPAMD_SOFT_FAIL EQSIGN FLAG {
-		if ($3) {
-			cfg->spamd_soft_fail = 1;
-		}
+		cfg->spamd_soft_fail = $3;
 	}
 	;
 
 spamd_never_reject:
 	SPAMD_NEVER_REJECT EQSIGN FLAG {
-		if ($3) {
-			cfg->spamd_never_reject = 1;
-		}
+		cfg->spamd_never_reject = $3;
 	}
 	;
 
 spamd_spam_add_header:
 	SPAMD_SPAM_ADD_HEADER EQSIGN FLAG {
-		if ($3)	{
-			cfg->spamd_spam_add_header = 1;
-		}
-		else {
-			cfg->spamd_spam_add_header = 0;
-		}
+		cfg->spamd_spam_add_header = $3;
 	}
 	;
 
 extended_spam_headers:
 	EXTENDED_SPAM_HEADERS EQSIGN FLAG {
-		if ($3) {
-			cfg->extended_spam_headers = 1;
-		}
+		cfg->extended_spam_headers = $3;
 	}
 	;
 
@@ -740,9 +729,7 @@ spam_bar_char:
 	;
 spam_no_auth_header:
 	SPAM_NO_AUTH_HEADER EQSIGN FLAG {
-		if ($3) {
-			cfg->spam_no_auth_header = 1;
-		}
+		cfg->spam_no_auth_header = $3;
 	}
 	;
 
@@ -793,10 +780,6 @@ maxsize:
 	;
 usedcc:
 	USEDCC EQSIGN FLAG {
-		if ($3 == -1) {
-			yyerror ("yyparse: parse flag");
-			YYERROR;
-		}
 		cfg->use_dcc = $3;
 	}
 	;
@@ -1476,23 +1459,13 @@ dkim_sign_alg:
 
 dkim_auth_only:
 	DKIM_AUTH_ONLY EQSIGN FLAG {
-		if ($3) {
-			cfg->dkim_auth_only = 1;
-		}
-		else {
-			cfg->dkim_auth_only = 0;
-		}
+		cfg->dkim_auth_only = $3;
 	}
 	;
 
 dkim_fold_header:
 	DKIM_FOLD_HEADER EQSIGN FLAG {
-		if ($3) {
-			cfg->dkim_fold_header = 1;
-		}
-		else {
-			cfg->dkim_fold_header = 0;
-		}
+		cfg->dkim_fold_header = $3;
 	}
 	;
 dkim_sign_networks:
