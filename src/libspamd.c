@@ -740,13 +740,7 @@ log_retry:
 
 	if (res->dkim_signature) {
 		/* Add dkim signature passed from rspamd */
-		GString *folded = rmilter_header_value_fold ("DKIM-Signature",
-				res->dkim_signature, 76);
-
-		if (folded) {
-			smfi_addheader (ctx, "DKIM-Signature", folded->str);
-			g_string_free (folded, TRUE);
-		}
+		smfi_addheader (ctx, "DKIM-Signature", (char *)res->dkim_signature);
 	}
 
 	obj = ucl_object_lookup (res->obj, "rmilter");
