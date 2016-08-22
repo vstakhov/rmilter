@@ -92,25 +92,6 @@
 
 extern pthread_rwlock_t cfg_mtx;
 
-enum { VAL_UNDEF=0, VAL_TRUE, VAL_FALSE };
-enum condition_type {
-	COND_CONNECT = 0,
-	COND_HELO,
-	COND_ENVFROM,
-	COND_ENVRCPT,
-	COND_HEADER,
-	COND_BODY,
-	COND_MAX
-};
-
-enum action_type {
-	ACTION_REJECT,
-	ACTION_TEMPFAIL,
-	ACTION_QUARANTINE,
-	ACTION_DISCARD,
-	ACTION_ACCEPT
-};
-
 enum spamd_type {
 	SPAMD_RSPAMD = 0
 };
