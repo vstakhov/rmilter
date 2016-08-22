@@ -169,15 +169,10 @@ struct beanstalk_server {
 	char *name;
 };
 
-struct ip_list_entry {
-	struct in_addr addr;
-	LIST_ENTRY (ip_list_entry) next;
-};
-
 struct addr_list_entry {
 	char *addr;
 	size_t len;
-	LIST_ENTRY (addr_list_entry) next;
+	UT_hash_handle hh;
 };
 
 struct dkim_hash_entry {
@@ -345,6 +340,7 @@ void free_config (struct config_file *cfg);
 int add_ip_radix (radix_compressed_t *tree, char *ipnet);
 void add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global);
 int is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global);
+void clear_rcpt_whitelist (struct config_file *cfg, bool is_global);
 char *trim_quotes (char *in);
 
 int yylex (void);

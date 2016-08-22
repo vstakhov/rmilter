@@ -650,7 +650,8 @@ void free_config(struct config_file *cfg)
 	}
 #endif
 }
-void add_rcpt_whitelist(struct config_file *cfg, const char *rcpt,
+void
+add_rcpt_whitelist (struct config_file *cfg, const char *rcpt,
 		int is_global)
 {
 	struct whitelisted_rcpt_entry *t;
@@ -676,7 +677,29 @@ void add_rcpt_whitelist(struct config_file *cfg, const char *rcpt,
 	}
 }
 
-int is_whitelisted_rcpt(struct config_file *cfg, const char *str, int is_global)
+void
+clear_rcpt_whitelist (struct config_file *cfg, bool is_global)
+{
+	struct whitelisted_rcpt_entry *t, *tmp;
+
+	if (is_global) {
+		HASH_ITER (hh, cfg->wlist_rcpt_global, t, tmp) {
+			HASH_DEL (cfg->wlist_rcpt_global, t);
+			free (t->rcpt);
+			free (t);
+		}
+	}
+	else {
+		HASH_ITER (hh, cfg->wlist_rcpt_limit, t, tmp) {
+			HASH_DEL (cfg->wlist_rcpt_limit, t);
+			free (t->rcpt);
+			free (t);
+		}
+	}
+}
+
+int
+is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 {
 	int len;
 	struct whitelisted_rcpt_entry *entry, *list;

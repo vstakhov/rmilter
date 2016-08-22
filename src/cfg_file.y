@@ -70,7 +70,7 @@ uint8_t cur_flags = 0;
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 %token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID SPAMD_SPAM_ADD_HEADER
-%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE
+%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE EQPLUS
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -92,8 +92,9 @@ uint8_t cur_flags = 0;
 %type	<frac>		prob_num;
 %%
 
-input	: /* empty */
-	|  command separator input
+input:
+	empty
+	| command separator input
 	;
 
 separator:
@@ -102,6 +103,7 @@ separator:
 	;
 
 empty:
+	/* %empty */
 	;
 
 command	:
@@ -184,26 +186,26 @@ strictauth:
 	}
 	;
 
-rule	:
-		RULE OBRACE rulebody EBRACE
-		;
+rule:
+	RULE OBRACE rulebody EBRACE
+	;
 
-rulebody	:
-			action SEMICOLON expr_l {
-				struct rule *cur_rule;
-				cur_rule = (struct rule *) malloc (sizeof (struct rule));
-				if (cur_rule == NULL) {
-					yyerror ("yyparse: malloc: %s", strerror (errno));
-					YYERROR;
-				}
+rulebody:
+	action SEMICOLON expr_l {
+		struct rule *cur_rule;
+		cur_rule = (struct rule *) malloc (sizeof (struct rule));
+		if (cur_rule == NULL) {
+			yyerror ("yyparse: malloc: %s", strerror (errno));
+			YYERROR;
+		}
 
-				cur_rule->act = $1;
-				cur_rule->conditions = cur_conditions;
-				cur_rule->flags = cur_flags;
-				cur_flags = 0;
-				LIST_INSERT_HEAD (&cfg->rules, cur_rule, next);
-			}
-			;
+		cur_rule->act = $1;
+		cur_rule->conditions = cur_conditions;
+		cur_rule->flags = cur_flags;
+		cur_flags = 0;
+		LIST_INSERT_HEAD (&cfg->rules, cur_rule, next);
+	}
+	;
 
 action	:
 	REJECTL QUOTEDSTRING {
@@ -369,11 +371,13 @@ clamav_servers:
 	SERVERS EQSIGN {
 		cfg->clamav_servers_num = 0;
 	} clamav_server
+	| SERVERS EQPLUS clamav_server
 	;
 
 clamav_server:
 	clamav_params
 	| clamav_server COMMA clamav_params
+	| empty
 	;
 
 clamav_params:
@@ -505,6 +509,10 @@ diff_dir :
 			YYERROR;
 		}
 
+		if (cfg->diff_dir) {
+			free (cfg->diff_dir);
+		}
+
 		cfg->diff_dir = $3;
 	}
 	;
@@ -519,6 +527,10 @@ symbols_dir:
 		if (!S_ISDIR (st.st_mode)) {
 			yyerror ("yyparse: \"%s\" is not a directory", $3);
 			YYERROR;
+		}
+
+		if (cfg->symbols_dir) {
+			free (cfg->symbols_dir);
 		}
 
 		cfg->symbols_dir = $3;
@@ -538,11 +550,13 @@ spamd_servers:
 		cfg->spamd_servers_num = 0;
 	}
 	spamd_server
+	| SERVERS EQPLUS spamd_server
 	;
 
 spamd_server:
 	spamd_params
 	| spamd_server COMMA spamd_params
+	| empty
 	;
 
 spamd_params:
@@ -626,12 +640,19 @@ spamd_reject_message:
 	}
 	;
 spamd_whitelist:
-	WHITELIST EQSIGN spamd_ip_list
+	WHITELIST EQSIGN {
+		if (cfg->spamd_whitelist) {
+			radix_destroy_compressed (cfg->spamd_whitelist);
+			cfg->spamd_whitelist = NULL;
+		}
+	} spamd_ip_list
+	| WHITELIST EQPLUS spamd_ip_list
 	;
 
 spamd_ip_list:
 	spamd_ip
 	| spamd_ip_list COMMA spamd_ip
+	| empty
 	;
 
 spamd_ip:
@@ -861,7 +882,7 @@ ip_net:
 
 cache:
 	MEMCACHED OBRACE cachebody EBRACE {}
-	| REDIS OBRACE cachebody EBRACE { cfg->cache_use_redis = 1; }
+	| REDIS { cfg->cache_use_redis = 1; } OBRACE cachebody EBRACE
 	;
 
 cachebody:
@@ -897,11 +918,13 @@ cache_grey_servers:
 		cfg->cache_servers_grey_num = 0;
 	}
 	cache_grey_server
+	| SERVERS_GREY EQPLUS cache_grey_server
 	;
 
 cache_grey_server:
 	cache_grey_params
 	| cache_grey_server COMMA cache_grey_params
+	| empty
 	;
 
 cache_grey_params:
@@ -928,6 +951,7 @@ cache_white_servers:
 		cfg->cache_servers_white_num = 0;
 	}
 	cache_white_server
+	| SERVERS_WHITE EQPLUS cache_white_server
 	;
 
 cache_white_server:
@@ -959,11 +983,13 @@ cache_limits_servers:
 		cfg->cache_servers_limits_num = 0;
 	}
 	cache_limits_server
+	| SERVERS_LIMITS EQPLUS cache_limits_server
 	;
 
 cache_limits_server:
 	cache_limits_params
 	| cache_limits_server COMMA cache_limits_params
+	| empty
 	;
 
 cache_limits_params:
@@ -982,11 +1008,13 @@ cache_id_servers:
 		cfg->cache_servers_id_num = 0;
 	}
 	cache_id_server
+	| SERVERS_ID EQPLUS cache_id_server
 	;
 
 cache_id_server:
 	cache_id_params
 	| cache_id_server COMMA cache_id_params
+	| empty
 	;
 
 cache_id_params:
@@ -1005,11 +1033,13 @@ cache_copy_servers:
 		cfg->cache_servers_copy_num = 0;
 	}
 	cache_copy_server
+	| SERVERS_COPY EQPLUS cache_copy_server
 	;
 
 cache_copy_server:
 	cache_copy_params
 	| cache_copy_server COMMA cache_copy_params
+	| empty
 	;
 
 cache_copy_params:
@@ -1028,11 +1058,13 @@ cache_spam_servers:
 		cfg->cache_servers_spam_num = 0;
 	}
 	cache_spam_server
+	| SERVERS_SPAM EQPLUS cache_spam_server
 	;
 
 cache_spam_server:
 	cache_spam_params
 	| cache_spam_server COMMA cache_spam_params
+	| empty
 	;
 
 cache_spam_params:
@@ -1186,7 +1218,14 @@ limit_to_ip_from:
 	}
 	;
 limit_whitelist:
-	LIMIT_WHITELIST EQSIGN whitelist_ip_list
+	LIMIT_WHITELIST EQSIGN {
+		if (cfg->limit_whitelist_tree) {
+			radix_destroy_compressed (cfg->limit_whitelist_tree);
+			cfg->limit_whitelist_tree = NULL;
+		}
+	}
+	whitelist_ip_list
+	| LIMIT_WHITELIST EQPLUS whitelist_ip_list
 	;
 whitelist_ip_list:
 	ip_net {
@@ -1199,10 +1238,14 @@ whitelist_ip_list:
 			YYERROR;
 		}
 	}
+	| empty
 	;
 
 limit_whitelist_rcpt:
-	LIMIT_WHITELIST_RCPT EQSIGN whitelist_rcpt_list
+	LIMIT_WHITELIST_RCPT EQSIGN {
+		clear_rcpt_whitelist (cfg, false);
+	} whitelist_rcpt_list
+	| LIMIT_WHITELIST_RCPT EQPLUS whitelist_rcpt_list
 	;
 whitelist_rcpt_list:
 	STRING {
@@ -1217,6 +1260,7 @@ whitelist_rcpt_list:
 	| whitelist_rcpt_list COMMA QUOTEDSTRING {
 		add_rcpt_whitelist (cfg, $3, 0);
 	}
+	| empty
 	;
 
 limit_bounce_addrs:
@@ -1275,7 +1319,10 @@ limit_enable:
 	;
 
 whitelist:
-	WHITELIST EQSIGN whitelist_list
+	WHITELIST EQSIGN {
+		clear_rcpt_whitelist (cfg, true);
+	} whitelist_list
+	| WHITELIST EQPLUS whitelist_list
 	;
 whitelist_list:
 	STRING {
@@ -1290,6 +1337,7 @@ whitelist_list:
 	| whitelist_list COMMA QUOTEDSTRING {
 		add_rcpt_whitelist (cfg, $3, 1);
 	}
+	| empty
 	;
 
 
@@ -1469,7 +1517,13 @@ dkim_fold_header:
 	}
 	;
 dkim_sign_networks:
-	DKIM_SIGN_NETWORKS EQSIGN dkim_ip_list
+	DKIM_SIGN_NETWORKS EQSIGN {
+		if (cfg->dkim_ip_tree) {
+			radix_destroy_compressed (cfg->dkim_ip_tree);
+			cfg->dkim_ip_tree = NULL;
+		}
+	} dkim_ip_list
+	| DKIM_SIGN_NETWORKS EQPLUS dkim_ip_list
 	;
 dkim_ip_list:
 	ip_net {
@@ -1482,6 +1536,7 @@ dkim_ip_list:
 			YYERROR;
 		}
 	}
+	| empty
 	;
 
 use_redis:
@@ -1491,12 +1546,19 @@ use_redis:
 	;
 
 our_networks:
-	OUR_NETWORKS EQSIGN our_networks_list
+	OUR_NETWORKS EQSIGN {
+		if (cfg->our_networks) {
+			radix_destroy_compressed (cfg->our_networks);
+			cfg->our_networks = NULL;
+		}
+	}our_networks_list
+	| OUR_NETWORKS EQPLUS our_networks_list
 	;
 
 our_networks_list:
 	our_networks_elt
 	| our_networks_list COMMA our_networks_elt
+	| empty
 	;
 
 our_networks_elt:

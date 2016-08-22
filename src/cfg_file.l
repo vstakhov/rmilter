@@ -362,6 +362,7 @@ our_networks					return OUR_NETWORKS;
 ;								return SEMICOLON;
 ,								return COMMA;
 =								return EQSIGN;
+\+=								return EQPLUS;
 {flag}							yylval.flag=parse_flag(yytext); return FLAG;
 \n								/* ignore EOL */;
 [ \t]+							/* ignore whitespace */;
