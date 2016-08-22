@@ -94,16 +94,13 @@ is_whitelisted (struct rmilter_inet_address *addr, const char *rcpt,
 static int is_bounce(char *from, struct config_file *cfg)
 {
 	size_t user_part_len;
-	struct addr_list_entry *cur_addr;
+	struct addr_list_entry *cur_addr = NULL;
 
 	user_part_len = extract_user_part (from);
-	LIST_FOREACH (cur_addr, &cfg->bounce_addrs, next)
-	{
-		if (cur_addr->len == user_part_len
-				&& strncasecmp (cur_addr->addr, from, user_part_len) == 0) {
-			/* Bounce rcpt */
-			return 1;
-		}
+	HASH_FIND (hh, cfg->bounce_addrs, from, user_part_len, cur_addr);
+
+	if (cur_addr) {
+		return 1;
 	}
 
 	return 0;

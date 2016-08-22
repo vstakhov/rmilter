@@ -26,7 +26,6 @@
 
 %{
 
-#include "pcre.h"
 #include "cfg_file.h"
 
 #define YYDEBUG 1
@@ -43,8 +42,6 @@ uint8_t cur_flags = 0;
 %union
 {
 	char *string;
-	struct condition *cond;
-	struct action *action;
 	size_t limit;
 	bucket_t bucket;
 	char flag;
@@ -54,10 +51,7 @@ uint8_t cur_flags = 0;
 }
 
 %token	ERROR STRING QUOTEDSTRING FLAG FLOAT
-%token	ACCEPT REJECTL TEMPFAIL DISCARD QUARANTINE
-%token	CONNECT HELO ENVFROM ENVRCPT HEADER MACRO BODY
-%token	AND OR NOT
-%token  TEMPDIR LOGFILE PIDFILE RULE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
+%token  TEMPDIR LOGFILE PIDFILE CLAMAV SERVERS ERROR_TIME DEAD_TIME MAXERRORS CONNECT_TIMEOUT PORT_TIMEOUT RESULTS_TIMEOUT SPF DCC
 %token  FILENAME REGEXP QUOTE SEMICOLON OBRACE EBRACE COMMA EQSIGN
 %token  BINDSOCK SOCKCRED DOMAIN_STR IPADDR IPNETWORK HOSTPORT NUMBER GREYLISTING WHITELIST TIMEOUT EXPIRE EXPIRE_WHITE
 %token  MAXSIZE SIZELIMIT SECONDS BUCKET USEDCC MEMCACHED PROTOCOL SERVERS_WHITE SERVERS_LIMITS SERVERS_GREY SERVERS_COPY SERVERS_SPAM
@@ -79,9 +73,7 @@ uint8_t cur_flags = 0;
 %type   <string>  	SOCKCRED
 %type	<string>	IPADDR IPNETWORK
 %type	<string>	HOSTPORT
-%type 	<string>	ip_net cache_hosts clamav_addr spamd_addr
-%type   <cond>    	expr_l expr term
-%type   <action>  	action
+%type 	<string>	ip_net cache_hosts clamav_addr spamd_addr bounce_addr
 %type	<string>	DOMAIN_STR
 %type	<limit>		SIZELIMIT
 %type	<flag>		FLAG
@@ -111,7 +103,6 @@ command	:
 	| tempfiles_mode
 	| strictauth
 	| pidfile
-	| rule
 	| clamav
 	| spamd
 	| spf
@@ -183,167 +174,6 @@ pidfile :
 strictauth:
 	STRICT_AUTH EQSIGN FLAG {
 		cfg->strict_auth = $3;
-	}
-	;
-
-rule:
-	RULE OBRACE rulebody EBRACE
-	;
-
-rulebody:
-	action SEMICOLON expr_l {
-		struct rule *cur_rule;
-		cur_rule = (struct rule *) malloc (sizeof (struct rule));
-		if (cur_rule == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror (errno));
-			YYERROR;
-		}
-
-		cur_rule->act = $1;
-		cur_rule->conditions = cur_conditions;
-		cur_rule->flags = cur_flags;
-		cur_flags = 0;
-		LIST_INSERT_HEAD (&cfg->rules, cur_rule, next);
-	}
-	;
-
-action	:
-	REJECTL QUOTEDSTRING {
-		$$ = create_action(ACTION_REJECT, $2);
-		if ($$ == NULL) {
-			yyerror ("yyparse: create_action");
-			YYERROR;
-		}
-		free($2);
-	}
-	| TEMPFAIL QUOTEDSTRING {
-		$$ = create_action(ACTION_TEMPFAIL, $2);
-		if ($$ == NULL) {
-			yyerror ("yyparse: create_action");
-			YYERROR;
-		}
-		free($2);
-	}
-	| QUARANTINE QUOTEDSTRING	{
-		$$ = create_action(ACTION_QUARANTINE, $2);
-		if ($$ == NULL) {
-			yyerror ("yyparse: create_action");
-			YYERROR;
-		}
-		free($2);
-	}
-	| DISCARD {
-		$$ = create_action(ACTION_DISCARD, "");
-		if ($$ == NULL) {
-			yyerror ("yyparse: create_action");
-			YYERROR;
-		}
-	}
-	| ACCEPT {
-		$$ = create_action(ACTION_ACCEPT, "");
-		if ($$ == NULL) {
-			yyerror ("yyparse: create_action");
-			YYERROR;
-		}
-	}
-	;
-
-expr_l	:
-	expr SEMICOLON		{
-		cur_conditions = (struct condl *)malloc (sizeof (struct condl));
-		if (cur_conditions == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror (errno));
-			YYERROR;
-		}
-		LIST_INIT (cur_conditions);
-		$$ = $1;
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		LIST_INSERT_HEAD (cur_conditions, $$, next);
-	}
-	| expr_l expr SEMICOLON	{
-		$$ = $2;
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		LIST_INSERT_HEAD (cur_conditions, $$, next);
-	}
-	;
-
-expr	:
-	term			{
-		$$ = $1;
-	}
-	| NOT term		{
-		struct condition *tmp;
-		tmp = $2;
-		if (tmp != NULL) {
-			tmp->args[0].not = 1;
-			tmp->args[1].not = 1;
-		}
-		$$ = tmp;
-	}
-	;
-
-term	:
-	CONNECT REGEXP REGEXP	{
-		$$ = create_cond(COND_CONNECT, $2, $3);
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		cur_flags |= COND_CONNECT_FLAG;
-		free($2);
-		free($3);
-	}
-	| HELO REGEXP		{
-		$$ = create_cond(COND_HELO, $2, NULL);
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		cur_flags |= COND_HELO_FLAG;
-		free($2);
-	}
-	| ENVFROM REGEXP	{
-		$$ = create_cond(COND_ENVFROM, $2, NULL);
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		cur_flags |= COND_ENVFROM_FLAG;
-		free($2);
-	}
-	| ENVRCPT REGEXP	{
-		$$ = create_cond(COND_ENVRCPT, $2, NULL);
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		cur_flags |= COND_ENVRCPT_FLAG;
-		free($2);
-	}
-	| HEADER REGEXP REGEXP	{
-		$$ = create_cond(COND_HEADER, $2, $3);
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		cur_flags |= COND_HEADER_FLAG;
-		free($2);
-		free($3);
-	}
-	| BODY REGEXP		{
-		$$ = create_cond(COND_BODY, $2, NULL);
-		if ($$ == NULL) {
-			yyerror ("yyparse: malloc: %s", strerror(errno));
-			YYERROR;
-		}
-		cur_flags |= COND_BODY_FLAG;
-		free($2);
 	}
 	;
 
@@ -1264,39 +1094,38 @@ whitelist_rcpt_list:
 	;
 
 limit_bounce_addrs:
-	LIMIT_BOUNCE_ADDRS EQSIGN bounce_addr_list
+	LIMIT_BOUNCE_ADDRS EQSIGN {
+		struct addr_list_entry *t, *tmp;
+
+		HASH_ITER (hh, cfg->bounce_addrs, t, tmp) {
+			HASH_DEL (cfg->bounce_addrs, t);
+			free (t->addr);
+			free (t);
+		}
+	} bounce_addr_list
+	| LIMIT_BOUNCE_ADDRS EQPLUS bounce_addr_list
 	;
 bounce_addr_list:
-	STRING {
+	bounce_addr {
 		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t = calloc (1, sizeof (struct addr_list_entry));
 		t->addr = strdup ($1);
 		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
+		HASH_ADD_KEYPTR(hh, cfg->bounce_addrs, t->addr, t->len, t);
 	}
-	| bounce_addr_list COMMA STRING {
+	| bounce_addr_list COMMA bounce_addr {
 		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
+		t = calloc (1, sizeof (struct addr_list_entry));
 		t->addr = strdup ($3);
 		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
+		HASH_ADD_KEYPTR(hh, cfg->bounce_addrs, t->addr, t->len, t);
 	}
-	| QUOTEDSTRING {
-		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
-		t->addr = strdup ($1);
-		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
-	}
-	| bounce_addr_list COMMA QUOTEDSTRING {
-		struct addr_list_entry *t;
-		t = (struct addr_list_entry *)malloc (sizeof (struct addr_list_entry));
-		t->addr = strdup ($3);
-		t->len = strlen (t->addr);
-		LIST_INSERT_HEAD (&cfg->bounce_addrs, t, next);
-	}
+	| empty
 	;
 
+bounce_addr:
+	STRING
+	| QUOTEDSTRING
 
 limit_bounce_to:
 	LIMIT_BOUNCE_TO EQSIGN BUCKET {

@@ -37,7 +37,6 @@
 #include "libspamd.h"
 #include "cfg_file.h"
 #include "rmilter.h"
-#include "regexp.h"
 #include "cache.h"
 #ifdef HAVE_DCC
 #include "dccif.h"
@@ -95,41 +94,6 @@ extern struct rmilter_rng_state *rng_state;
 /* Milter mutexes */
 pthread_mutex_t regexp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
-static sfsistat
-set_reply (SMFICTX *ctx, const struct action *act)
-{
-	int result = SMFIS_CONTINUE;
-
-	switch (act->type) {
-	case ACTION_ACCEPT:
-		result = SMFIS_ACCEPT;
-		break;
-	case ACTION_REJECT:
-		result = SMFIS_REJECT;
-		break;
-	case ACTION_TEMPFAIL:
-		result = SMFIS_TEMPFAIL;
-		break;
-	case ACTION_QUARANTINE:
-		result = SMFIS_DISCARD;
-		break;
-	case ACTION_DISCARD:
-		result = SMFIS_DISCARD;
-		break;
-	}
-	if (act->type == ACTION_REJECT &&
-			smfi_setreply(ctx, RCODE_REJECT, XCODE_REJECT,
-					(char *)act->message) != MI_SUCCESS) {
-		msg_err("smfi_setreply");
-	}
-	if (act->type == ACTION_TEMPFAIL &&
-			smfi_setreply(ctx, RCODE_TEMPFAIL, XCODE_TEMPFAIL,
-					(char *)act->message) != MI_SUCCESS) {
-		msg_err("smfi_setreply");
-	}
-
-	return result;
-}
 
 /*
  * Strip angle braces if needed
@@ -638,7 +602,6 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 {
 	char *tmpfrom;
 	struct mlfi_priv *priv;
-	struct rule *act;
 	unsigned int i;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
@@ -762,25 +725,6 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 	CFG_UNLOCK();
 #endif
 
-	CFG_RLOCK();
-	/* Check connect */
-	act = regexp_check (cfg, priv, STAGE_CONNECT);
-	if (act != NULL) {
-		priv->matched_rules[STAGE_CONNECT] = act;
-	}
-	/* Check helo */
-	act = regexp_check (cfg, priv, STAGE_HELO);
-	if (act != NULL) {
-		priv->matched_rules[STAGE_HELO] = act;
-	}
-
-	/* Check envfrom */
-	act = regexp_check (cfg, priv, STAGE_ENVFROM);
-	if (act != NULL) {
-		priv->matched_rules[STAGE_ENVFROM] = act;
-	}
-
-	CFG_UNLOCK();
 	return SMFIS_CONTINUE;
 }
 
@@ -788,7 +732,6 @@ static sfsistat
 mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 {
 	struct mlfi_priv *priv;
-	struct rule *act;
 	struct rcpt *newrcpt;
 	char *tmprcpt;
 
@@ -832,13 +775,8 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 
 	DL_APPEND(priv->rcpts, newrcpt);
 	priv->priv_rcptcount ++;
-	/* Check recipient */
-	act = regexp_check (cfg, priv, STAGE_ENVRCPT);
-	if (act != NULL) {
-		priv->matched_rules[STAGE_ENVRCPT] = act;
-	}
-
 	CFG_UNLOCK();
+
 	return SMFIS_CONTINUE;
 }
 
@@ -894,7 +832,6 @@ static sfsistat
 mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 {
 	struct mlfi_priv *priv;
-	struct rule *act;
 	int len;
 	char *p, *c, t, *hname_lowercase;
 
@@ -995,11 +932,6 @@ mlfi_header(SMFICTX * ctx, char *headerf, char *headerv)
 		}
 	}
 
-	act = regexp_check (cfg, priv, STAGE_HEADER);
-	if (act != NULL) {
-		priv->matched_rules[STAGE_HEADER] = act;
-	}
-
 	free (hname_lowercase);
 
 	CFG_UNLOCK();
@@ -1095,7 +1027,6 @@ mlfi_eom(SMFICTX * ctx)
 	int prob_max;
 	double prob_cur;
 	struct stat sb;
-	struct action *act;
 	struct rcpt *rcpt;
 	bool ip_whitelisted = false;
 	int ret = SMFIS_CONTINUE;
@@ -1141,18 +1072,6 @@ mlfi_eom(SMFICTX * ctx)
 #endif
 
 	CFG_RLOCK();
-	if (cfg->serial == priv->serial) {
-		msg_debug ("<%s>; mlfi_eom: checking regexp rules", priv->mlfi_id);
-		act = rules_check (priv->matched_rules);
-		if (act != NULL && act->type != ACTION_ACCEPT) {
-			CFG_UNLOCK ();
-			return set_reply (ctx, act);
-		}
-	}
-	else {
-		msg_warn ("<%s>; mlfi_eom: config was reloaded, not checking rules", priv->mlfi_id);
-	}
-
 	if (priv->complete_to_beanstalk) {
 		/* Set actual pos to send all message to beanstalk */
 		priv->eoh_pos = ftell (priv->fileh);
@@ -1654,7 +1573,6 @@ static sfsistat
 mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 {
 	struct mlfi_priv *priv;
-	struct rule *act;
 
 	if ((priv = (struct mlfi_priv *) smfi_getpriv (ctx)) == NULL) {
 		msg_err ("Internal error: smfi_getpriv() returns NULL");
@@ -1682,10 +1600,6 @@ mlfi_body(SMFICTX * ctx, u_char * bodyp, size_t bodylen)
 	priv->priv_cur_body.len = bodylen;
 	CFG_RLOCK();
 
-	act = regexp_check (cfg, priv, STAGE_BODY);
-	if (act != NULL) {
-		priv->matched_rules[STAGE_BODY] = act;
-	}
 	/* continue processing */
 #ifdef WITH_DKIM
 	int r;
@@ -1771,7 +1685,3 @@ check_dcc (const struct mlfi_priv *priv)
 	return dccres;
 }
 #endif
-
-/*
- * vi:ts=4
- */

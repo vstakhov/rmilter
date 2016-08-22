@@ -251,7 +251,6 @@ tempfiles_mode					return TEMPFILES_MODE;
 pidfile							return PIDFILE;
 strict_auth						return STRICT_AUTH;
 check_auth						return STRICT_AUTH;
-rule							return RULE;
 clamav							return CLAMAV;
 spamd							return SPAMD;
 also_check						return ALSO_CHECK;
@@ -340,19 +339,6 @@ limit_whitelist_rcpt			return LIMIT_WHITELIST_RCPT;
 limit_bounce_addrs				return LIMIT_BOUNCE_ADDRS;
 limit_bounce_to					return LIMIT_BOUNCE_TO;
 limit_bounce_to_ip				return LIMIT_BOUNCE_TO_IP;
-
-accept							return ACCEPT;
-body							return BODY;
-connect							return CONNECT;
-discard							return DISCARD;
-envfrom							return ENVFROM;
-envrcpt							return ENVRCPT;
-header							return HEADER;
-helo							return HELO;
-not								return NOT;
-quarantine						return QUARANTINE;
-reject							return REJECTL;
-tempfail						return TEMPFAIL;
 our_networks					return OUR_NETWORKS;
 
 

@@ -120,29 +120,6 @@ typedef struct bucket_s {
 	double rate;
 } bucket_t;
 
-struct action {
-	enum action_type type;
-	char *message;
-};
-
-struct condition {
-	struct cond_arg {
-		char    *src;
-		int  empty;
-		int  not;
-		pcre  *re;
-	}	args[2];
-	enum condition_type type;
-	LIST_ENTRY (condition) next;
-};
-
-struct rule {
-	LIST_HEAD (condl, condition) *conditions;
-	struct action *act;
-	uint8_t flags;
-	LIST_ENTRY (rule) next;
-};
-
 struct clamav_server {
 	struct upstream up;
 	int port;
@@ -289,8 +266,6 @@ struct config_file {
 	unsigned greylisting_enable:1;
 	unsigned ratelimit_enable:1;
 
-	LIST_HEAD (ruleset, rule) rules;
-
 	/* limits section */
 	bucket_t limit_to;
 	bucket_t limit_to_ip;
@@ -300,7 +275,7 @@ struct config_file {
 
 	struct whitelisted_rcpt_entry *wlist_rcpt_limit;
 	struct whitelisted_rcpt_entry *wlist_rcpt_global;
-	LIST_HEAD (bounceaddrset, addr_list_entry) bounce_addrs;
+	struct addr_list_entry *bounce_addrs;
 
 	unsigned int greylisting_timeout;
 	unsigned int greylisting_expire;
@@ -333,8 +308,6 @@ struct config_file {
 int add_cache_server (struct config_file *cf, char *str, char *str2, int type);
 int add_clamav_server (struct config_file *cf, char *str);
 int add_spamd_server (struct config_file *cf, char *str, int is_extra);
-struct action * create_action (enum action_type type, const char *message);
-struct condition * create_cond (enum condition_type type, const char *arg1, const char *arg2);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
 int add_ip_radix (radix_compressed_t *tree, char *ipnet);

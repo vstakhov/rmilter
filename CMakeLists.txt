@@ -330,7 +330,6 @@ CHECK_INCLUDE_FILES(inttypes.h  HAVE_INTTYPES_H)
 CHECK_INCLUDE_FILES(endian.h  HAVE_ENDIAN_H)
 CHECK_INCLUDE_FILES(sys/endian.h  HAVE_SYS_ENDIAN_H)
 CHECK_INCLUDE_FILES(machine/endian.h  HAVE_MACHINE_ENDIAN_H)
-CHECK_INCLUDE_FILES(sys/queue.h  HAVE_SYS_QUEUE_H)
 CHECK_INCLUDE_FILES(sys/socket.h  HAVE_SYS_SOCKET_H)
 CHECK_INCLUDE_FILES(sys/mman.h  HAVE_SYS_MMAN_H)
 CHECK_INCLUDE_FILES(sys/un.h  HAVE_SYS_UN_H)
@@ -364,10 +363,10 @@ CHECK_SYMBOL_EXISTS(MAP_NOCORE sys/mman.h HAVE_MMAP_NOCORE)
 
 ProcessPackage(OPENSSL LIBRARY crypto INCLUDE err.h INCLUDE_SUFFIXES include/openssl
 	ROOT ${OPENSSL_ROOT_DIR} MODULES openssl)
-ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
-	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
 ProcessPackage(LIBMILTER LIBRARY milter INCLUDE mfapi.h INCLUDE_SUFFIXES include/libmilter
 	LIB_SUFFIXES lib/libmilter ROOT ${LIBMILTER_ROOT_DIR} MODULES libmilter)
+ProcessPackage(PCRE LIBRARY pcre INCLUDE pcre.h INCLUDE_SUFFIXES include/pcre
+	ROOT ${PCRE_ROOT_DIR} MODULES pcre libpcre pcre3 libpcre3)
 ProcessPackage(GLIB2 LIBRARY glib-2.0 INCLUDE glib.h
 	INCLUDE_SUFFIXES include/glib
 	ROOT ${GLIB_ROOT_DIR} MODULES glib-2.0>=2.28)
@@ -400,7 +399,6 @@ SET(RMILTERSRC
                 src/upstream.c
                 src/util.c
                 src/radix.c
-                src/regexp.c
                 src/cache.c
                 ${CMAKE_BINARY_DIR}/cfg_lex.c
                 ${CMAKE_BINARY_DIR}/cfg_yacc.c

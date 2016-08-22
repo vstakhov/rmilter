@@ -27,7 +27,6 @@
 #include <assert.h>
 #include "config.h"
 
-#include "pcre.h"
 #include "cfg_file.h"
 #include "rmilter.h"
 
@@ -291,81 +290,6 @@ int add_spamd_server(struct config_file *cf, char *str, int is_extra)
 	return 1;
 }
 
-struct action *
-create_action(enum action_type type, const char *message)
-{
-	struct action *new;
-	size_t len = strlen (message);
-
-	if (message == NULL)
-		return NULL;
-
-	new = (struct action *) malloc (sizeof(struct action));
-
-	if (new == NULL)
-		return NULL;
-
-	new->type = type;
-
-	new->message = (char *) malloc (len + 1);
-
-	if (new->message == NULL)
-		return NULL;
-
-	rmilter_strlcpy (new->message, message, len + 1);
-
-	return new;
-}
-
-struct condition *
-create_cond(enum condition_type type, const char *arg1, const char *arg2)
-{
-	struct condition *new;
-	int offset;
-	const char *read_err;
-
-	new = (struct condition *) malloc (sizeof(struct condition));
-	bzero (new, sizeof(struct condition));
-
-	if (new == NULL)
-		return NULL;
-
-	if (arg1 == NULL || *arg1 == '\0') {
-		new->args[0].empty = 1;
-	}
-	else {
-		if (!copy_regexp (&new->args[0].src, arg1)) {
-			new->args[0].empty = 1;
-		}
-		else {
-			new->args[0].re = pcre_compile (new->args[0].src, 0, &read_err,
-					&offset, NULL);
-			if (new->args[0].re == NULL) {
-				new->args[0].empty = 1;
-			}
-		}
-	}
-	if (arg2 == NULL || *arg2 == '\0') {
-		new->args[1].empty = 1;
-	}
-	else {
-		if (!copy_regexp (&new->args[1].src, arg2)) {
-			new->args[1].empty = 1;
-		}
-		else {
-			new->args[1].re = pcre_compile (new->args[1].src, 0, &read_err,
-					&offset, NULL);
-			if (new->args[1].re == NULL) {
-				new->args[1].empty = 1;
-			}
-		}
-	}
-
-	new->type = type;
-
-	return new;
-}
-
 int add_ip_radix (radix_compressed_t *tree, char *ipnet)
 {
 	if (!radix_add_generic_iplist (ipnet, &tree)) {
@@ -393,11 +317,8 @@ void init_defaults(struct config_file *cfg)
 {
 	memset (cfg, 0, sizeof (*cfg));
 
-	LIST_INIT(&cfg->rules);
 	cfg->wlist_rcpt_global = NULL;
 	cfg->wlist_rcpt_limit = NULL;
-	LIST_INIT(&cfg->bounce_addrs);
-
 	cfg->clamav_connect_timeout = DEFAULT_CLAMAV_CONNECT_TIMEOUT;
 	cfg->clamav_port_timeout = DEFAULT_CLAMAV_PORT_TIMEOUT;
 	cfg->clamav_results_timeout = DEFAULT_CLAMAV_RESULTS_TIMEOUT;
@@ -523,37 +444,7 @@ void free_config(struct config_file *cfg)
 	for (i = 0; i < cfg->spamd_servers_num; i++) {
 		free (cfg->spamd_servers[i].name);
 	}
-	/* Free rules list */
-	LIST_FOREACH_SAFE (cur, &cfg->rules, next, tmp_rule)
-	{
-		LIST_FOREACH_SAFE (cond, cur->conditions, next, tmp_cond)
-				{
-			if (!cond->args[0].empty) {
-				if (cond->args[0].re != NULL) {
-					pcre_free (cond->args[0].re);
-				}
-				if (cond->args[0].src != NULL) {
-					free (cond->args[0].src);
-				}
-			}
-			if (!cond->args[1].empty) {
-				if (cond->args[1].re != NULL) {
-					pcre_free (cond->args[1].re);
-				}
-				if (cond->args[1].src != NULL) {
-					free (cond->args[1].src);
-				}
-			}
-			LIST_REMOVE(cond, next);
-			free (cond);
-				}
-		if (cur->act->message) {
-			free (cur->act->message);
-		}
-		free (cur->act);
-		LIST_REMOVE(cur, next);
-		free (cur);
-	}
+
 	/* Free whitelists and bounce list*/
 	HASH_ITER (hh, cfg->wlist_rcpt_global, rcpt_cur, rcpt_tmp) {
 		HASH_DEL (cfg->wlist_rcpt_global, rcpt_cur);
@@ -565,11 +456,9 @@ void free_config(struct config_file *cfg)
 		free (rcpt_cur->rcpt);
 		free (rcpt_cur);
 	}
-	LIST_FOREACH_SAFE (addr_cur, &cfg->bounce_addrs, next, addr_tmp) {
-		if (addr_cur->addr) {
-			free (addr_cur->addr);
-		}
-		LIST_REMOVE (addr_cur, next);
+	HASH_ITER (hh, cfg->bounce_addrs, addr_cur, addr_tmp) {
+		HASH_DEL (cfg->bounce_addrs, addr_cur);
+		free (addr_cur->addr);
 		free (addr_cur);
 	}
 
