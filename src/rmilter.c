@@ -658,6 +658,10 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 
 	/* Check whether we need to sign this message */
 #ifdef WITH_DKIM
+	if (!cfg->dkim_enable) {
+		return SMFIS_CONTINUE;
+	}
+
 	CFG_RLOCK();
 	DKIM_STAT statp;
 	struct dkim_domain_entry *dkim_domain;
@@ -1411,8 +1415,16 @@ dkim_sign:
 		rate_check (priv, cfg, rcpt->r_addr, 1);
 	}
 #endif
-	dkim_result = "not signed, ignored";
+
 #ifdef WITH_DKIM
+	if (cfg->dkim_enable) {
+		dkim_result = "not signed, ignored";
+	}
+	else {
+		dkim_result = "not signed, disabled";
+	}
+
+
 	/* Add dkim signature */
 	char *hdr;
 	size_t len;
@@ -1452,6 +1464,8 @@ dkim_sign:
 			dkim_result = "not signed, internal failure";
 		}
 	}
+#else
+	dkim_result = "not signed, not compiled with dkim";
 #endif
 
 end:

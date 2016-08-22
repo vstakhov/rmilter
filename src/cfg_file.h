@@ -246,6 +246,7 @@ struct config_file {
 	unsigned weighted_clamav:1;
 	unsigned greylisting_enable:1;
 	unsigned ratelimit_enable:1;
+	unsigned dkim_enable:1;
 
 	/* limits section */
 	bucket_t limit_to;

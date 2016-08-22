@@ -1204,6 +1204,7 @@ dkimcmd:
 	| dkim_auth_only
 	| dkim_fold_header
 	| dkim_sign_networks
+	| dkim_enable
 	;
 
 dkim_domain:
@@ -1382,6 +1383,12 @@ dkim_ip_list:
 		}
 	}
 	| empty
+	;
+
+dkim_enable:
+	ENABLE EQSIGN FLAG {
+		cfg->dkim_enable = $3;
+	}
 	;
 
 use_redis:

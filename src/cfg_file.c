@@ -372,6 +372,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->ratelimit_enable = 1;
 
 	cfg->dkim_auth_only = 1;
+	cfg->dkim_enable = 1;
 	cfg->pid_file = NULL;
 	cfg->tempfiles_mode = 00600;
 
