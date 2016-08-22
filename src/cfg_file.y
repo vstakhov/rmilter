@@ -179,6 +179,7 @@ strictauth:
 
 clamav:
 	CLAMAV OBRACE clamavbody EBRACE
+	| CLAMAV OBRACE empty EBRACE
 	;
 
 clamavbody:
@@ -288,6 +289,7 @@ clamav_ip:
 
 spamd:
 	SPAMD OBRACE spamdbody EBRACE
+	| SPAMD OBRACE empty EBRACE
 	;
 
 spamdbody:
@@ -637,6 +639,7 @@ usedcc:
 
 greylisting:
 	GREYLISTING OBRACE greylistingbody EBRACE
+	| GREYLISTING OBRACE empty EBRACE
 	;
 
 greylistingbody:
@@ -718,13 +721,17 @@ ip_net:
 	;
 
 cache:
-	MEMCACHED OBRACE cachebody EBRACE {}
+	MEMCACHED OBRACE cachebody EBRACE
 	| REDIS { cfg->cache_use_redis = 1; } OBRACE cachebody EBRACE
 	;
 
 cachebody:
+	cahcebody_commands
+	| empty
+	;
+cahcebody_commands:
 	cachecmd SEMICOLON
-	| cachebody cachecmd SEMICOLON
+	| cahcebody_commands cachecmd SEMICOLON
 	;
 
 cachecmd:
@@ -1018,6 +1025,7 @@ cache_spam_channel:
 
 limits:
 	LIMITS OBRACE limitsbody EBRACE
+	| LIMITS OBRACE empty EBRACE
 	;
 
 limitsbody:
@@ -1179,6 +1187,7 @@ whitelist_list:
 
 dkim:
 	DKIM_SECTION OBRACE dkimbody EBRACE
+	| DKIM_SECTION OBRACE empty EBRACE
 	;
 
 dkimbody:
