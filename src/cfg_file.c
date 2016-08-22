@@ -290,9 +290,9 @@ int add_spamd_server(struct config_file *cf, char *str, int is_extra)
 	return 1;
 }
 
-int add_ip_radix (radix_compressed_t *tree, char *ipnet)
+int add_ip_radix (radix_compressed_t **tree, char *ipnet)
 {
-	if (!radix_add_generic_iplist (ipnet, &tree, true)) {
+	if (!radix_add_generic_iplist (ipnet, tree, true)) {
 		yyerror ("add_ip_radix: cannot insert ip to tree: %s",
 				ipnet);
 		return 0;

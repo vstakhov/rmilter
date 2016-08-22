@@ -291,7 +291,7 @@ int add_clamav_server (struct config_file *cf, char *str);
 int add_spamd_server (struct config_file *cf, char *str, int is_extra);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
-int add_ip_radix (radix_compressed_t *tree, char *ipnet);
+int add_ip_radix (radix_compressed_t **tree, char *ipnet);
 void add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global);
 int is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global);
 void clear_rcpt_whitelist (struct config_file *cfg, bool is_global);

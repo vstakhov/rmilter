@@ -280,7 +280,7 @@ clamav_ip_list:
 
 clamav_ip:
 	ip_net {
-		if (add_ip_radix (cfg->clamav_whitelist, $1) == 0) {
+		if (add_ip_radix (&cfg->clamav_whitelist, $1) == 0) {
 			YYERROR;
 		}
 	}
@@ -487,7 +487,7 @@ spamd_ip_list:
 
 spamd_ip:
 	ip_net {
-		if (add_ip_radix (cfg->spamd_whitelist, $1) == 0) {
+		if (add_ip_radix (&cfg->spamd_whitelist, $1) == 0) {
 			YYERROR;
 		}
 	}
@@ -675,7 +675,14 @@ greylisting_whitelist_expire:
 	;
 
 greylisting_whitelist:
-	WHITELIST EQSIGN greylisting_ip_list
+	WHITELIST EQSIGN {
+		if (cfg->grey_whitelist_tree) {
+			radix_destroy_compressed (cfg->grey_whitelist_tree);
+			cfg->grey_whitelist_tree = NULL;
+		}
+	}
+	greylisting_ip_list
+	| WHITELIST EQPLUS greylisting_ip_list
 	;
 
 greylisting_ip_list:
@@ -685,7 +692,7 @@ greylisting_ip_list:
 
 greylisting_ip:
 	ip_net {
-		if (add_ip_radix (cfg->grey_whitelist_tree, $1) == 0) {
+		if (add_ip_radix (&cfg->grey_whitelist_tree, $1) == 0) {
 			YYERROR;
 		}
 	}
@@ -1059,12 +1066,12 @@ limit_whitelist:
 	;
 whitelist_ip_list:
 	ip_net {
-		if (add_ip_radix (cfg->limit_whitelist_tree, $1) == 0) {
+		if (add_ip_radix (&cfg->limit_whitelist_tree, $1) == 0) {
 			YYERROR;
 		}
 	}
 	| whitelist_ip_list COMMA ip_net {
-		if (add_ip_radix (cfg->limit_whitelist_tree, $3) == 0) {
+		if (add_ip_radix (&cfg->limit_whitelist_tree, $3) == 0) {
 			YYERROR;
 		}
 	}
@@ -1356,12 +1363,12 @@ dkim_sign_networks:
 	;
 dkim_ip_list:
 	ip_net {
-		if (add_ip_radix (cfg->dkim_ip_tree, $1) == 0) {
+		if (add_ip_radix (&cfg->dkim_ip_tree, $1) == 0) {
 			YYERROR;
 		}
 	}
 	| dkim_ip_list COMMA ip_net {
-		if (add_ip_radix (cfg->dkim_ip_tree, $3) == 0) {
+		if (add_ip_radix (&cfg->dkim_ip_tree, $3) == 0) {
 			YYERROR;
 		}
 	}
@@ -1392,7 +1399,7 @@ our_networks_list:
 
 our_networks_elt:
 	ip_net {
-		if (add_ip_radix (cfg->our_networks, $1) == 0) {
+		if (add_ip_radix (&cfg->our_networks, $1) == 0) {
 			YYERROR;
 		}
 	}
