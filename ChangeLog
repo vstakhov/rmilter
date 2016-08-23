@@ -1,3 +1,16 @@
+1.9.2:
+	* [Feature] Allow adding/overriding options for rmilter
+	* [Feature] Allow to disable dkim signing completely
+	* [Fix] Allow empty sections in the config
+	* [Fix] Do not fold dkim signature received from Rspamd
+	* [Fix] Fix adding headers from rspamd
+	* [Fix] Fix adding of IP addresses to the lists
+	* [Fix] Treat connections from unix socket as local connections
+	* [Fix] Unbroke 'spamd_greylist = no' config option
+	* [Rework] Process all flag config file options in same way
+	* [Rework] Remove old and deprecated rules
+	* [Rework] Use lc-btrie code for radix trie
+
 1.9.1:
 	* [Feature] Allow to disable greylisting and ratelimit globally
 	* [Feature] Optimize sending data to rspamd
