@@ -74,7 +74,7 @@ clamav {
 	# maxerrors - maximum number of errors that can occur during error_time to make us thinking that
 	# this upstream is dead
 	#   Default: 10
-	maxerrors = 10;
+	#maxerrors = 10;
 };
 
 spamd {
@@ -256,6 +256,10 @@ greylisting {
 };
 
 dkim {
+	# enable - enable or disable DKIM signing (binary flag)
+	#   Default: true
+	#enable = yes;
+
 	# Sample for dkim specific keys
 	# domain {
 	#   key = /etc/dkim/dkim_example.key;
@@ -267,8 +271,9 @@ dkim {
 	#   domain = "test.com";
 	#	selector = "dkim";
 	# };
+
 	# Universal selector, keys will be checked for pattern /etc/dkim/<domain>.<selector>.key
-    domain {
+	domain {
 		key = /usr/local/etc/dkim;
 		domain = "*";
 		selector = "dkim";
