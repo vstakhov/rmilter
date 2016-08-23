@@ -32,6 +32,11 @@ SCRIPTNAME=/etc/init.d/$NAME
 export TMPDIR=/tmp
 # Apparently people have trouble if this isn't explicitly set...
 
+# Include rmilter defaults if available
+if [ -f /etc/default/$NAME ]; then
+	. /etc/default/$NAME
+fi
+
 set -e
 
 SSD="start-stop-daemon --pidfile $RUNDIR/$NAME.pid --name rmilter"
