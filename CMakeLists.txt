@@ -391,10 +391,12 @@ ENDIF()
 ADD_SUBDIRECTORY(hiredis)
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/hiredis")
 INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/contrib/lc-btrie")
+INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/")
 ADD_SUBDIRECTORY(contrib/libucl)
 ADD_SUBDIRECTORY(contrib/http-parser)
 ADD_SUBDIRECTORY(contrib/xxhash)
 ADD_SUBDIRECTORY(contrib/lc-btrie)
+ADD_SUBDIRECTORY(contrib/zstd)
 
 SET(RMILTERSRC
                 compat/blake2b-ref.c
@@ -424,6 +426,7 @@ TARGET_LINK_LIBRARIES(rmilter ucl)
 TARGET_LINK_LIBRARIES(rmilter xxhash)
 TARGET_LINK_LIBRARIES(rmilter rmilter-http-parser)
 TARGET_LINK_LIBRARIES(rmilter lcbtrie)
+TARGET_LINK_LIBRARIES(rmilter rmilter-zstd)
 
 ##################### INSTALLATION ##########################################
 
