@@ -29,7 +29,9 @@ radix_find_compressed (radix_compressed_t * tree, const guint8 *key, gsize keyle
 {
 	gconstpointer ret;
 
-	g_assert (tree != NULL);
+	if (tree == NULL) {
+		return RADIX_NO_VALUE;
+	}
 
 	ret = btrie_lookup (tree->tree, key, keylen * NBBY);
 
@@ -52,7 +54,10 @@ radix_insert_compressed (radix_compressed_t * tree,
 	gchar ip_str[INET6_ADDRSTRLEN + 1];
 	int ret;
 
-	g_assert (tree != NULL);
+	if (tree == NULL) {
+		return NULL;
+	}
+
 	g_assert (keybits >= masklen);
 
 	old = radix_find_compressed (tree, key, keylen);
