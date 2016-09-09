@@ -310,12 +310,20 @@
 #include "btrie.h"
 #include "mempool.h"
 
+#if defined(__SIZEOF_POINTER__)
 #if __SIZEOF_POINTER__ == 4
 # define TBM_STRIDE      4
 #elif __SIZEOF_POINTER__ == 8
 # define TBM_STRIDE      5
 #else
 # error "Unsupported word size"
+#endif
+#else
+#ifdef __LP64__
+# define TBM_STRIDE      5
+#else
+# define TBM_STRIDE      4
+#endif
 #endif
 
 #ifndef NO_STDINT_H
@@ -1681,7 +1689,7 @@ btrie_walk(const struct btrie *btrie,
 
 #endif /* not NO_MASTER_DUMP */
 
-
+
 #ifdef TEST
 /*****************************************************************
  *
