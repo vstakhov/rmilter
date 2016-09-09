@@ -64,7 +64,7 @@ uint8_t cur_flags = 0;
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 %token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID SPAMD_SPAM_ADD_HEADER
-%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE EQPLUS
+%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE EQPLUS COMPRESSION
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -326,6 +326,7 @@ spamdcmd:
 	| spam_bar_char
 	| spam_no_auth_header
 	| spamd_settings_id
+	| spamd_compression
 	;
 
 diff_dir :
@@ -590,6 +591,12 @@ spamd_settings_id:
 	SPAMD_SETTINGS_ID EQSIGN QUOTEDSTRING {
 		free (cfg->spamd_settings_id);
 		cfg->spamd_settings_id = $3;
+	}
+	;
+
+spamd_compression:
+	COMPRESSION EQSIGN FLAG {
+		cfg->compression_enable = $3;
 	}
 	;
 
