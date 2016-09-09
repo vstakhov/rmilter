@@ -34,6 +34,7 @@
 #include "ucl.h"
 #include "http_parser.h"
 #include "sds.h"
+#include "contrib/zstd/zstd.h"
 #include <math.h>
 #include <sys/mman.h>
 
@@ -65,12 +66,92 @@ rmilter_spamd_parser_on_body (http_parser * parser, const char *at, size_t lengt
 	priv = res->priv;
 	up = ucl_parser_new (0);
 
-	if (!ucl_parser_add_chunk (up, at, length)) {
-		msg_err ("<%s>; cannot parse reply from rspamd: %s",
-				priv->mlfi_id, ucl_parser_get_error (up));
-		ucl_parser_free (up);
+	if (res->compressed) {
+		/* Decompress first */
+		ZSTD_DStream *zstream;
+		ZSTD_inBuffer zin;
+		ZSTD_outBuffer zout;
+		char *out;
+		size_t outlen, r;
 
-		return -1;
+		zstream = ZSTD_createDStream ();
+		ZSTD_initDStream (zstream);
+
+		zin.pos = 0;
+		zin.src = at;
+		zin.size = length;
+
+		if ((outlen = ZSTD_getDecompressedSize (zin.src, zin.size)) == 0) {
+			outlen = ZSTD_DStreamOutSize ();
+		}
+
+		out = malloc (outlen);
+
+		if (out == NULL) {
+			msg_err ("<%s>; malloc error: %s", priv->mlfi_id,
+					strerror (errno));
+			ucl_parser_free (up);
+
+			return -1;
+		}
+
+		zout.dst = out;
+		zout.pos = 0;
+		zout.size = outlen;
+
+		while (zin.pos < zin.size) {
+			r = ZSTD_decompressStream (zstream, &zout, &zin);
+
+			if (ZSTD_isError (r)) {
+				msg_err ("<%s>; decompression error: %s", priv->mlfi_id,
+						ZSTD_getErrorName (r));
+				ZSTD_freeDStream (zstream);
+				free (out);
+				ucl_parser_free (up);
+
+				return -1;
+			}
+
+			if (zout.pos == zout.size) {
+				/* We need to extend output buffer */
+				zout.size = zout.size * 1.5 + 1.0;
+				out = realloc (zout.dst, zout.size);
+
+				if (out == NULL) {
+					msg_err ("<%s>; malloc error: %s", priv->mlfi_id,
+							strerror (errno));
+					ucl_parser_free (up);
+					free (zout.dst);
+
+					return -1;
+				}
+				else {
+					zout.dst = out;
+				}
+			}
+		}
+
+		ZSTD_freeDStream (zstream);
+
+		if (!ucl_parser_add_chunk (up, out, zout.pos)) {
+			msg_err ("<%s>; cannot parse reply from rspamd: %s",
+					priv->mlfi_id, ucl_parser_get_error (up));
+			ucl_parser_free (up);
+			free (out);
+
+			return -1;
+		}
+
+		free (out);
+	}
+	else {
+		if (!ucl_parser_add_chunk (up, at, length)) {
+			msg_err ("<%s>; cannot parse reply from rspamd: %s",
+					priv->mlfi_id, ucl_parser_get_error (up));
+			ucl_parser_free (up);
+
+			return -1;
+		}
 	}
 
 	obj = ucl_parser_get_object (up);
@@ -273,6 +354,10 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		buf = sdscatfmt (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
 	}
 
+	if (cfg->compression_enable) {
+		buf = sdscatfmt (buf, "Compression: zstd\r\n");
+	}
+
 	buf = sdscat (buf, "\r\n");
 
 	if (rmilter_atomic_write (s, buf, sdslen (buf)) == -1) {
@@ -283,36 +368,80 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	if (priv->file[0] != '\0') {
 
-		(void)map;
+		if (cfg->compression_enable) {
+			unsigned char *out;
+			size_t outlen, r;
+
+			map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+
+			if (map == MAP_FAILED) {
+				map = NULL;
+				msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
+				goto err;
+			}
+
+			outlen = ZSTD_compressBound (sb.st_size);
+			out = malloc (outlen);
+
+			if (out == NULL) {
+				msg_warn ("<%s>; rspamd: malloc (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
+				goto err;
+			}
+
+			r = ZSTD_compress (out, outlen, map, sb.st_size, 1);
+
+			if (ZSTD_isError (r)) {
+				msg_warn ("<%s>; rspamd: zstd compress (%s), %s",
+						priv->mlfi_id, srv->name,
+						ZSTD_getErrorName (r));
+				free (out);
+				goto err;
+			}
+
+			if (rmilter_atomic_write (s, out, r) == -1) {
+				free (out);
+				msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
+				goto err;
+			}
+
+			free (out);
+			munmap (map, sb.st_size);
+		}
+		else {
+			(void)map;
 #if defined(FREEBSD) && defined(HAVE_SENDFILE)
-		if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
-			msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
-			goto err;
-		}
+			if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
+				msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+				goto err;
+			}
 #elif defined(LINUX) && defined(HAVE_SENDFILE)
-		off_t off = 0;
-		if (sendfile(s, fd, &off, sb.st_size) == -1) {
-			msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
-			goto err;
-		}
+			off_t off = 0;
+			if (sendfile(s, fd, &off, sb.st_size) == -1) {
+				msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
+				goto err;
+			}
 #else
-		map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+			map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
-		if (map == MAP_FAILED) {
-			map = NULL;
-			msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
-					strerror (errno));
-			goto err;
-		}
+			if (map == MAP_FAILED) {
+				map = NULL;
+				msg_warn ("<%s>; rspamd: mmap (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
+				goto err;
+			}
 
-		if (rmilter_atomic_write (s, map, sb.st_size) == -1) {
-			msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
-					strerror (errno));
-			goto err;
-		}
+			if (rmilter_atomic_write (s, map, sb.st_size) == -1) {
+				msg_warn ("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
+				goto err;
+			}
 
-		munmap (map, sb.st_size);
+			munmap (map, sb.st_size);
 #endif
+		}
 	}
 
 	fcntl (s, F_SETFL, ofl|O_NONBLOCK);
@@ -375,6 +504,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	memset (&ps, 0, sizeof (ps));
 	res->priv = priv;
+	res->compressed = cfg->compression_enable;
 	ps.on_body = rmilter_spamd_parser_on_body;
 	parser.data = res;
 	parser.content_length = size;

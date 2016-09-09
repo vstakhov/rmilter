@@ -72,6 +72,7 @@ struct rspamd_metric_result {
 	struct rspamd_symbol *symbols;
 	struct mlfi_priv *priv;
 	bool parsed;
+	bool compressed;
 };
 
 #endif
