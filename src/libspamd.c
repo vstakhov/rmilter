@@ -356,6 +356,10 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	if (cfg->compression_enable) {
 		buf = sdscatfmt (buf, "Compression: zstd\r\n");
+		buf = sdscatfmt (buf, "Content-Type: application/x-compressed\r\n");
+	}
+	else {
+		buf = sdscatfmt (buf, "Content-Type: text/plain\r\n");
 	}
 
 	buf = sdscat (buf, "\r\n");
