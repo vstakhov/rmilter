@@ -272,6 +272,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	struct http_parser_settings ps;
 	void *map = NULL;
 	const size_t iobuf_len = 16384;
+	uint64_t r;
 
 	/* somebody doesn't need reply... */
 	if (!srv) {
@@ -354,27 +355,10 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		buf = sdscatfmt (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
 	}
 
-	if (cfg->compression_enable) {
-		buf = sdscatfmt (buf, "Compression: zstd\r\n");
-		buf = sdscatfmt (buf, "Content-Type: application/x-compressed\r\n");
-	}
-	else {
-		buf = sdscatfmt (buf, "Content-Type: text/plain\r\n");
-	}
-
-	buf = sdscat (buf, "\r\n");
-
-	if (rmilter_atomic_write (s, buf, sdslen (buf)) == -1) {
-		msg_warn("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
-				strerror (errno));
-		goto err;
-	}
-
 	if (priv->file[0] != '\0') {
-
 		if (cfg->compression_enable) {
 			unsigned char *out;
-			size_t outlen, r;
+			size_t outlen;
 
 			map = mmap (NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
 
@@ -395,12 +379,26 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			}
 
 			r = ZSTD_compress (out, outlen, map, sb.st_size, 1);
+			msg_info ("<%s>; rspamd: compressed message, %lu bytes to %lu bytes",
+					priv->mlfi_id, (unsigned long)sb.st_size, (unsigned long)r);
+			munmap (map, sb.st_size);
+			map = NULL;
 
 			if (ZSTD_isError (r)) {
 				msg_warn ("<%s>; rspamd: zstd compress (%s), %s",
 						priv->mlfi_id, srv->name,
 						ZSTD_getErrorName (r));
 				free (out);
+				goto err;
+			}
+
+			buf = sdscatfmt (buf, "Compression: zstd\r\n");
+			buf = sdscatfmt (buf, "Content-Type: application/x-compressed\r\n"
+					"Content-Length: %U\r\n\r\n", r);
+
+			if (rmilter_atomic_write (s, buf, sdslen (buf)) == -1) {
+				msg_warn("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
 				goto err;
 			}
 
@@ -412,10 +410,20 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 			}
 
 			free (out);
-			munmap (map, sb.st_size);
 		}
 		else {
 			(void)map;
+			r = sb.st_size;
+			buf = sdscatfmt (buf, "Compression: zstd\r\n");
+			buf = sdscatfmt (buf, "Content-Type: text/plain\r\n"
+					"Content-Length: %U\r\n\r\n", r);
+
+			if (rmilter_atomic_write (s, buf, sdslen (buf)) == -1) {
+				msg_warn("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+						strerror (errno));
+				goto err;
+			}
+
 #if defined(FREEBSD) && defined(HAVE_SENDFILE)
 			if (sendfile(fd, s, 0, 0, 0, 0, 0) != 0) {
 				msg_warn("<%s>; rspamd: sendfile (%s), %s", priv->mlfi_id, srv->name, strerror (errno));
@@ -445,6 +453,15 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 			munmap (map, sb.st_size);
 #endif
+		}
+	}
+	else {
+		buf = sdscatfmt (buf, "Content-Length: 0\r\n\r\n");
+
+		if (rmilter_atomic_write (s, buf, sdslen (buf)) == -1) {
+			msg_warn("<%s>; rspamd: write (%s), %s", priv->mlfi_id, srv->name,
+					strerror (errno));
+			goto err;
 		}
 	}
 
