@@ -414,7 +414,6 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		else {
 			(void)map;
 			r = sb.st_size;
-			buf = sdscatfmt (buf, "Compression: zstd\r\n");
 			buf = sdscatfmt (buf, "Content-Type: text/plain\r\n"
 					"Content-Length: %U\r\n\r\n", r);
 
