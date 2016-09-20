@@ -257,7 +257,8 @@ rmilter_spamd_symcmp (struct rspamd_symbol *s1, struct rspamd_symbol *s2)
 static int
 rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		const struct spamd_server *srv, struct config_file *cfg,
-		struct rspamd_metric_result *res)
+		struct rspamd_metric_result *res,
+		int dkim_only)
 {
 	sds buf = NULL;
 	char *io_buf = NULL;
@@ -353,6 +354,11 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	if (cfg->spamd_settings_id) {
 		buf = sdscatfmt (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
+	}
+
+	if (dkim_only) {
+		/* Add specific settings to enable merely DKIM module */
+		buf = sdscatfmt (buf, "Settings: {\"groups_enabled\":[\"dkim\"]}\r\n");
 	}
 
 	if (priv->file[0] != '\0') {
@@ -635,7 +641,8 @@ rmiler_process_rspamd_block (const ucl_object_t *obj, SMFICTX *ctx)
  */
 
 struct rspamd_metric_result*
-spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extra)
+spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extra,
+		int dkim_only)
 {
 	static const int max_syslog_len = 900;
 	int retry, r = -2, to_trace = 0, i, j, ret;
@@ -696,7 +703,7 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extr
 				selected->name);
 
 		prefix = "rs";
-		r = rspamdscan_socket (ctx, priv, selected, cfg, res);
+		r = rspamdscan_socket (ctx, priv, selected, cfg, res, dkim_only);
 
 		msg_info("<%s>; spamdscan: finish scanning message on %s", priv->mlfi_id,
 				selected->name);

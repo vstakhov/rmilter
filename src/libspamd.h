@@ -34,7 +34,7 @@ struct config_file;
 struct mlfi_priv;
 
 struct rspamd_metric_result* spamdscan (void *ctx, struct mlfi_priv *priv,
-		struct config_file *cfg, int is_extra);
+		struct config_file *cfg, int is_extra, int dkim_only);
 void spamd_free_result (struct rspamd_metric_result *mres);
 
 

@@ -248,6 +248,7 @@ struct config_file {
 	unsigned ratelimit_enable:1;
 	unsigned dkim_enable:1;
 	unsigned compression_enable:1;
+	unsigned rspamd_dkim_sign:1;
 
 	/* limits section */
 	bucket_t limit_to;

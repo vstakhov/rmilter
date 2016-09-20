@@ -1144,7 +1144,7 @@ mlfi_eom(SMFICTX * ctx)
 			&& !ip_whitelisted &&
 			(cfg->strict_auth || *priv->priv_user == '\0')) {
 		msg_debug ("<%s>; mlfi_eom: check spamd", priv->mlfi_id);
-		mres = spamdscan (ctx, priv, cfg, 0);
+		mres = spamdscan (ctx, priv, cfg, 0, 0);
 
 		if (mres == NULL) {
 			msg_warn ("<%s>; mlfi_eom: spamdscan() failed", priv->mlfi_id);
@@ -1275,14 +1275,14 @@ mlfi_eom(SMFICTX * ctx)
 			case METRIC_ACTION_REWRITE_SUBJECT:
 				if (!priv->authenticated || !cfg->spam_no_auth_header) {
 					if (!cfg->spamd_spam_add_header)	{
-					    msg_info ("<%s>; mlfi_eom: rewriting spam subject",
-						priv->mlfi_id);
+						msg_info ("<%s>; mlfi_eom: rewriting spam subject",
+								priv->mlfi_id);
 					}
 					else {
-					    msg_info ("<%s>; mlfi_eom: rewriting spam subject and adding spam header",
-						priv->mlfi_id);
+						msg_info ("<%s>; mlfi_eom: rewriting spam subject and adding spam header",
+								priv->mlfi_id);
 
-					    smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
+						smfi_chgheader (ctx, cfg->spam_header, 1, cfg->spam_header_value);
 					}
 
 
@@ -1319,7 +1319,32 @@ mlfi_eom(SMFICTX * ctx)
 			spam_check_result = "skipped, no spamd servers defined";
 		}
 		else {
-			spam_check_result = "skipped, whitelisted";
+
+			if (cfg->rspamd_dkim_sign) {
+				/* We still want to sign email */
+				mres = spamdscan (ctx, priv, cfg, 0, 1);
+				if (mres == NULL) {
+					msg_warn ("<%s>; mlfi_eom: spamdscan() failed", priv->mlfi_id);
+
+					if (cfg->spamd_temp_fail) {
+						smfi_setreply (ctx, RCODE_LATER, XCODE_TEMPFAIL, "Temporary service failure.");
+						ret = SMFIS_TEMPFAIL;
+						spam_check_result = "delayed, temporary fail";
+						av_check_result = "skipped, spamd tempfail";
+						dkim_result = "skipped, spamd tempfail";
+						goto end;
+					}
+					else {
+						spam_check_result = "ignored, temporary fail";
+						goto av_check;
+					}
+				}
+
+				spam_check_result = "dkim sign only, whitelisted";
+			}
+			else {
+				spam_check_result = "skipped, whitelisted";
+			}
 		}
 	}
 

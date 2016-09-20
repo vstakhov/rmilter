@@ -64,7 +64,7 @@ uint8_t cur_flags = 0;
 %token  SEND_BEANSTALK_SPAM_EXTRA_DIFF DKIM_FOLD_HEADER SPAMD_RETRY_COUNT SPAMD_RETRY_TIMEOUT SPAMD_TEMPFAIL
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 %token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID SPAMD_SPAM_ADD_HEADER
-%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE EQPLUS COMPRESSION
+%token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE EQPLUS COMPRESSION DKIM_RSPAMD_SIGN
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -1212,6 +1212,7 @@ dkimcmd:
 	| dkim_fold_header
 	| dkim_sign_networks
 	| dkim_enable
+	| dkim_rspamd_sign
 	;
 
 dkim_domain:
@@ -1395,6 +1396,12 @@ dkim_ip_list:
 dkim_enable:
 	ENABLE EQSIGN FLAG {
 		cfg->dkim_enable = $3;
+	}
+	;
+
+dkim_rspamd_sign:
+	DKIM_RSPAMD_SIGN EQSIGN FLAG {
+		cfg->rspamd_dkim_sign = $3;
 	}
 	;
 
