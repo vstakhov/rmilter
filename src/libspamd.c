@@ -897,7 +897,50 @@ log_retry:
 
 	if (res->dkim_signature) {
 		/* Add dkim signature passed from rspamd */
-		smfi_addheader (ctx, "DKIM-Signature", (char *)res->dkim_signature);
+
+		/*
+		 * According to milter docs, we need to be extra careful
+		 * when folding headers:
+		 * Neither the name nor the value of the header is checked for standards
+		 * compliance. However, each line of the header must be under 2048
+		 * characters and should be under 998 characters.
+		 * If longer headers are needed, make them multi-line.
+		 * To make a multi-line header, insert a line feed (ASCII 0x0a, or \n
+		 * in C) followed by at least one whitespace character such as a
+		 * space (ASCII 0x20) or tab (ASCII 0x09, or \t in C).
+		 * The line feed should NOT be preceded by a carriage return (ASCII 0x0d);
+		 * the MTA will add this automatically.
+		 * It is the filter writer's responsibility to ensure that no s
+		 * tandards are violated.
+		 */
+		char *dkim_buf = malloc (strlen (res->dkim_signature) + 1);
+
+		if (dkim_buf != NULL) {
+			char *d;
+			const char *s;
+
+			s = res->dkim_signature;
+			d = dkim_buf;
+
+			while (*s) {
+				size_t len = strcspn (s, "\r");
+
+				if (len > 0) {
+					memcpy (d, s, len);
+					d += len;
+					s += len + strspn (s + len, "\r");
+				}
+				else {
+					s ++;
+				}
+			}
+
+			*d = '\0';
+
+			smfi_addheader (ctx, "DKIM-Signature", dkim_buf);
+
+			free (dkim_buf);
+		}
 	}
 
 	obj = ucl_object_lookup (res->obj, "rmilter");
