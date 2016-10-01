@@ -78,8 +78,8 @@ static int
 is_whitelisted (struct rmilter_inet_address *addr, const char *rcpt,
 		struct config_file *cfg)
 {
-	if (is_whitelisted_rcpt (cfg, rcpt, 0)
-			|| is_whitelisted_rcpt (cfg, rcpt, 1)) {
+	if (is_whitelisted_rcpt (&cfg->wlist_rcpt_limit, rcpt)
+			|| is_whitelisted_rcpt (&cfg->wlist_rcpt_global, rcpt)) {
 		return 1;
 	}
 

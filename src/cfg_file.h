@@ -200,6 +200,7 @@ struct config_file {
 	char *spam_header_value;
 	char *spam_bar_char;
 	char *spamd_settings_id;
+	struct whitelisted_rcpt_entry *extended_rcpts;
 
 	unsigned int spamd_retry_timeout;
 	unsigned int spamd_retry_count;
@@ -295,9 +296,10 @@ int add_spamd_server (struct config_file *cf, char *str, int is_extra);
 void init_defaults (struct config_file *cfg);
 void free_config (struct config_file *cfg);
 int add_ip_radix (radix_compressed_t **tree, char *ipnet);
-void add_rcpt_whitelist (struct config_file *cfg, const char *rcpt, int is_global);
-int is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global);
-void clear_rcpt_whitelist (struct config_file *cfg, bool is_global);
+void add_rcpt_whitelist (struct whitelisted_rcpt_entry **head,
+		const char *rcpt);
+int is_whitelisted_rcpt (struct whitelisted_rcpt_entry **head, const char *str);
+void clear_rcpt_whitelist (struct whitelisted_rcpt_entry **head);
 char *trim_quotes (char *in);
 
 int yylex (void);

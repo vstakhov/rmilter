@@ -1095,22 +1095,22 @@ whitelist_ip_list:
 
 limit_whitelist_rcpt:
 	LIMIT_WHITELIST_RCPT EQSIGN {
-		clear_rcpt_whitelist (cfg, false);
+		clear_rcpt_whitelist (&cfg->wlist_rcpt_limit);
 	} whitelist_rcpt_list
 	| LIMIT_WHITELIST_RCPT EQPLUS whitelist_rcpt_list
 	;
 whitelist_rcpt_list:
 	STRING {
-		add_rcpt_whitelist (cfg, $1, 0);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_limit, $1);
 	}
 	| QUOTEDSTRING {
-		add_rcpt_whitelist (cfg, $1, 0);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_limit, $1);
 	}
 	| whitelist_rcpt_list COMMA STRING {
-		add_rcpt_whitelist (cfg, $3, 0);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_limit, $3);
 	}
 	| whitelist_rcpt_list COMMA QUOTEDSTRING {
-		add_rcpt_whitelist (cfg, $3, 0);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_limit, $3);
 	}
 	| empty
 	;
@@ -1171,22 +1171,22 @@ limit_enable:
 
 whitelist:
 	WHITELIST EQSIGN {
-		clear_rcpt_whitelist (cfg, true);
+		clear_rcpt_whitelist (&cfg->wlist_rcpt_global);
 	} whitelist_list
 	| WHITELIST EQPLUS whitelist_list
 	;
 whitelist_list:
 	STRING {
-		add_rcpt_whitelist (cfg, $1, 1);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_global, $1);
 	}
 	| QUOTEDSTRING {
-		add_rcpt_whitelist (cfg, $1, 1);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_global, $1);
 	}
 	| whitelist_list COMMA STRING {
-		add_rcpt_whitelist (cfg, $3, 1);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_global, $3);
 	}
 	| whitelist_list COMMA QUOTEDSTRING {
-		add_rcpt_whitelist (cfg, $3, 1);
+		add_rcpt_whitelist (&cfg->wlist_rcpt_global, $3);
 	}
 	| empty
 	;

@@ -759,7 +759,9 @@ mlfi_envrcpt(SMFICTX *ctx, char **envrcpt)
 
 	CFG_RLOCK();
 
-	newrcpt->is_whitelisted = is_whitelisted_rcpt (cfg, newrcpt->r_addr, 1);
+	newrcpt->is_whitelisted = is_whitelisted_rcpt (&cfg->wlist_rcpt_global,
+			newrcpt->r_addr);
+
 	if (!newrcpt->is_whitelisted && priv->has_whitelisted) {
 		priv->has_whitelisted = 0;
 	}

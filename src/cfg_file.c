@@ -420,10 +420,7 @@ void init_defaults(struct config_file *cfg)
 void free_config(struct config_file *cfg)
 {
 	unsigned int i;
-	struct rule *cur, *tmp_rule;
-	struct condition *cond, *tmp_cond;
 	struct addr_list_entry *addr_cur, *addr_tmp;
-	struct whitelisted_rcpt_entry *rcpt_cur, *rcpt_tmp;
 
 	if (cfg->pid_file) {
 		free (cfg->pid_file);
@@ -447,16 +444,10 @@ void free_config(struct config_file *cfg)
 	}
 
 	/* Free whitelists and bounce list*/
-	HASH_ITER (hh, cfg->wlist_rcpt_global, rcpt_cur, rcpt_tmp) {
-		HASH_DEL (cfg->wlist_rcpt_global, rcpt_cur);
-		free (rcpt_cur->rcpt);
-		free (rcpt_cur);
-	}
-	HASH_ITER (hh, cfg->wlist_rcpt_limit, rcpt_cur, rcpt_tmp) {
-		HASH_DEL (cfg->wlist_rcpt_limit, rcpt_cur);
-		free (rcpt_cur->rcpt);
-		free (rcpt_cur);
-	}
+	clear_rcpt_whitelist (&cfg->wlist_rcpt_global);
+	clear_rcpt_whitelist (&cfg->wlist_rcpt_limit);
+	clear_rcpt_whitelist (&cfg->extended_rcpts);
+
 	HASH_ITER (hh, cfg->bounce_addrs, addr_cur, addr_tmp) {
 		HASH_DEL (cfg->bounce_addrs, addr_cur);
 		free (addr_cur->addr);
@@ -541,8 +532,7 @@ void free_config(struct config_file *cfg)
 #endif
 }
 void
-add_rcpt_whitelist (struct config_file *cfg, const char *rcpt,
-		int is_global)
+add_rcpt_whitelist (struct whitelisted_rcpt_entry **head, const char *rcpt)
 {
 	struct whitelisted_rcpt_entry *t;
 	t = (struct whitelisted_rcpt_entry *) malloc (
@@ -559,37 +549,24 @@ add_rcpt_whitelist (struct config_file *cfg, const char *rcpt,
 	}
 	t->rcpt = strdup (rcpt);
 	t->len = strlen (t->rcpt);
-	if (is_global) {
-		HASH_ADD_KEYPTR(hh, cfg->wlist_rcpt_global, t->rcpt, t->len, t);
-	}
-	else {
-		HASH_ADD_KEYPTR(hh, cfg->wlist_rcpt_limit, t->rcpt, t->len, t);
-	}
+
+	HASH_ADD_KEYPTR (hh, *head, t->rcpt, t->len, t);
 }
 
 void
-clear_rcpt_whitelist (struct config_file *cfg, bool is_global)
+clear_rcpt_whitelist (struct whitelisted_rcpt_entry **head)
 {
 	struct whitelisted_rcpt_entry *t, *tmp;
 
-	if (is_global) {
-		HASH_ITER (hh, cfg->wlist_rcpt_global, t, tmp) {
-			HASH_DEL (cfg->wlist_rcpt_global, t);
-			free (t->rcpt);
-			free (t);
-		}
-	}
-	else {
-		HASH_ITER (hh, cfg->wlist_rcpt_limit, t, tmp) {
-			HASH_DEL (cfg->wlist_rcpt_limit, t);
-			free (t->rcpt);
-			free (t);
-		}
+	HASH_ITER (hh, *head, t, tmp) {
+		HASH_DEL (*head, t);
+		free (t->rcpt);
+		free (t);
 	}
 }
 
 int
-is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
+is_whitelisted_rcpt (struct whitelisted_rcpt_entry **head, const char *str)
 {
 	int len;
 	struct whitelisted_rcpt_entry *entry, *list;
@@ -604,12 +581,7 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 	rmilter_str_lc (rcptbuf, strlen (rcptbuf));
 
 	if (len > 0) {
-		if (is_global) {
-			list = cfg->wlist_rcpt_global;
-		}
-		else {
-			list = cfg->wlist_rcpt_limit;
-		}
+		list = *head;
 		/* Initially search for userdomain */
 		HASH_FIND_STR(list, rcptbuf, entry);
 		if (entry != NULL && entry->type == WLIST_RCPT_USERDOMAIN) {
@@ -626,14 +598,14 @@ is_whitelisted_rcpt (struct config_file *cfg, const char *str, int is_global)
 			*domain = '\0';
 		}
 
-		HASH_FIND_STR(list, rcptbuf, entry);
+		HASH_FIND_STR (list, rcptbuf, entry);
 		if (entry != NULL && entry->type == WLIST_RCPT_USER) {
 			return 1;
 		}
 		if (domain != NULL) {
 			/* Search for domain */
 			domain++;
-			HASH_FIND_STR(list, domain, entry);
+			HASH_FIND_STR (list, domain, entry);
 			if (entry != NULL && entry->type == WLIST_RCPT_DOMAIN) {
 				return 1;
 			}
