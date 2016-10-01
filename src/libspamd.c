@@ -657,7 +657,8 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extr
 	SMFICTX *ctx = _ctx;
 	sds optbuf, logbuf, headerbuf;
 	const ucl_object_t *obj;
-	bool extended_options = true, print_symbols = true;
+	struct rcpt *rcpt;
+	bool extended_options = true, print_symbols = true, extended_headers = false;
 
 	gettimeofday (&t, NULL);
 	ts = t.tv_sec + t.tv_usec / 1000000.0;
@@ -753,12 +754,23 @@ spamdscan (void *_ctx, struct mlfi_priv *priv, struct config_file *cfg, int extr
 				sizeof (priv->message_id));
 	}
 
+	extended_headers = true;
+	DL_FOREACH (priv->rcpts, rcpt) {
+		if (!is_whitelisted_rcpt (&cfg->extended_rcpts, rcpt->r_addr)) {
+			extended_headers = false;
+		}
+	}
+
+	if (!extended_headers && cfg->extended_spam_headers && !priv->authenticated) {
+		extended_headers = true;
+	}
+
 log_retry:
 	sdsclear (logbuf);
 	sdsclear (headerbuf);
 
 	/* Parse res tailq */
-	if (cfg->extended_spam_headers && !priv->authenticated) {
+	if (extended_headers) {
 		headerbuf = sdscatprintf (headerbuf, "%s: %s [%.2f / %.2f]%c",
 				"default", res->score > res->required_score ? "True" : "False",
 				res->score, res->required_score,
@@ -825,7 +837,7 @@ log_retry:
 					}
 				}
 
-				if (cfg->extended_spam_headers && !priv->authenticated) {
+				if (extended_headers) {
 					if (cur_symbol->next) {
 						headerbuf = sdscatprintf (headerbuf,
 								" %s(%.2f)[%s]\n", cur_symbol->symbol,
@@ -869,7 +881,7 @@ log_retry:
 	msg_info ("%s", logbuf);
 	sdsfree (logbuf);
 
-	if (cfg->extended_spam_headers && !priv->authenticated) {
+	if (extended_headers) {
 		if (extra) {
 			smfi_addheader (ctx, "X-Spamd-Extra-Result", headerbuf);
 		}
@@ -881,7 +893,7 @@ log_retry:
 	sdsfree (headerbuf);
 
 	/* All other statistic headers */
-	if (cfg->extended_spam_headers && !priv->authenticated) {
+	if (extended_headers) {
 		if (extra) {
 			smfi_addheader (ctx, "X-Rspamd-Extra-Server", selected->name);
 			snprintf (hdrbuf, sizeof(hdrbuf), "%.2f", tf - ts);

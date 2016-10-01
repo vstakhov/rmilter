@@ -342,7 +342,7 @@ limit_bounce_to					return LIMIT_BOUNCE_TO;
 limit_bounce_to_ip				return LIMIT_BOUNCE_TO_IP;
 our_networks					return OUR_NETWORKS;
 compression						return COMPRESSION;
-
+extended_headers_rcpt			return EXTENDED_HEADERS_RCPT;
 
 \"								return QUOTE;
 \{								return OBRACE;

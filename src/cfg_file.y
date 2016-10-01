@@ -65,6 +65,7 @@ uint8_t cur_flags = 0;
 %token  SPAMD_NEVER_REJECT TEMPFILES_MODE USE_REDIS REDIS DKIM_SIGN_NETWORKS OUR_NETWORKS SPAM_BAR_CHAR
 %token  SPAM_NO_AUTH_HEADER PASSWORD DBNAME SPAMD_SETTINGS_ID SPAMD_SPAM_ADD_HEADER
 %token  COPY_FULL COPY_CHANNEL SPAM_CHANNEL ENABLE EQPLUS COMPRESSION DKIM_RSPAMD_SIGN
+%token  EXTENDED_HEADERS_RCPT
 
 %type	<string>	STRING
 %type	<string>	QUOTEDSTRING
@@ -327,6 +328,7 @@ spamdcmd:
 	| spam_no_auth_header
 	| spamd_settings_id
 	| spamd_compression
+	| spamd_extended_rcpts
 	;
 
 diff_dir :
@@ -598,6 +600,28 @@ spamd_compression:
 	COMPRESSION EQSIGN FLAG {
 		cfg->compression_enable = $3;
 	}
+	;
+
+spamd_extended_rcpts:
+	EXTENDED_HEADERS_RCPT EQSIGN {
+		clear_rcpt_whitelist (&cfg->extended_rcpts);
+	} extended_rcpt_list
+	| EXTENDED_HEADERS_RCPT EQPLUS extended_rcpt_list
+	;
+extended_rcpt_list:
+	STRING {
+		add_rcpt_whitelist (&cfg->extended_rcpts, $1);
+	}
+	| QUOTEDSTRING {
+		add_rcpt_whitelist (&cfg->extended_rcpts, $1);
+	}
+	| extended_rcpt_list COMMA STRING {
+		add_rcpt_whitelist (&cfg->extended_rcpts, $3);
+	}
+	| extended_rcpt_list COMMA QUOTEDSTRING {
+		add_rcpt_whitelist (&cfg->extended_rcpts, $3);
+	}
+	| empty
 	;
 
 spf:
