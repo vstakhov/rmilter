@@ -133,9 +133,15 @@ spamd {
 	#   Default: true
 	#spamd_greylist = yes;
 
-	# extended_spam_headers - add extended spamd headers to messages (flag)
+	# extended_spam_headers - add extended Rspamd headers to messages
+	# NOT originated from authenticated users or `our_networks` (flag)
 	#   Default: false
 	#extended_spam_headers = yes;
+
+	# extended_headers_rcpt - add extended Rspamd headers to messages
+	# if EVERY envelope recipient match this list (recipients list)
+	#   Default: empty
+	#extended_headers_rcpt = user1, @example1.com, user2@example2.com;
 };
 
 redis {
