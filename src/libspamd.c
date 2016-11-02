@@ -960,6 +960,17 @@ log_retry:
 		rmiler_process_rspamd_block (obj, ctx);
 	}
 
+	obj = ucl_object_lookup (res->obj, "messages");
+	if (obj) {
+		const ucl_object_t *smtp_res;
+
+		smtp_res = ucl_object_lookup (obj, "smtp_message");
+
+		if (smtp_res) {
+			res->message = ucl_object_tostring (smtp_res);
+		}
+	}
+
 	/* Trace spam messages to specific addr */
 	if (!extra && to_trace && cfg->trace_addr) {
 		smfi_addrcpt (ctx, cfg->trace_addr);

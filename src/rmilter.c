@@ -1195,9 +1195,17 @@ mlfi_eom(SMFICTX * ctx)
 				}
 
 				if (!cfg->spamd_never_reject) {
-					msg_info ("<%s>; mlfi_eom: rejecting spam", priv->mlfi_id);
-					smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT,
-							cfg->spamd_reject_message);
+					if (mres->message) {
+						msg_info ("<%s>; mlfi_eom: rejecting spam: %s",
+								priv->mlfi_id, mres->message);
+						smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT,
+								mres->message);
+					}
+					else {
+						msg_info ("<%s>; mlfi_eom: rejecting spam", priv->mlfi_id);
+						smfi_setreply (ctx, RCODE_REJECT, XCODE_REJECT,
+								cfg->spamd_reject_message);
+					}
 					snprintf (tmpbuf, sizeof (tmpbuf), "rejected, action: %s",
 							action_to_string (mres->action));
 					spam_check_result = tmpbuf;
