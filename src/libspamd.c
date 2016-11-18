@@ -320,7 +320,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 	buf = sdsnewlen (NULL, 512);
 	sdsclear (buf);
 	buf = sdscatfmt (buf,
-			"POST /symbols HTTP/1.0\r\nContent-Length: %U\r\n",
+			"POST /symbols HTTP/1.0\r\n",
 			(uint64_t)sb.st_size);
 
 	DL_FOREACH (priv->rcpts, rcpt)
