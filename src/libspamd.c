@@ -356,6 +356,10 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 		buf = sdscatfmt (buf, "Settings-ID: %s\r\n", cfg->spamd_settings_id);
 	}
 
+	if (priv->mta_tag[0] != '\0') {
+		 buf = sdscatfmt (buf, "MTA-Tag: %s\r\n", priv->mta_tag);
+	}	
+
 	if (dkim_only) {
 		/* Add specific settings to enable merely DKIM module */
 		buf = sdscatfmt (buf, "Settings: {\"groups_enabled\":[\"dkim\"]}\r\n");

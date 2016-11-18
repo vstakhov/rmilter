@@ -408,6 +408,7 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 	} *addr_storage;
 	int port;
 	char *mta_host;
+	char *mta_tag;
 
 	priv = malloc(sizeof (struct mlfi_priv));
 
@@ -476,6 +477,15 @@ mlfi_connect(SMFICTX * ctx, char *hostname, _SOCK_ADDR * addr)
 		msg_info ("<%s>; accepted connection from %s; client: %s:%d (unknown)",
 				priv->mlfi_id, mta_host,
 				priv->priv_ip, port);
+	}
+
+	mta_tag = smfi_getsymval (ctx, "{daemon_name}");
+	if (mta_tag) {
+		rmilter_strlcpy (priv->mta_tag, mta_tag, sizeof (priv->mta_tag));
+		msg_debug ("<%s>; mta tag: %s", priv->mlfi_id, mta_tag);
+	}
+	else {
+		priv->mta_tag[0] = '\0';
 	}
 
 	smfi_setpriv(ctx, priv);

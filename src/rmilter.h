@@ -86,6 +86,7 @@ struct mlfi_priv {
 	} priv_cur_body;
 	char mlfi_id[14];
 	char queue_id[32];
+	char mta_tag[ADDRLEN + 1];
 	char reply_id[ADDRLEN + 33];
 
 #ifdef HAVE_PATH_MAX
