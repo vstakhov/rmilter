@@ -1,3 +1,16 @@
+1.9.10:
+	* [Feature] Add ZSTD compression support
+	* [Feature] Add an easy option to use dkim signing on Rspamd side
+	* [Feature] Add compression option for spamd section
+	* [Feature] Allow to add extended spam headers for certain recipients
+	* [Feature] Implement protocol compression for Rspamd
+	* [Feature] Support new Rspamd messages
+	* [Fix] Do not assert on empty radix trie
+	* [Fix] Fix compression for Rspamd
+	* [Fix] Fix decompressed scans
+	* [Fix] Strip '\r' from the folded header as required by milter protocol
+	* [Rework] Rework rcpt whitelist architecture
+
 1.9.2:
 	* [Feature] Allow adding/overriding options for rmilter
 	* [Feature] Allow to disable dkim signing completely
