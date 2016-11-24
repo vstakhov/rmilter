@@ -60,6 +60,7 @@ usage (void)
 			"-d - debug parsing\n"
 			"-h - this help message\n"
 			"-c - path to config file\n"
+			"-s - syslog name (defaults to rmilter)\n",
 			"-v - show version information\n");
 	exit (0);
 }
@@ -210,12 +211,13 @@ main(int argc, char *argv[])
 	int c, r;
 	extern int yynerrs;
 	extern FILE *yyin;
-	const char *args = "c:hndv";
+	const char *args = "c:hndvs:";
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
 	rmilter_pidfh_t *pfh = NULL;
 	pid_t pid;
+	char *syslog_name = "rmilter";
 
 	daemonize = 1;
 
@@ -241,6 +243,31 @@ main(int argc, char *argv[])
 		case 'v':
 			version ();
 			break;
+		case 's':
+			if (optarg == NULL || *optarg == '\0') {
+				fprintf(stderr, "Illegal syslog name: %s\n",
+						optarg);
+				exit(EX_USAGE);
+			}
+			else {
+				char *s_pos;
+				size_t length = 0;
+
+				s_pos = optarg;
+				while (*optarg++) length++;
+				optarg = s_pos;
+
+				syslog_name = (char *) calloc (length, sizeof (char));
+                if (syslog_name == NULL) {
+                    msg_warn ("calloc: %s", strerror (errno));
+                    return -1;
+                }
+
+				s_pos = syslog_name;
+				while (*syslog_name++ = *optarg++);
+				syslog_name = s_pos;
+			}
+			break;
 		case 'h':
 		default:
 			usage ();
@@ -248,7 +275,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	openlog("rmilter", LOG_PID, LOG_MAIL);
+	openlog(syslog_name, LOG_PID, LOG_MAIL);
 
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
