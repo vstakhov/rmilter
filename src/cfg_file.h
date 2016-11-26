@@ -164,6 +164,7 @@ struct config_file {
 	char *cfg_name;
 	char *pid_file;
 	char *temp_dir;
+	char *syslog_name;
 
 	char *sock_cred;
 	size_t sizelimit;

@@ -248,7 +248,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	openlog("rmilter", LOG_PID, LOG_MAIL);
+	openlog("rmilter.startup", LOG_PID, LOG_MAIL);
 
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
@@ -275,6 +275,9 @@ main(int argc, char *argv[])
 		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
 		return EBADF;
 	}
+
+	closelog();
+	openlog(cfg->syslog_name, LOG_PID, LOG_MAIL);
 
 	if (!cfg->cache_use_redis) {
 		msg_warn ("rmilter is configured to work with legacy memcached cache,"
