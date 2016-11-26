@@ -250,9 +250,11 @@ main(int argc, char *argv[])
 		}
 	}
 
+	openlog("rmilter.startup", LOG_PID, LOG_MAIL);
+
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
-		fprintf (stderr, "malloc: %s", strerror (errno));
+		msg_warn ("malloc: %s", strerror (errno));
 		return -1;
 	}
 	bzero (cfg, sizeof (struct config_file));
@@ -264,7 +266,7 @@ main(int argc, char *argv[])
 
 	f = fopen (cfg_file, "r");
 	if (f == NULL) {
-		fprintf (stderr, "cannot open file: %s", cfg_file);
+		msg_warn ("cannot open file: %s", cfg_file);
 		return EBADF;
 	}
 	yyin = f;
@@ -272,11 +274,11 @@ main(int argc, char *argv[])
 	yyrestart (yyin);
 
 	if (yyparse() != 0 || yynerrs > 0) {
-		fprintf (stderr, "yyparse: cannot parse config file, %d errors",
-				 yynerrs);
+		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
 		return EBADF;
 	}
 
+	closelog();
 	openlog(cfg->syslog_name, LOG_PID, LOG_MAIL);
 
 	if (!cfg->cache_use_redis) {
