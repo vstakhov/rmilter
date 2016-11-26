@@ -211,7 +211,7 @@ main(int argc, char *argv[])
 	int c, r;
 	extern int yynerrs;
 	extern FILE *yyin;
-	const char *args = "c:hndvs:";
+	const char *args = "c:hndv";
 	char *cfg_file = NULL;
 	FILE *f;
 	pthread_t reload_thr;
@@ -243,31 +243,6 @@ main(int argc, char *argv[])
 		case 'v':
 			version ();
 			break;
-		case 's':
-			if (optarg == NULL || *optarg == '\0') {
-				fprintf(stderr, "Illegal syslog name: %s\n",
-						optarg);
-				exit(EX_USAGE);
-			}
-			else {
-				char *s_pos;
-				size_t length = 0;
-
-				s_pos = optarg;
-				while (*optarg++) length++;
-				optarg = s_pos;
-
-				syslog_name = (char *) calloc (length, sizeof (char));
-                if (syslog_name == NULL) {
-                    msg_warn ("calloc: %s", strerror (errno));
-                    return -1;
-                }
-
-				s_pos = syslog_name;
-				while (*syslog_name++ = *optarg++);
-				syslog_name = s_pos;
-			}
-			break;
 		case 'h':
 		default:
 			usage ();
@@ -275,11 +250,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	openlog(syslog_name, LOG_PID, LOG_MAIL);
-
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
-		msg_warn ("malloc: %s", strerror (errno));
+		fprintf (stderr, "malloc: %s", strerror (errno));
 		return -1;
 	}
 	bzero (cfg, sizeof (struct config_file));
@@ -291,7 +264,7 @@ main(int argc, char *argv[])
 
 	f = fopen (cfg_file, "r");
 	if (f == NULL) {
-		msg_warn ("cannot open file: %s", cfg_file);
+		fprintf (stderr, "cannot open file: %s", cfg_file);
 		return EBADF;
 	}
 	yyin = f;
@@ -299,9 +272,12 @@ main(int argc, char *argv[])
 	yyrestart (yyin);
 
 	if (yyparse() != 0 || yynerrs > 0) {
-		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
+		fprintf (stderr, "yyparse: cannot parse config file, %d errors",
+				 yynerrs);
 		return EBADF;
 	}
+
+	openlog(cfg->syslog_name, LOG_PID, LOG_MAIL);
 
 	if (!cfg->cache_use_redis) {
 		msg_warn ("rmilter is configured to work with legacy memcached cache,"
