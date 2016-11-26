@@ -248,11 +248,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	openlog("rmilter", LOG_PID, LOG_MAIL);
-
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
-		msg_warn ("malloc: %s", strerror (errno));
+		fprintf (stderr, "malloc: %s", strerror (errno));
 		return -1;
 	}
 	bzero (cfg, sizeof (struct config_file));
@@ -264,7 +262,7 @@ main(int argc, char *argv[])
 
 	f = fopen (cfg_file, "r");
 	if (f == NULL) {
-		msg_warn ("cannot open file: %s", cfg_file);
+		fprintf (stderr, "cannot open file: %s", cfg_file);
 		return EBADF;
 	}
 	yyin = f;
@@ -272,9 +270,12 @@ main(int argc, char *argv[])
 	yyrestart (yyin);
 
 	if (yyparse() != 0 || yynerrs > 0) {
-		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
+		fprintf (stderr, "yyparse: cannot parse config file, %d errors",
+				 yynerrs);
 		return EBADF;
 	}
+
+	openlog(cfg->syslog_name, LOG_PID, LOG_MAIL);
 
 	if (!cfg->cache_use_redis) {
 		msg_warn ("rmilter is configured to work with legacy memcached cache,"
