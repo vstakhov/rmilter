@@ -330,6 +330,7 @@ timeout							return TIMEOUT;
 expire_white					return EXPIRE_WHITE;
 expire							return EXPIRE;
 greylisted_message				return GREYLISTED_MESSAGE;
+syslog_name						return SYSLOGNAME;
 
 limits							return LIMITS;
 limit_to						return LIMIT_TO;

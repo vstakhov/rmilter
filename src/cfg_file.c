@@ -375,6 +375,7 @@ void init_defaults(struct config_file *cfg)
 	cfg->dkim_enable = 1;
 	cfg->pid_file = NULL;
 	cfg->tempfiles_mode = 00600;
+	cfg->syslog_name = strdup ("rmilter");
 
 #if 0
 	/* Init static defaults */
@@ -431,6 +432,9 @@ void free_config(struct config_file *cfg)
 	if (cfg->sock_cred) {
 		free (cfg->sock_cred);
 	}
+	if (cfg->syslog_name) {
+		free (cfg->syslog_name);
+	};
 
 	if (cfg->special_mid_re) {
 		pcre_free (cfg->special_mid_re);

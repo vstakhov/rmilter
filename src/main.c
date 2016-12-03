@@ -60,6 +60,7 @@ usage (void)
 			"-d - debug parsing\n"
 			"-h - this help message\n"
 			"-c - path to config file\n"
+			"-s - syslog name (defaults to rmilter)\n",
 			"-v - show version information\n");
 	exit (0);
 }
@@ -216,6 +217,7 @@ main(int argc, char *argv[])
 	pthread_t reload_thr;
 	rmilter_pidfh_t *pfh = NULL;
 	pid_t pid;
+	char *syslog_name = "rmilter";
 
 	daemonize = 1;
 
@@ -248,7 +250,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	openlog("rmilter", LOG_PID, LOG_MAIL);
+	openlog("rmilter.startup", LOG_PID, LOG_MAIL);
 
 	cfg = (struct config_file*) malloc (sizeof (struct config_file));
 	if (cfg == NULL) {
@@ -275,6 +277,9 @@ main(int argc, char *argv[])
 		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
 		return EBADF;
 	}
+
+	closelog();
+	openlog(cfg->syslog_name, LOG_PID, LOG_MAIL);
 
 	if (!cfg->cache_use_redis) {
 		msg_warn ("rmilter is configured to work with legacy memcached cache,"
