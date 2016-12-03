@@ -45,41 +45,36 @@ pthread_mutex_t cfg_reload_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_rwlock_t cfg_mtx = PTHREAD_RWLOCK_INITIALIZER;
 struct rmilter_rng_state *rng_state = NULL;
 
-int
-my_strcmp (const void *s1, const void *s2)
+int my_strcmp(const void *s1, const void *s2)
 {
-	return strcmp (*(const char **)s1, *(const char **)s2);
+	return strcmp (*(const char **) s1, *(const char **) s2);
 }
 
-static void
-usage (void)
+static void usage(void)
 {
 	printf ("Rapid Milter Version " MVERSION "\n"
-			"Usage: rmilter [-h] [-n] [-d] [-c <config_file>]\n"
-			"-n - do not daemonize on startup\n"
-			"-d - debug parsing\n"
-			"-h - this help message\n"
-			"-c - path to config file\n"
-			"-s - syslog name (defaults to rmilter)\n",
-			"-v - show version information\n");
+	"Usage: rmilter [-h] [-n] [-d] [-c <config_file>]\n"
+	"-n - do not daemonize on startup\n"
+	"-d - debug parsing\n"
+	"-h - this help message\n"
+	"-c - path to config file\n"
+	"-v - show version information\n");
 	exit (0);
 }
 
-static void
-version (void)
+static void version(void)
 {
 	printf ("Rapid Milter Version " MVERSION "\n");
 	exit (0);
 }
 
-static void
-sig_usr1_handler (int signo)
+static void sig_usr1_handler(int signo)
 {
-	pthread_cond_signal(&cfg_cond);
+	pthread_cond_signal (&cfg_cond);
 }
 
 static void *
-reload_thread (void *unused)
+reload_thread(void *unused)
 {
 	extern int yynerrs;
 	extern FILE *yyin;
@@ -88,39 +83,42 @@ reload_thread (void *unused)
 	struct sigaction signals;
 
 	/* Initialize signals and start reload thread */
-	bzero (&signals, sizeof (struct sigaction));
+	bzero (&signals, sizeof(struct sigaction));
 	sigemptyset(&signals.sa_mask);
 	sigaddset(&signals.sa_mask, SIGUSR1);
 	signals.sa_handler = sig_usr1_handler;
 	sigaction (SIGUSR1, &signals, NULL);
 
-	msg_info ("reload_thread: starting...");
+	msg_info("reload_thread: starting...");
 
 	/* lock on mutex until we got SIGUSR1 that unlocks mutex */
 	while (1) {
-		pthread_mutex_lock(&cfg_reload_mtx);
-		pthread_cond_wait(&cfg_cond, &cfg_reload_mtx);
-		pthread_mutex_unlock(&cfg_reload_mtx);
-		msg_warn ("reload_thread: reloading, rmilter version %s", MVERSION);
+		pthread_mutex_lock (&cfg_reload_mtx);
+		pthread_cond_wait (&cfg_cond, &cfg_reload_mtx);
+		pthread_mutex_unlock (&cfg_reload_mtx);
+		msg_warn("reload_thread: reloading, rmilter version %s", MVERSION);
 		/* lock for writing */
-		CFG_WLOCK();
+		CFG_WLOCK()
+		;
 		f = fopen (cfg->cfg_name, "r");
 
 		if (f == NULL) {
-			CFG_UNLOCK();
-			msg_warn ("reload_thread: cannot open file %s, %m", cfg->cfg_name);
+			CFG_UNLOCK()
+			;
+			msg_warn("reload_thread: cannot open file %s, %m", cfg->cfg_name);
 			continue;
 		}
 
-		new_cfg = (struct config_file*) malloc (sizeof (struct config_file));
+		new_cfg = (struct config_file*) malloc (sizeof(struct config_file));
 		if (new_cfg == NULL) {
-			CFG_UNLOCK();
+			CFG_UNLOCK()
+			;
 			fclose (f);
-			msg_warn ("reload_thread: malloc, %s", strerror (errno));
+			msg_warn("reload_thread: malloc, %s", strerror (errno));
 			continue;
 		}
 
-		bzero (new_cfg, sizeof (struct config_file));
+		bzero (new_cfg, sizeof(struct config_file));
 		init_defaults (new_cfg);
 		new_cfg->cfg_name = cfg->cfg_name;
 		tmp = cfg;
@@ -129,10 +127,12 @@ reload_thread (void *unused)
 		yyin = f;
 		yyrestart (yyin);
 
-		if (yyparse() != 0 || yynerrs > 0) {
-			CFG_UNLOCK();
+		if (yyparse () != 0 || yynerrs > 0) {
+			CFG_UNLOCK()
+			;
 			fclose (f);
-			msg_warn ("reload_thread: cannot parse config file %s", cfg->cfg_name);
+			msg_warn("reload_thread: cannot parse config file %s",
+					cfg->cfg_name);
 			free_config (new_cfg);
 			free (new_cfg);
 			cfg = tmp;
@@ -145,11 +145,11 @@ reload_thread (void *unused)
 
 		/* Strictly set temp dir */
 		if (!cfg->temp_dir) {
-			msg_warn ("tempdir is not set, trying to use $TMPDIR");
-			cfg->temp_dir = getenv("TMPDIR");
+			msg_warn("tempdir is not set, trying to use $TMPDIR");
+			cfg->temp_dir = getenv ("TMPDIR");
 
 			if (!cfg->temp_dir) {
-				cfg->temp_dir = strdup("/tmp");
+				cfg->temp_dir = strdup ("/tmp");
 			}
 		}
 #ifdef HAVE_SRANDOMDEV
@@ -161,20 +161,21 @@ reload_thread (void *unused)
 		free_config (tmp);
 		free (tmp);
 
-		CFG_UNLOCK();
+		CFG_UNLOCK()
+		;
 	}
 	return NULL;
 }
 
 static struct rmilter_rng_state*
-get_prng_state (void)
+get_prng_state(void)
 {
 	static const char *rng_dev = "/dev/urandom";
 	struct rmilter_rng_state *st;
 	int fd;
 	struct timeval tv;
 
-	st = malloc (sizeof (*st));
+	st = malloc (sizeof(*st));
 
 	if (st == NULL) {
 		abort ();
@@ -183,17 +184,17 @@ get_prng_state (void)
 	fd = open (rng_dev, O_RDONLY);
 
 	if (fd == -1) {
-		msg_warn ("cannot open %s to seed prng, use current time",
-				rng_dev);
+		msg_warn("cannot open %s to seed prng, use current time", rng_dev);
 		gettimeofday (&tv, NULL);
-		memcpy (st->s, &tv, sizeof (tv));
+		memcpy(st->s, &tv, sizeof(tv));
 	}
 	else {
-		if (read (fd, st->s, sizeof (st->s)) == -1) {
-			msg_warn ("cannot read %d bytes from %s to seed prng, use current time",
-					(int)sizeof (*st), rng_dev);
+		if (read (fd, st->s, sizeof(st->s)) == -1) {
+			msg_warn(
+					"cannot read %d bytes from %s to seed prng, use current time",
+					(int )sizeof(*st), rng_dev);
 			gettimeofday (&tv, NULL);
-			memcpy (st->s, &tv, sizeof (tv));
+			memcpy(st->s, &tv, sizeof(tv));
 		}
 
 		close (fd);
@@ -205,8 +206,7 @@ get_prng_state (void)
 	return st;
 }
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	int c, r;
 	extern int yynerrs;
@@ -217,18 +217,16 @@ main(int argc, char *argv[])
 	pthread_t reload_thr;
 	rmilter_pidfh_t *pfh = NULL;
 	pid_t pid;
-	char *syslog_name = "rmilter";
 
 	daemonize = 1;
 
 	/* Process command line options */
-	while ((c = getopt(argc, argv, args)) != -1) {
+	while ((c = getopt (argc, argv, args)) != -1) {
 		switch (c) {
 		case 'c':
 			if (optarg == NULL || *optarg == '\0') {
-				fprintf(stderr, "Illegal config_file: %s\n",
-						optarg);
-				exit(EX_USAGE);
+				fprintf (stderr, "Illegal config_file: %s\n", optarg);
+				exit (EX_USAGE);
 			}
 			else {
 				cfg_file = strdup (optarg);
@@ -250,14 +248,14 @@ main(int argc, char *argv[])
 		}
 	}
 
-	openlog("rmilter.startup", LOG_PID, LOG_MAIL);
+	openlog ("rmilter.startup", LOG_PID, LOG_MAIL);
 
-	cfg = (struct config_file*) malloc (sizeof (struct config_file));
+	cfg = (struct config_file*) malloc (sizeof(struct config_file));
 	if (cfg == NULL) {
-		msg_warn ("malloc: %s", strerror (errno));
+		msg_warn("malloc: %s", strerror (errno));
 		return -1;
 	}
-	bzero (cfg, sizeof (struct config_file));
+	bzero (cfg, sizeof(struct config_file));
 	init_defaults (cfg);
 
 	if (cfg_file == NULL) {
@@ -266,23 +264,23 @@ main(int argc, char *argv[])
 
 	f = fopen (cfg_file, "r");
 	if (f == NULL) {
-		msg_warn ("cannot open file: %s", cfg_file);
+		msg_warn("cannot open file: %s", cfg_file);
 		return EBADF;
 	}
 	yyin = f;
 
 	yyrestart (yyin);
 
-	if (yyparse() != 0 || yynerrs > 0) {
-		msg_warn ("yyparse: cannot parse config file, %d errors", yynerrs);
+	if (yyparse () != 0 || yynerrs > 0) {
+		msg_warn("yyparse: cannot parse config file, %d errors", yynerrs);
 		return EBADF;
 	}
 
-	closelog();
-	openlog(cfg->syslog_name, LOG_PID, LOG_MAIL);
+	closelog ();
+	openlog (cfg->syslog_name, LOG_PID, LOG_MAIL);
 
 	if (!cfg->cache_use_redis) {
-		msg_warn ("rmilter is configured to work with legacy memcached cache,"
+		msg_warn("rmilter is configured to work with legacy memcached cache,"
 				" please consider switching to redis by adding "
 				"'use_redis = true;' into configuration");
 	}
@@ -300,15 +298,15 @@ main(int argc, char *argv[])
 
 	/* Strictly set temp dir */
 	if (!cfg->temp_dir) {
-		msg_warn ("tempdir is not set, trying to use $TMPDIR");
-		cfg->temp_dir = getenv("TMPDIR");
+		msg_warn("tempdir is not set, trying to use $TMPDIR");
+		cfg->temp_dir = getenv ("TMPDIR");
 
 		if (!cfg->temp_dir) {
-			cfg->temp_dir = strdup("/tmp");
+			cfg->temp_dir = strdup ("/tmp");
 		}
 	}
 	if (cfg->sizelimit == 0) {
-		msg_warn ("maxsize is not set, no limits on size of scanned mail");
+		msg_warn("maxsize is not set, no limits on size of scanned mail");
 	}
 
 #ifdef HAVE_SRANDOMDEV
@@ -320,27 +318,27 @@ main(int argc, char *argv[])
 	umask (0);
 	rng_state = get_prng_state ();
 
-	smfi_setconn(cfg->sock_cred);
-	if (smfi_register(smfilter) == MI_FAILURE) {
-		msg_err ("smfi_register failed");
-		exit(EX_UNAVAILABLE);
+	smfi_setconn (cfg->sock_cred);
+	if (smfi_register (smfilter) == MI_FAILURE) {
+		msg_err("smfi_register failed");
+		exit (EX_UNAVAILABLE);
 	}
 
-	if (smfi_opensocket(true) == MI_FAILURE) {
+	if (smfi_opensocket (true) == MI_FAILURE) {
 		msg_err("Unable to open listening socket");
-		exit(EX_UNAVAILABLE);
+		exit (EX_UNAVAILABLE);
 	}
 
 	if (daemonize && daemon (0, 0) == -1) {
 		msg_err("Unable to daemonize");
-		exit(EX_UNAVAILABLE);
+		exit (EX_UNAVAILABLE);
 	}
 
-	msg_info ("main: starting rmilter version %s, listen on %s", MVERSION,
+	msg_info("main: starting rmilter version %s, listen on %s", MVERSION,
 			cfg->sock_cred);
 
 	if (pthread_create (&reload_thr, NULL, reload_thread, NULL)) {
-		msg_warn ("main: cannot start reload thread, ignoring error");
+		msg_warn("main: cannot start reload thread, ignoring error");
 	}
 
 	if (cfg->pid_file) {
@@ -354,9 +352,10 @@ main(int argc, char *argv[])
 		rmilter_pidfile_write (pfh);
 	}
 
-	r = smfi_main();
+	r = smfi_main ();
 
-	if (cfg_file != NULL) free (cfg_file);
+	if (cfg_file != NULL)
+		free (cfg_file);
 
 	if (pfh) {
 		rmilter_pidfile_close (pfh);
@@ -364,7 +363,3 @@ main(int argc, char *argv[])
 
 	return r;
 }
-
-/*
- * vi:ts=4
- */
