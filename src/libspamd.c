@@ -358,7 +358,7 @@ rspamdscan_socket(SMFICTX *ctx, struct mlfi_priv *priv,
 
 	if (priv->mta_tag[0] != '\0') {
 		 buf = sdscatfmt (buf, "MTA-Tag: %s\r\n", priv->mta_tag);
-	}	
+	}
 
 	if (dkim_only) {
 		/* Add specific settings to enable merely DKIM module */
@@ -799,7 +799,7 @@ log_retry:
 
 			if (cur_symbol->symbol) {
 
-				if (cur_symbol->options && extended_options) {
+				if (cur_symbol->options) {
 					ucl_object_iter_t it = NULL;
 					const ucl_object_t *elt;
 					bool first = true;
@@ -823,13 +823,28 @@ log_retry:
 
 				if (print_symbols) {
 					if (cur_symbol->next) {
-						logbuf = sdscatprintf (logbuf, "%s(%.2f)[%s], ",
-								cur_symbol->symbol, cur_symbol->score, optbuf);
+						if (extended_options) {
+							logbuf = sdscatprintf (logbuf, "%s(%.2f)[%s], ",
+									cur_symbol->symbol, cur_symbol->score,
+									optbuf);
+						}
+						else {
+							logbuf = sdscatprintf (logbuf, "%s(%.2f)[], ",
+									cur_symbol->symbol, cur_symbol->score);
+						}
 					}
 					else {
-						logbuf = sdscatprintf (logbuf, "%s(%.2f)[%s]",
-								cur_symbol->symbol, cur_symbol->score, optbuf);
+						if (extended_options) {
+							logbuf = sdscatprintf (logbuf, "%s(%.2f)[%s]",
+									cur_symbol->symbol, cur_symbol->score,
+									optbuf);
+						}
+						else {
+							logbuf = sdscatprintf (logbuf, "%s(%.2f)[]",
+									cur_symbol->symbol, cur_symbol->score);
+						}
 					}
+
 					if (cfg->trace_symbol) {
 						c = strchr (cur_symbol->symbol, '(');
 						if (c != NULL) {
