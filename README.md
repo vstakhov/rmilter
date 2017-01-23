@@ -2,15 +2,22 @@
 
 ## Introduction
 
-[Rmilter](https://rspamd.com/rmilter/) is used to integrate rspamd and `milter` compatible MTA, for example [Postfix](http://postfix.org) or [Sendmail](http://sendmail.org). It also performs other useful functions for email filtering including:
+[Rmilter](https://rspamd.com/rmilter/) is used to integrate Rspamd with `milter` compatible MTA, for example [Postfix](http://postfix.org) or [Sendmail](http://sendmail.org).
 
-- Virus scanning using [Clamav](http://clamav.net)
-- Spam scanning using Rspamd
-- Greylisting using redis storage
-- Ratelimit using redis storage
-- Replies check (whitelisting replies to sent messages)
-- Passing certain messages to redis pub/sub channels
-- DKIM signing
+This project is now not under active development, however, bug fixes and Rspamd integration features are still considered.
+
+Historically, Rmilter supported many other features besides Rspamd integration. So far, all these features are implemented in Rspamd which allows to simplify integration with different MTA (e.g. Exim, Haraka or other non-milter compatible servers). Therefore, if you use this functionality you should consider switching it to Rspamd where all equal features are usually better implemented and have active and actual support.
+
+The list of features includes the following ones:
+
+- Greylisting - provided by [greylisting module](https://rspamd.com/doc/modules/greylisting.html)
+- Ratelimit - is done by [ratelimit module](https://rspamd.com/doc/modules/ratelimit.html)
+- Replies whitelisting - is implemented in [replies module](https://rspamd.com/doc/modules/replies.html)
+- Antivirus filtering - provided now by [antivirus module](https://rspamd.com/doc/modules/antivirus.html)
+- DCC checks - are now done in [dcc module](https://rspamd.com/doc/modules/dcc.html)
+- Dkim signing - can be done now by using of [dkim module](https://rspamd.com/doc/modules/dkim.html#dkim-signatures) and also by a more simple [dkim signing module](https://rspamd.com/doc/modules/dkim_signing.html)
+
+All duplicating features are still kept in Rmilter for compatibility reasons. However, no further development or bug fixes will likely be done for them.
 
 Rmilter project page can be found on GitHub: <http://github.com/vstakhov/rmilter>.
 
@@ -29,46 +36,3 @@ There are several useful settings for postfix to work with this milter:
     smtpd_milters = unix:/var/run/rmilter/rmilter.sock
     milter_mail_macros =  i {mail_addr} {client_addr} {client_name} {auth_authen}
     milter_protocol = 6
-
-## Useful rmilter recipies
-
-This section contains a number of useful configuration recipes and best practices for Rmilter.
-
-### Setup DKIM signing of outcoming email for authenticated users
-
-With this setup you should generate keys and store them in `/etc/dkim/<domain>.<selector>.key`
-This could be done, for example by using `opendkim-genkey`:
-
-    opendkim-genkey --domain=example.com --selector=dkim
-
-That will generate `dkim.private` file with private key and `dkim.txt` with the suggested `TXT` record for your domain.
-
-    dkim {
-        domain {
-          key = /etc/dkim;
-          domain = "*";
-          selector = "dkim";
-        };
-        header_canon = relaxed;
-        body_canon = relaxed;
-        sign_alg = sha256;
-    };
-
-Please note, that Rmilter will sign merely mail for the **authenticated** users, hence you should also ensure that `{auth_authen}` macro
-is passed to milter on `MAIL FROM` stage:
-
-    milter_mail_macros =  i {mail_addr} {client_addr} {client_name} {auth_authen}
-
-### Setup whitelisting of reply messages
-
-It is possible to store `Message-ID` headers for authenticated users and whitelist replies to that messages by using of Rmilter. To enable this
-feature, please ensure that you have `redis` server running and add the following lines to Redis section:
-
-    redis {
-      ...
-      # servers_id - redis servers used for message id storing, can not be mirrored
-      servers_id = localhost;
-      # id_prefix - prefix for extracting message ids from redis
-      # Default: empty (no prefix is prepended to key)
-      id_prefix = "message_id.";
-    }
