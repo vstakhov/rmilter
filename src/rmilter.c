@@ -394,6 +394,7 @@ publish_message (struct mlfi_priv *priv, enum rmilter_publish_type type,
 
 	snprintf (extra_buf + strlen (extra_buf), extra_len - strlen (extra_buf),
 			"; published to %s (%d clients)", channel, ret);
+	munmap (map, sz);
 }
 
 /* Milter callbacks */
