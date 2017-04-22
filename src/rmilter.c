@@ -659,7 +659,7 @@ mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		msg_info ("<%s>; mlfi_envfrom: client is authenticated as: %s",
 					priv->mlfi_id, priv->priv_user);
 	}
-	else if (radix_find_rmilter_addr (cfg->dkim_ip_tree, &priv->priv_addr) !=
+	else if (radix_find_rmilter_addr (cfg->our_networks, &priv->priv_addr) !=
 			RADIX_NO_VALUE) {
 		priv->authenticated = 1;
 		rmilter_strlcpy (priv->priv_user, priv->priv_from, sizeof (priv->priv_user));
