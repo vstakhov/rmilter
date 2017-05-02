@@ -1,3 +1,36 @@
+rmilter (1.9.2) unstable; urgency=low
+  * [Feature] Allow adding/overriding options for rmilter
+  * [Feature] Allow to disable dkim signing completely
+  * [Fix] Allow empty sections in the config
+  * [Fix] Do not fold dkim signature received from Rspamd
+  * [Fix] Fix adding headers from rspamd
+  * [Fix] Fix adding of IP addresses to the lists
+  * [Fix] Treat connections from unix socket as local connections
+  * [Fix] Unbroke 'spamd_greylist = no' config option
+  * [Rework] Process all flag config file options in same way
+  * [Rework] Remove old and deprecated rules
+  * [Rework] Use lc-btrie code for radix trie
+
+ -- Vitaly Isaev <vitalyisaev2@gmail.com>  Mon, 19 Sep 2016 14:52:32 +0000
+
+rmilter (1.9.1) unstable; urgency=low
+  * [Feature] Allow to disable greylisting and ratelimit globally
+  * [Feature] Optimize sending data to rspamd
+  * [Fix] Avoid using of LTS as it seems to be broken on FreeBSD
+  * [Fix] Fix detection of sendfile on FreeBSD
+  * [Fix] Fix probability setup
+  * [Fix] Fix sdsnewlen usage
+  * [Fix] Fix usage of magic constants
+  * [Rework] Remove systemd socket activation
+
+ -- Vitaly Isaev <vitalyisaev2@gmail.com>  Mon, 19 Sep 2016 12:52:32 +0000
+
+rmilter (1.9.0) unstable; urgency=low
+
+  * Fixed debian build dependencies (glib2.0)
+
+ -- Vitaly Isaev <vitalyisaev2@gmail.com>  Tue, 26 Jul 2016 14:52:32 +0000
+
 rmilter (1.6.7) unstable; urgency=low
 
   * New release.
