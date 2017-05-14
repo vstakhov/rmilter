@@ -1,10 +1,12 @@
 [Unit]
 Description=Another sendmail milter for different mail checks
+Documentation=https://rspamd.com/rmilter/
 
 [Service]
-ExecStart=/usr/sbin/rmilter -c /etc/rmilter.conf -n
-ExecReload=/bin/kill -USR1 $MAINPID
 User=_rmilter
+ExecStart=/usr/sbin/rmilter -n -c /etc/rmilter/rmilter.conf
+ExecReload=/bin/kill -USR1 $MAINPID
+Restart=always
 RuntimeDirectory=rmilter
 RuntimeDirectoryMode=0755
 

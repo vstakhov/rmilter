@@ -2,15 +2,25 @@ Source: rmilter
 Section: mail
 Priority: extra
 Maintainer: Mikhail Gusarov <dottedmag@debian.org>
-Build-Depends: debhelper (>= 9), dpkg-dev (>= 1.16.1~), cmake, libpcre3-dev, libssl-dev (>= 1.0), libopendkim-dev, libmilter-dev, bison, flex, dh-systemd, libglib2.0-dev
+Build-Depends: bison,
+               cmake,
+               debhelper (>= 9),
+               dh-systemd,
+               dpkg-dev (>= 1.16.1~),
+               flex,
+               libglib2.0-dev,
+               libmilter-dev,
+               libopendkim-dev,
+               libpcre3-dev,
+               libssl-dev (>= 1.0)
 Standards-Version: 3.9.6
 Homepage: https://github.com/vstakhov/rmilter
-Vcs-Git: git://github.com/vstakhov/rmilter.git
+Vcs-Git: https://github.com/vstakhov/rmilter.git
 Vcs-Browser: https://github.com/vstakhov/rmilter
 
 Package: rmilter
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, adduser, libmilter1.0.1
+Depends: adduser, libmilter1.0.1, lsb-base, ${misc:Depends}, ${shlibs:Depends}
 Recommends: sendmail | postfix
 Description: Another sendmail milter for different mail checks
  rmilter is a standalone application that provides the following features:
@@ -29,7 +39,7 @@ Description: Another sendmail milter for different mail checks
 Package: rmilter-dbg
 Architecture: any
 Section: debug
-Depends: ${shlibs:Depends}, ${misc:Depends}, rmilter (= ${binary:Version})
+Depends: rmilter (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
 Description: Debuginfo for another sendmail milter for different mail checks
  rmilter is a standalone application that provides the following features:
   SPF checks;
@@ -43,3 +53,5 @@ Description: Debuginfo for another sendmail milter for different mail checks
  .
  Rmilter uses sendmail milter interface and is compatible with Sendmail
  and Postfix MTA  as well as with other MTA that supports milter interface.
+ .
+ This package contains the debugging information for rmilter package.

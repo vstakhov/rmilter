@@ -1,5 +1,6 @@
 [Unit]
 Description=Another sendmail milter for different mail checks
+Documentation=https://rspamd.com/rmilter/
 
 [Service]
 User=_rmilter
