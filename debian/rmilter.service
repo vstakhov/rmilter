@@ -4,7 +4,7 @@ Documentation=https://rspamd.com/rmilter/
 
 [Service]
 User=_rmilter
-ExecStart=/usr/sbin/rmilter -n -c /etc/rmilter/rmilter.conf
+ExecStart=/usr/sbin/rmilter -n -c /etc/rmilter.conf
 ExecReload=/bin/kill -USR1 $MAINPID
 Restart=always
 RuntimeDirectory=rmilter
